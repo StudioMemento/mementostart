@@ -1,111 +1,96 @@
 <!doctype html>
-<html lang="it">
+<html lang="it" data-embedded="false">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
-  <meta name="theme-color" content="#0f0f0f">
-  <meta name="description" content="Pronto a cominciare? Scegli come contattare Memento Design Studio.">
+  <meta name="theme-color" content="#0b0c0d">
+  <meta name="description" content="Da dove si parte? Da un messaggio. Racconta la tua idea a Gianluigi e Nuru di Memento Design Studio. Senza impegno.">
   <title>Start — Memento Design Studio</title>
-  <link rel="icon" href="data:,">
-  <link rel="preload" href="assets/inter-ui.38351b841247.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="assets/style.4d938e1c88ca.css">
-  <script type="module" src="assets/app.436caf2e8364.mjs"></script>
-  <!-- Configurazione contatti. Endpoint vuoto = preparazione email nella propria app. -->
+  <script>document.documentElement.dataset.embedded=String(window.self!==window.top);</script>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="assets/fonts/InterVariable.woff2">
+  <link rel="stylesheet" href="assets/gradients.css">
+  <link rel="stylesheet" href="assets/start.css">
   <script id="memento-contact-config" type="application/json">
-  {
-    "email": "info@mementostudio.it",
-    "phone": "+393285454661",
-    "whatsapp": "393285454661",
-    "instagram": "mementostudio.it",
-    "whatsappMessage": "Ciao Memento! Ho un’idea di cui mi piacerebbe parlare con voi.",
-    "endpoint": "",
-    "privacyUrl": "",
-    "showTitle": true,
-    "parentOrigin": ""
-  }
+  {"email":"info@mementostudio.it","phone":"+393285454661","whatsapp":"393285454661","whatsappMessage":"Ciao Memento! Vorrei parlarvi di un progetto.","endpoint":"","privacyUrl":"","responseTime":"","parentOrigin":""}
   </script>
 </head>
-<body class="memento-contact-page">
-<main id="memento-contact" data-view="choose">
-  <svg class="mm-symbols" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-    <symbol id="mm-icon-mail" viewBox="0 0 24 24"><path d="M3 5h18v14H3zM3 6l9 7 9-7"/></symbol>
-    <symbol id="mm-icon-whatsapp" viewBox="0 0 24 24"><path d="M20.5 11.6a8.6 8.6 0 0 1-12.7 7.5L3 20.5l1.5-4.6a8.6 8.6 0 1 1 16-4.3Z"/><path d="M8.4 7.2c-.4 0-1.1.8-1 1.7.2 2.8 3.4 6.1 6.2 6.5.9.1 2-.5 2.1-1.1l.1-.7-2-1-1 1c-1.6-.6-2.7-1.7-3.3-3.3l.8-.9-.9-2.2Z"/></symbol>
-    <symbol id="mm-icon-phone" viewBox="0 0 24 24"><path d="m7 3 3 5-2.3 2.1a16 16 0 0 0 6.2 6.2L16 14l5 3-1.4 3.5C11.9 22.1 1.9 12.1 3.5 4.4Z"/></symbol>
-    <symbol id="mm-icon-plane" viewBox="0 0 24 24"><path d="m3 10 18-7-7 18-3.5-7.5L3 10ZM10.5 13.5 21 3"/></symbol>
-    <symbol id="mm-icon-arrow-up" viewBox="0 0 24 24"><path d="M6 18 18 6M6 6h12v12"/></symbol>
-    <symbol id="mm-icon-arrow-right" viewBox="0 0 24 24"><path d="M4 12h15m-6-6 6 6-6 6"/></symbol>
-    <symbol id="mm-icon-chevron-left" viewBox="0 0 24 24"><path d="m14 6-6 6 6 6"/></symbol>
-  </svg>
-  <div class="mm-wrap">
-    <h1 class="mm-title" aria-label="Start"><span aria-hidden="true">S</span><span aria-hidden="true">T</span><span aria-hidden="true">A</span><span aria-hidden="true">R</span><span aria-hidden="true">T</span></h1>
-    <section class="mm-shell" aria-label="Contatta Memento">
-      <div class="mm-surface">
-        <div id="mm-choose" class="mm-view">
-          <div class="mm-stage">
-            <div class="mm-intro"><h2 class="mm-headline">Pronto a<br>cominciare?</h2><p class="mm-subtitle">Scegli con contattarci</p><p class="mm-touch-cue" aria-hidden="true">← Scorri per scriverci</p></div>
-            <div class="mm-scene" aria-hidden="true"><img src="assets/lounge-800.75094c3af286.webp" srcset="assets/lounge-480.169afecd099f.webp 480w, assets/lounge-800.75094c3af286.webp 800w, assets/lounge-1200.7f3ef335f9d6.webp 1200w, assets/lounge-1536.e7e026416df8.webp 1536w" sizes="(max-width:680px) 100vw, (max-width:1700px) 67vw, 1124px" width="1536" height="1024" alt="" loading="eager" fetchpriority="high" decoding="async" draggable="false"></div>
-          </div>
-          <nav class="mm-channels" aria-label="Scegli il tuo canale di contatto">
-            <button class="mm-channel" id="mm-email-button" type="button" aria-controls="mm-compose" aria-expanded="false">
-              <svg class="mm-icon" aria-hidden="true"><use href="#mm-icon-mail"/></svg><svg class="mm-icon mm-arrow" aria-hidden="true"><use href="#mm-icon-arrow-up"/></svg>
-              <span class="mm-channel-name">Email</span><span class="mm-channel-copy">Scrivi qui</span>
-            </button>
-            <a class="mm-channel" id="mm-whatsapp-link" href="https://wa.me/393285454661?text=Ciao%20Memento!%20Ho%20un%E2%80%99idea%20di%20cui%20mi%20piacerebbe%20parlare%20con%20voi." target="_blank" rel="noopener noreferrer" aria-label="WhatsApp, apri un messaggio precompilato">
-              <svg class="mm-icon" aria-hidden="true"><use href="#mm-icon-whatsapp"/></svg><svg class="mm-icon mm-arrow" aria-hidden="true"><use href="#mm-icon-arrow-up"/></svg>
-              <span class="mm-channel-name">WhatsApp</span><span class="mm-channel-copy">Messaggio pronto</span>
-            </a>
-            <a class="mm-channel" id="mm-phone-link" href="tel:+393285454661" aria-label="Chiama Memento">
-              <svg class="mm-icon" aria-hidden="true"><use href="#mm-icon-phone"/></svg><svg class="mm-icon mm-arrow" aria-hidden="true"><use href="#mm-icon-arrow-up"/></svg>
-              <span class="mm-channel-name">Chiama</span><span class="mm-channel-copy">Chiamata diretta</span>
-            </a>
-            <a class="mm-channel" id="mm-instagram-link" href="https://ig.me/m/mementostudio.it" target="_blank" rel="noopener noreferrer" aria-label="Instagram, apri i messaggi diretti">
-              <svg class="mm-icon" aria-hidden="true"><use href="#mm-icon-plane"/></svg><svg class="mm-icon mm-arrow" aria-hidden="true"><use href="#mm-icon-arrow-up"/></svg>
-              <span class="mm-channel-name">Instagram</span><span class="mm-channel-copy">Apri i DM</span>
-            </a>
-          </nav>
-        </div>
-        <div id="mm-compose" class="mm-view mm-compose" hidden>
-          <button class="mm-back" id="mm-back" type="button"><svg class="mm-icon" aria-hidden="true"><use href="#mm-icon-chevron-left"/></svg>Tutti i contatti</button>
-          <div class="mm-compose-grid">
-            <div class="mm-form-intro">
-              <p class="mm-eyebrow">Una conversazione, da qui.</p>
-              <h2 class="mm-headline" id="mm-form-title" tabindex="-1">Da dove<br>partiamo?</h2>
-              <p class="mm-subtitle">Raccontaci cosa hai in mente.<br>Il resto lo capiamo insieme.</p>
-              <div class="mm-form-scene" aria-hidden="true"><img src="assets/lounge-800.75094c3af286.webp" srcset="assets/lounge-480.169afecd099f.webp 480w, assets/lounge-800.75094c3af286.webp 800w, assets/lounge-1200.7f3ef335f9d6.webp 1200w, assets/lounge-1536.e7e026416df8.webp 1536w" sizes="(max-width:880px) 1px, (max-width:1700px) 40vw, 640px" width="1536" height="1024" alt="" loading="lazy" decoding="async" draggable="false"></div>
-              <a class="mm-direct" href="mailto:info@mementostudio.it" data-email-link><span data-email-text>info@mementostudio.it</span><svg class="mm-icon" aria-hidden="true"><use href="#mm-icon-arrow-up"/></svg></a>
-            </div>
-            <form class="mm-form" id="mm-form" novalidate aria-labelledby="mm-form-title">
-              <div class="mm-fields">
-                <div class="mm-field"><label class="mm-label" for="mm-name">Nome <span class="mm-sr">(obbligatorio)</span></label><input class="mm-input" id="mm-name" name="name" autocomplete="name" enterkeyhint="next" placeholder="Il tuo nome" maxlength="100" required aria-describedby="mm-name-error"><p class="mm-error" id="mm-name-error" hidden></p></div>
-                <div class="mm-field"><label class="mm-label" for="mm-email">Email <span class="mm-sr">(obbligatoria)</span></label><input class="mm-input" id="mm-email" name="email" type="email" inputmode="email" autocomplete="email" enterkeyhint="next" autocapitalize="none" spellcheck="false" placeholder="nome@email.it" maxlength="254" required aria-describedby="mm-email-error"><p class="mm-error" id="mm-email-error" hidden></p></div>
-                <div class="mm-field mm-field-wide"><label class="mm-label" for="mm-phone">Telefono <span class="mm-optional">facoltativo</span></label><input class="mm-input" id="mm-phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" enterkeyhint="next" placeholder="Se preferisci sentirci a voce" maxlength="40" aria-describedby="mm-phone-error"><p class="mm-error" id="mm-phone-error" hidden></p></div>
-                <div class="mm-field mm-field-wide"><label class="mm-label" for="mm-message">Messaggio <span class="mm-sr">(obbligatorio)</span></label><textarea class="mm-input" id="mm-message" name="message" enterkeyhint="enter" rows="3" maxlength="4000" required placeholder="Un’idea, un obiettivo, qualcosa da far crescere." aria-describedby="mm-message-error"></textarea><p class="mm-error" id="mm-message-error" hidden></p></div>
-              </div>
-              <div class="mm-hp" aria-hidden="true"><label for="mm-website">Lascia questo campo vuoto</label><input id="mm-website" name="website" tabindex="-1" autocomplete="off"></div>
-              <div class="mm-form-bottom"><button class="mm-submit" id="mm-submit" type="submit"><span id="mm-submit-label">Prepara email</span><svg class="mm-icon" aria-hidden="true"><use href="#mm-icon-arrow-right"/></svg></button><p class="mm-form-note" id="mm-method-note">La invii dalla tua app di posta.</p></div>
-              <p class="mm-privacy" id="mm-privacy" hidden><a id="mm-privacy-link" target="_blank" rel="noopener noreferrer">Informativa privacy</a></p>
-              <p class="mm-endpoint-error" id="mm-send-error" role="alert" hidden></p>
-              <button class="mm-text-button" id="mm-email-fallback" type="button" hidden>Prepara un’email alternativa</button>
-            </form>
-            <section class="mm-result" id="mm-result" aria-labelledby="mm-result-title" hidden>
-              <p class="mm-eyebrow" id="mm-result-eyebrow">Un ultimo gesto.</p>
-              <h3 class="mm-result-title" id="mm-result-title" tabindex="-1">La tua email<br>è pronta.</h3>
-              <p class="mm-result-description" id="mm-result-description">Aprila nella tua app di posta e inviala quando vuoi.</p>
-              <div class="mm-result-actions" id="mm-draft-actions"><a class="mm-submit" id="mm-open-email" target="_blank" rel="noopener"><span>Apri email</span><svg class="mm-icon" aria-hidden="true"><use href="#mm-icon-arrow-right"/></svg></a><button class="mm-text-button" id="mm-copy" type="button">Copia il testo</button></div>
-              <p class="mm-copy-status" id="mm-copy-status" role="status"></p>
-              <details class="mm-draft-details" id="mm-draft-details"><summary>Rileggi il messaggio</summary><pre class="mm-draft" id="mm-draft" tabindex="0"></pre></details>
-              <button class="mm-text-button" id="mm-edit" type="button">Modifica il messaggio</button>
-              <a class="mm-direct" id="mm-success-mail" href="mailto:info@mementostudio.it" data-email-link hidden>Scrivici ancora <svg class="mm-icon" aria-hidden="true"><use href="#mm-icon-arrow-up"/></svg></a>
-            </section>
-          </div>
-        </div>
-        <noscript><p class="mm-noscript">Per scriverci: <a href="mailto:info@mementostudio.it">info@mementostudio.it</a>. Attiva JavaScript per usare il form.</p></noscript>
+<body>
+<a class="skip-link" href="#mm-name">Vai al modulo di contatto</a>
+<svg class="symbols" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <symbol id="arrow" viewBox="0 0 24 24"><path d="M5 19 19 5M5 5h14v14"/></symbol>
+  <symbol id="chevron-down" viewBox="0 0 40 24"><path d="m3 3 17 17L37 3"/></symbol>
+</svg>
+<main id="memento-contact">
+  <section class="contact-section content-width" id="contatti" aria-labelledby="start-title">
+    <div class="hero-board frame">
+      <img class="hero-photo" src="assets/inizio.webp" srcset="assets/inizio-768.webp 768w, assets/inizio.webp 1774w" sizes="(max-width:767px) 140vw, (max-width:1599px) 80vw, 1280px" width="1774" height="887" alt="" fetchpriority="high" decoding="async" draggable="false">
+      <div class="hero-copy">
+        <h1 class="gradient" id="start-title">Da dove<br>si parte?</h1>
+        <p class="hero-answer">Da un messaggio.</p>
+        <p class="hero-signature">Con Gianluigi e Nuru.</p>
       </div>
-    </section>
-    <footer class="mm-footer"><span>Studio di design &amp; esperienze digitali.</span><a href="mailto:info@mementostudio.it" data-email-link data-email-text>info@mementostudio.it</a></footer>
-    <p class="mm-sr" id="mm-announcement" role="status" aria-live="polite"></p>
-  </div>
+      <div class="contact-compose" id="mm-compose" tabindex="-1">
+        <form id="mm-form" novalidate aria-label="Raccontaci la tua idea">
+          <div class="form-row">
+            <div class="field"><label for="mm-name">Nome</label><input id="mm-name" name="name" autocomplete="name" enterkeyhint="next" placeholder="Il tuo nome" maxlength="100" required aria-describedby="mm-name-error"><p class="field-error" id="mm-name-error" hidden></p></div>
+            <div class="field"><label for="mm-email">Email</label><input id="mm-email" name="email" type="email" inputmode="email" autocomplete="email" enterkeyhint="next" autocapitalize="none" spellcheck="false" placeholder="nome@email.it" maxlength="254" required aria-describedby="mm-email-error"><p class="field-error" id="mm-email-error" hidden></p></div>
+          </div>
+          <div class="field message-field"><label for="mm-message">La tua idea</label><textarea id="mm-message" name="message" rows="3" maxlength="4000" required placeholder="Vorrei…" aria-describedby="mm-message-error"></textarea><p class="field-error" id="mm-message-error" hidden></p></div>
+          <div class="honeypot" aria-hidden="true"><label for="mm-website">Lascia questo campo vuoto</label><input id="mm-website" name="website" tabindex="-1" autocomplete="off"></div>
+          <button class="primary-button frame" id="mm-submit" type="submit"><span id="mm-submit-label">Prepara email</span><svg class="icon" aria-hidden="true"><use href="#arrow"/></svg></button>
+          <div class="form-foot"><p>Senza impegno.</p><p id="mm-privacy" hidden><a id="mm-privacy-link" target="_blank" rel="noopener noreferrer">Informativa privacy</a></p></div>
+          <p class="send-error" id="mm-send-error" role="alert" hidden></p>
+          <button class="text-button" id="mm-email-fallback" type="button" hidden>Continua via email <svg class="icon" aria-hidden="true"><use href="#arrow"/></svg></button>
+        </form>
+        <section class="result" id="mm-result" aria-labelledby="mm-result-title" hidden>
+          <img class="result-photo" src="assets/email.webp" width="1536" height="1024" alt="" loading="lazy" decoding="async">
+          <h2 class="result-title gradient" id="mm-result-title" tabindex="-1">Email pronta.</h2>
+          <p class="result-description" id="mm-result-description">Aprila nella tua app di posta e completa l’invio.</p>
+          <div id="mm-draft-actions"><a class="primary-button frame" id="mm-open-email"><span>Apri email</span><svg class="icon" aria-hidden="true"><use href="#arrow"/></svg></a><div class="result-tools"><button class="text-button" id="mm-copy" type="button">Copia il testo</button><button class="text-button" id="mm-edit" type="button">Modifica</button></div></div>
+          <p class="copy-status" id="mm-copy-status" role="status"></p>
+          <details class="draft-details" id="mm-draft-details"><summary>Rileggi il messaggio</summary><pre id="mm-draft" tabindex="0"></pre></details>
+        </section>
+        <noscript><style>#mm-form{display:none}</style><p>Scrivici a <a href="mailto:info@mementostudio.it">info@mementostudio.it</a> o su WhatsApp.</p></noscript>
+        <nav class="contact-channels" aria-label="Altri modi per contattarci">
+          <a class="text-button" id="mm-whatsapp-link" href="https://wa.me/393285454661" target="_blank" rel="noopener noreferrer">WhatsApp<svg class="icon" aria-hidden="true"><use href="#arrow"/></svg></a>
+          <a class="text-button" id="mm-phone-link" href="tel:+393285454661">Chiama<svg class="icon" aria-hidden="true"><use href="#arrow"/></svg></a>
+        </nav>
+      </div>
+    </div>
+  </section>
+  <section class="faq-section content-width" id="faq" aria-labelledby="faq-title">
+    <h2 class="section-title gradient" id="faq-title">Ti stai chiedendo…</h2>
+    <div class="faq-grid">
+      <article class="faq-card frame">
+        <img src="assets/progetto-768.webp" width="768" height="512" alt="" loading="lazy" decoding="async">
+        <div class="faq-copy"><h3 class="gradient">Basta un’idea?</h3><p>Sì. La mettiamo a fuoco insieme.</p></div>
+      </article>
+      <article class="faq-card frame">
+        <img src="assets/identita.webp" width="960" height="640" alt="" loading="lazy" decoding="async">
+        <div class="faq-copy"><h3 class="gradient">E se ho già qualcosa?</h3><p>Partiamo da quello.</p></div>
+      </article>
+      <article class="faq-card frame">
+        <img src="assets/proposta-768.webp" width="768" height="512" alt="" loading="lazy" decoding="async">
+        <div class="faq-copy"><h3 class="gradient">Costi e tempi?</h3><p>Chiari nella proposta.<br>Prima di partire.</p></div>
+      </article>
+      <article class="faq-card frame">
+        <img src="assets/confronto.webp" width="1200" height="800" alt="" loading="lazy" decoding="async">
+        <div class="faq-copy"><h3 class="gradient">Scrivervi mi impegna?</h3><p>No. Decidi dopo la proposta.</p></div>
+      </article>
+    </div>
+    <a class="faq-contact text-button" href="#mm-compose">Parliamone<svg class="icon" aria-hidden="true"><use href="#arrow"/></svg></a>
+  </section>
+  <footer class="explore-section content-width" id="esplora">
+    <a class="explore-link" id="mm-explore" href="https://mementonav.vercel.app/#start" target="_top">
+      <span>Continua ad esplorare!</span>
+      <svg class="explore-chevron icon" aria-hidden="true"><use href="#chevron-down"/></svg>
+    </a>
+  </footer>
+  <p class="sr-only" id="mm-announcement" role="status" aria-live="polite" aria-atomic="true"></p>
 </main>
-
+<script src="assets/start.js"></script>
+<script src="assets/visuals.js"></script>
+<script src="assets/tide-child-bridge.js" data-tide-block-selector="#mm-form:focus-within" data-tide-exit-selector="#mm-explore"></script>
 </body>
 </html>
