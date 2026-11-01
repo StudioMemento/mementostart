@@ -1,0 +1,38 @@
+[
+  {
+    "name": "title-gradient",
+    "maxChannelError": 0.000013331056218146564,
+    "limit": 0.00392156862745098,
+    "anchorsExact": true
+  },
+  {
+    "name": "category-gradient",
+    "maxChannelError": 0.000006445531911869473,
+    "limit": 0.00392156862745098,
+    "anchorsExact": true
+  },
+  {
+    "name": "frame-gradient",
+    "maxChannelError": 0.000020223210304315398,
+    "limit": 0.00392156862745098,
+    "anchorsExact": true
+  },
+  {
+    "name": "photo-alpha",
+    "maxChannelError": 0.00006515661915906801,
+    "limit": 0.00392156862745098,
+    "anchorsExact": true
+  },
+  {
+    "name": "tile-alpha",
+    "maxChannelError": 0.000018487582001180947,
+    "limit": 0.00392156862745098,
+    "anchorsExact": true
+  },
+  {
+    "name": "tile-frame-alpha",
+    "maxChannelError": 0.000019313910996632266,
+    "limit": 0.00392156862745098,
+    "anchorsExact": true
+  }
+]

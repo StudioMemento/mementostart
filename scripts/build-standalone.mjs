@@ -1,0 +1,22 @@
+import { readFileSync,writeFileSync,mkdirSync } from 'node:fs';
+import { resolve,dirname,extname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+const root=fileURLToPath(new URL('../',import.meta.url));
+const mime={'.webp':'image/webp','.svg':'image/svg+xml','.woff2':'font/woff2'};
+const data=path=>'data:'+mime[extname(path)]+';base64,'+readFileSync(path).toString('base64');
+let html=readFileSync(root+'index.html','utf8');
+const licenses=['Inter-OFL.txt','Tabler-LICENSE.txt'].map(file=>file+'\n'+readFileSync(root+'docs/'+file,'utf8')).join('\n\n');
+html=html.replace('</head>','<script type="text/plain" data-third-party-licenses>\n'+licenses.replaceAll('</script','<\\/script')+'\n</script>\n</head>');
+html=html.replace(/\s*<link rel="preload"[^>]*>/g,'');
+html=html.replace(/<link rel="stylesheet" href="([^"]+)">/g,(_,file)=>{
+ const full=resolve(root,file);let css=readFileSync(full,'utf8');
+ css=css.replace(/url\(['"]?([^'"\)]+)['"]?\)/g,(__,asset)=>'url("'+data(resolve(dirname(full),asset))+'")');
+ return '<style>\n'+css+'\n</style>';
+});
+html=html.replace(/(src|href)="(assets\/[^\"]+\.(?:webp|svg))"/g,(_,attr,path)=>attr+'="'+data(resolve(root,path))+'"');
+const inline=[];
+html=html.replace(/\s*<script defer src="(assets\/(?:config|start|motion)\.js)"><\/script>/g,(_,file)=>{inline.push('<script>\n'+readFileSync(root+file,'utf8').replaceAll('</script','<\\/script')+'\n</script>');return '';});
+html=html.replace(/<script defer src="assets\/tide-child-bridge.js"([^>]*)><\/script>/,(_,attributes)=>inline.join('\n')+'\n<script'+attributes+'>\n'+readFileSync(root+'assets/tide-child-bridge.js','utf8')+'\n</script>');
+const destination=resolve(root,'../output');mkdirSync(destination,{recursive:true});
+writeFileSync(destination+'/MEMENTO_START_V6.html',html);
+console.log(destination+'/MEMENTO_START_V6.html ('+Buffer.byteLength(html)+' bytes)');

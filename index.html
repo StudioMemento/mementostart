@@ -4,93 +4,111 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
   <meta name="theme-color" content="#0b0c0d">
-  <meta name="description" content="Da dove si parte? Da un messaggio. Racconta la tua idea a Gianluigi e Nuru di Memento Design Studio. Senza impegno.">
+  <meta name="description" content="Raccontaci la tua idea. Contatta Memento Design Studio: web, branding, 3D ed esperienze digitali. Ci trovi a Maniago.">
   <title>Start — Memento Design Studio</title>
   <script>document.documentElement.dataset.embedded=String(window.self!==window.top);</script>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <link rel="preload" as="font" type="font/woff2" crossorigin href="assets/fonts/InterVariable.woff2">
-  <link rel="stylesheet" href="assets/gradients.css">
+  <link rel="preload" href="assets/fonts/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="assets/start.css">
-  <script id="memento-contact-config" type="application/json">
-  {"email":"info@mementostudio.it","phone":"+393285454661","whatsapp":"393285454661","whatsappMessage":"Ciao Memento! Vorrei parlarvi di un progetto.","endpoint":"","privacyUrl":"","responseTime":"","parentOrigin":""}
-  </script>
+  <link rel="stylesheet" href="assets/gradients.css">
+  <script defer src="assets/config.js"></script>
+  <script defer src="assets/start.js"></script>
+  <script defer src="assets/motion.js"></script>
 </head>
 <body>
-<a class="skip-link" href="#mm-name">Vai al modulo di contatto</a>
-<svg class="symbols" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-  <symbol id="arrow" viewBox="0 0 24 24"><path d="M5 19 19 5M5 5h14v14"/></symbol>
-  <symbol id="chevron-down" viewBox="0 0 40 24"><path d="m3 3 17 17L37 3"/></symbol>
-</svg>
+<a class="skip-link" href="#contatti">Vai ai contatti</a>
 <main id="memento-contact">
-  <section class="contact-section content-width" id="contatti" aria-labelledby="start-title">
-    <div class="hero-board frame">
-      <img class="hero-photo" src="assets/inizio.webp" srcset="assets/inizio-768.webp 768w, assets/inizio.webp 1774w" sizes="(max-width:767px) 140vw, (max-width:1599px) 80vw, 1280px" width="1774" height="887" alt="" fetchpriority="high" decoding="async" draggable="false">
-      <div class="hero-copy">
-        <h1 class="gradient" id="start-title">Da dove<br>si parte?</h1>
-        <p class="hero-answer">Da un messaggio.</p>
-        <p class="hero-signature">Con Gianluigi e Nuru.</p>
-      </div>
-      <div class="contact-compose" id="mm-compose" tabindex="-1">
-        <form id="mm-form" novalidate aria-label="Raccontaci la tua idea">
-          <div class="form-row">
-            <div class="field"><label for="mm-name">Nome</label><input id="mm-name" name="name" autocomplete="name" enterkeyhint="next" placeholder="Il tuo nome" maxlength="100" required aria-describedby="mm-name-error"><p class="field-error" id="mm-name-error" hidden></p></div>
-            <div class="field"><label for="mm-email">Email</label><input id="mm-email" name="email" type="email" inputmode="email" autocomplete="email" enterkeyhint="next" autocapitalize="none" spellcheck="false" placeholder="nome@email.it" maxlength="254" required aria-describedby="mm-email-error"><p class="field-error" id="mm-email-error" hidden></p></div>
-          </div>
-          <div class="field message-field"><label for="mm-message">La tua idea</label><textarea id="mm-message" name="message" rows="3" maxlength="4000" required placeholder="Vorrei…" aria-describedby="mm-message-error"></textarea><p class="field-error" id="mm-message-error" hidden></p></div>
-          <div class="honeypot" aria-hidden="true"><label for="mm-website">Lascia questo campo vuoto</label><input id="mm-website" name="website" tabindex="-1" autocomplete="off"></div>
-          <button class="primary-button frame" id="mm-submit" type="submit"><span id="mm-submit-label">Prepara email</span><svg class="icon" aria-hidden="true"><use href="#arrow"/></svg></button>
-          <div class="form-foot"><p>Senza impegno.</p><p id="mm-privacy" hidden><a id="mm-privacy-link" target="_blank" rel="noopener noreferrer">Informativa privacy</a></p></div>
-          <p class="send-error" id="mm-send-error" role="alert" hidden></p>
-          <button class="text-button" id="mm-email-fallback" type="button" hidden>Continua via email <svg class="icon" aria-hidden="true"><use href="#arrow"/></svg></button>
-        </form>
-        <section class="result" id="mm-result" aria-labelledby="mm-result-title" hidden>
-          <img class="result-photo" src="assets/email.webp" width="1536" height="1024" alt="" loading="lazy" decoding="async">
-          <h2 class="result-title gradient" id="mm-result-title" tabindex="-1">Email pronta.</h2>
-          <p class="result-description" id="mm-result-description">Aprila nella tua app di posta e completa l’invio.</p>
-          <div id="mm-draft-actions"><a class="primary-button frame" id="mm-open-email"><span>Apri email</span><svg class="icon" aria-hidden="true"><use href="#arrow"/></svg></a><div class="result-tools"><button class="text-button" id="mm-copy" type="button">Copia il testo</button><button class="text-button" id="mm-edit" type="button">Modifica</button></div></div>
-          <p class="copy-status" id="mm-copy-status" role="status"></p>
-          <details class="draft-details" id="mm-draft-details"><summary>Rileggi il messaggio</summary><pre id="mm-draft" tabindex="0"></pre></details>
-        </section>
-        <noscript><style>#mm-form{display:none}</style><p>Scrivici a <a href="mailto:info@mementostudio.it">info@mementostudio.it</a> o su WhatsApp.</p></noscript>
-        <nav class="contact-channels" aria-label="Altri modi per contattarci">
-          <a class="text-button" id="mm-whatsapp-link" href="https://wa.me/393285454661" target="_blank" rel="noopener noreferrer">WhatsApp<svg class="icon" aria-hidden="true"><use href="#arrow"/></svg></a>
-          <a class="text-button" id="mm-phone-link" href="tel:+393285454661">Chiama<svg class="icon" aria-hidden="true"><use href="#arrow"/></svg></a>
-        </nav>
-      </div>
+  <header class="hero content-width" aria-labelledby="start-title">
+    <h1 class="hero-title category-gradient" id="start-title"><span class="hero-line">LET’S WORK</span><span class="hero-line">TOGETHER</span></h1>
+  </header>
+
+  <section class="contact-section content-width" id="contatti" aria-labelledby="contact-title" tabindex="-1">
+    <h2 class="sr-only" id="contact-title">Scrivici</h2>
+    <div class="email-grid">
+      <a class="email-card cut-frame reveal" id="mm-email-project" href="mailto:mementoxdesign@gmail.com" aria-label="Scrivi a mementoxdesign@gmail.com">
+        <img class="email-photo" src="assets/images/email-project-v6.webp" width="960" height="640" alt="" decoding="async"><span class="card-legibility" aria-hidden="true"><span></span><span></span><span></span></span>
+        <span class="icon chevron-down card-chevron" aria-hidden="true"></span>
+        <span class="contact-copy"><span class="icon mail" aria-hidden="true"></span><span class="email-address contact-title" data-project-email-label>mementoxdesign@gmail.com</span></span>
+      </a>
+      <a class="email-card cut-frame reveal" id="mm-email-studio" href="mailto:info@mementostudio.it" aria-label="Scrivi a info@mementostudio.it">
+        <img class="email-photo" src="assets/images/email-studio-v6.webp" width="960" height="640" alt="" decoding="async"><span class="card-legibility" aria-hidden="true"><span></span><span></span><span></span></span>
+        <span class="icon chevron-down card-chevron" aria-hidden="true"></span>
+        <span class="contact-copy"><span class="icon mail" aria-hidden="true"></span><span class="email-address contact-title" data-studio-email-label>info@mementostudio.it</span></span>
+      </a>
     </div>
+    <nav class="channels" aria-label="Altri modi per contattarci">
+      <a class="channel cut-frame reveal" id="mm-phone-link" href="tel:+393285454661" aria-label="Chiama +39 328 545 4661"><img src="assets/images/channel-phone-v6.webp" width="800" height="800" alt="" loading="lazy" decoding="async"><span class="card-legibility" aria-hidden="true"><span></span><span></span><span></span></span><span class="icon chevron-down card-chevron" aria-hidden="true"></span><span class="contact-copy channel-copy"><span class="icon phone" aria-hidden="true"></span><span class="channel-labels"><span class="channel-title contact-title" data-phone-label>+39 328 545 4661</span></span></span></a>
+      <a class="channel cut-frame reveal" id="mm-whatsapp-link" href="https://wa.me/393285454661?text=Ciao%20Memento!%20Vorrei%20parlarvi%20di%20un%20progetto." target="_blank" rel="noopener noreferrer" aria-label="Scrivici su WhatsApp"><img src="assets/images/channel-whatsapp-v6.webp" width="800" height="800" alt="" loading="lazy" decoding="async"><span class="card-legibility" aria-hidden="true"><span></span><span></span><span></span></span><span class="icon chevron-down card-chevron" aria-hidden="true"></span><span class="contact-copy channel-copy"><span class="icon whatsapp" aria-hidden="true"></span><span class="channel-labels"><span class="channel-title contact-title">WhatsApp</span></span></span></a>
+      <a class="channel cut-frame reveal" id="mm-instagram-link" href="https://www.instagram.com/mementostudio.it/" target="_blank" rel="noopener noreferrer" aria-label="Apri il profilo Instagram di Memento Studio"><img src="assets/images/channel-instagram-v6.webp" width="800" height="800" alt="" loading="lazy" decoding="async"><span class="card-legibility" aria-hidden="true"><span></span><span></span><span></span></span><span class="icon chevron-down card-chevron" aria-hidden="true"></span><span class="contact-copy channel-copy"><span class="icon instagram" aria-hidden="true"></span><span class="channel-labels"><span class="channel-title contact-title">Instagram</span></span></span></a>
+      <a class="channel cut-frame reveal" id="mm-fiverr-link" href="https://www.fiverr.com/studio_memento" target="_blank" rel="noopener noreferrer" aria-label="Apri il profilo Fiverr di Memento Studio"><img src="assets/images/channel-fiverr-v6.webp" width="800" height="800" alt="" loading="lazy" decoding="async"><span class="card-legibility" aria-hidden="true"><span></span><span></span><span></span></span><span class="icon chevron-down card-chevron" aria-hidden="true"></span><span class="contact-copy channel-copy"><span class="icon fiverr" aria-hidden="true"></span><span class="channel-labels"><span class="channel-title contact-title">Fiverr</span></span></span></a>
+    </nav>
   </section>
+
   <section class="faq-section content-width" id="faq" aria-labelledby="faq-title">
-    <h2 class="section-title gradient" id="faq-title">Ti stai chiedendo…</h2>
-    <div class="faq-grid">
-      <article class="faq-card frame">
-        <img src="assets/progetto-768.webp" width="768" height="512" alt="" loading="lazy" decoding="async">
-        <div class="faq-copy"><h3 class="gradient">Basta un’idea?</h3><p>Sì. La mettiamo a fuoco insieme.</p></div>
-      </article>
-      <article class="faq-card frame">
-        <img src="assets/identita.webp" width="960" height="640" alt="" loading="lazy" decoding="async">
-        <div class="faq-copy"><h3 class="gradient">E se ho già qualcosa?</h3><p>Partiamo da quello.</p></div>
-      </article>
-      <article class="faq-card frame">
-        <img src="assets/proposta-768.webp" width="768" height="512" alt="" loading="lazy" decoding="async">
-        <div class="faq-copy"><h3 class="gradient">Costi e tempi?</h3><p>Chiari nella proposta.<br>Prima di partire.</p></div>
-      </article>
-      <article class="faq-card frame">
-        <img src="assets/confronto.webp" width="1200" height="800" alt="" loading="lazy" decoding="async">
-        <div class="faq-copy"><h3 class="gradient">Scrivervi mi impegna?</h3><p>No. Decidi dopo la proposta.</p></div>
-      </article>
+    <div class="faq-panel cut-frame reveal">
+      <div class="faq-visual" aria-hidden="true">
+        <img class="faq-photo is-active" data-faq-image="idea" src="assets/images/faq-idea-v6.webp" width="1200" height="800" alt="" loading="lazy" decoding="async">
+        <img class="faq-photo" data-faq-image="existing" src="assets/images/faq-existing-v6.webp" width="1200" height="800" alt="" loading="lazy" decoding="async">
+        <img class="faq-photo" data-faq-image="time" src="assets/images/faq-planning-v6.webp" width="1200" height="800" alt="" loading="lazy" decoding="async">
+        <img class="faq-photo" data-faq-image="commit" src="assets/images/faq-conversation-v6.webp" width="1200" height="800" alt="" loading="lazy" decoding="async">
+      </div>
+      <h2 class="faq-title category-gradient" id="faq-title">FAQ</h2>
+      <div class="faq-list">
+          <details class="faq-item" name="memento-faq" data-faq="idea" open>
+            <summary id="question-idea">Basta un’idea?<span class="faq-toggle" aria-hidden="true"><span class="icon plus"></span><span class="icon minus"></span></span></summary>
+            <div class="faq-answer" id="answer-idea"><p>Sì. Partiamo da quello che hai in mente.</p></div>
+          </details>
+          <details class="faq-item" name="memento-faq" data-faq="existing">
+            <summary id="question-existing">E se ho già qualcosa?<span class="faq-toggle" aria-hidden="true"><span class="icon plus"></span><span class="icon minus"></span></span></summary>
+            <div class="faq-answer" id="answer-existing"><p>Lo guardiamo insieme e capiamo come farlo crescere.</p></div>
+          </details>
+          <details class="faq-item" name="memento-faq" data-faq="time">
+            <summary id="question-time">Costi e tempi?<span class="faq-toggle" aria-hidden="true"><span class="icon plus"></span><span class="icon minus"></span></span></summary>
+            <div class="faq-answer" id="answer-time"><p>Li definiamo insieme, prima di iniziare.</p></div>
+          </details>
+          <details class="faq-item" name="memento-faq" data-faq="commit">
+            <summary id="question-commit">Scriverci mi impegna?<span class="faq-toggle" aria-hidden="true"><span class="icon plus"></span><span class="icon minus"></span></span></summary>
+            <div class="faq-answer" id="answer-commit"><p>No. Il primo passo è conoscerci.</p></div>
+          </details>
+      </div>
     </div>
-    <a class="faq-contact text-button" href="#mm-compose">Parliamone<svg class="icon" aria-hidden="true"><use href="#arrow"/></svg></a>
   </section>
-  <footer class="explore-section content-width" id="esplora">
-    <a class="explore-link" id="mm-explore" href="https://mementonav.vercel.app/#start" target="_top">
-      <span>Continua ad esplorare!</span>
-      <svg class="explore-chevron icon" aria-hidden="true"><use href="#chevron-down"/></svg>
-    </a>
-  </footer>
-  <p class="sr-only" id="mm-announcement" role="status" aria-live="polite" aria-atomic="true"></p>
+
+  <section class="location-section content-width" aria-labelledby="location-title">
+    <h2 class="section-heading category-gradient fit-heading reveal" id="location-title">SIAMO QUI</h2>
+    <div class="location-board">
+      <div class="map-area location-map cut-frame reveal" id="mm-map-area">
+        <div class="map-intro" id="mm-map-intro" hidden><span class="icon map-pin" aria-hidden="true"></span><p>Maniago.</p><button class="quiet-link" type="button" id="mm-load-map">Mostra Google Maps <span class="icon arrow-up-right" aria-hidden="true"></span></button></div>
+        <div class="map-frame" id="mm-map-frame"><iframe title="Google Maps — Studio Memento, Maniago" src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2762.891299543338!2d12.7091736!3d46.172819499999996!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x477983c7589f96e3%3A0xc01de6724c9b8d3d!2sStudio%20Memento!5e0!3m2!1sen!2sit!4v1793534389295!5m2!1sen!2sit" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>
+      </div>
+      <a class="location-card location-address-card cut-frame reveal" id="mm-map-link" href="https://www.google.com/maps/place/Studio+Memento/@46.1728195,12.7091736,17z/data=!3m1!4b1!4m6!3m5!1s0x477983c7589f96e3:0xc01de6724c9b8d3d!8m2!3d46.1728195!4d12.7091736!16s%2Fg%2F11xlzkk8fv?entry=ttu&amp;g_ep=EgoyMDI2MTAyOC4wIKXMDSoASAFQAw%3D%3D" target="_blank" rel="noopener noreferrer" aria-label="Piazza Trento 12, 33085 Maniago (PN) — Studio Memento su Google Maps">
+        <img class="location-photo" src="assets/images/location-address-v6.webp" width="800" height="800" alt="" loading="lazy" decoding="async">
+        <span class="card-legibility" aria-hidden="true"><span></span><span></span><span></span></span>
+        <span class="icon map-pin" aria-hidden="true"></span>
+        <address class="location-address">Piazza Trento 12<span>33085 Maniago (PN)</span></address>
+      </a>
+      <div class="location-card location-hours-card cut-frame reveal" aria-label="Orari dello studio">
+        <img class="location-photo" src="assets/images/location-hours-v6.webp" width="800" height="800" alt="" loading="lazy" decoding="async">
+        <span class="card-legibility" aria-hidden="true"><span></span><span></span><span></span></span>
+        <span class="icon clock" aria-hidden="true"></span>
+        <dl class="hours"><div><dt>Lunedì — Venerdì</dt><dd><time datetime="14:00">14:00</time><span aria-hidden="true">—</span><time datetime="18:00">18:00</time></dd></div></dl>
+      </div>
+    </div>
+  </section>
+
+  <section class="legal-section content-width" aria-labelledby="legal-title">
+    <div class="legal-card cut-frame reveal">
+      <h2 class="board-title title-gradient" id="legal-title">Privacy &amp; legal</h2>
+      <div class="legal-layout">
+        <nav class="legal-group" aria-label="Privacy e cookie"><h3>Privacy e cookie</h3><button type="button" data-policy="privacy">Privacy policy <span class="icon arrow-up-right" aria-hidden="true"></span></button><button type="button" data-policy="cookies">Cookie policy <span class="icon arrow-up-right" aria-hidden="true"></span></button><button type="button" data-policy="preferences">Preferenze cookie <span class="icon arrow-up-right" aria-hidden="true"></span></button></nav>
+        <div class="legal-group legal-studio"><h3>Studio</h3><p>Memento Design Studio</p><a class="legal-email" data-email-link href="mailto:info@mementostudio.it">info@mementostudio.it</a><button type="button" data-policy="studio">Dati dello studio <span class="icon arrow-up-right" aria-hidden="true"></span></button></div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="explore-section content-width" id="esplora"><a class="explore-link" id="mm-explore" href="https://mementonav.vercel.app/#start" target="_top" aria-label="Continua il viaggio!"><span class="explore-words"><span class="category-gradient">CONTINUA IL VIAGGIO!</span></span><span class="icon chevron-down explore-chevron" aria-hidden="true"></span></a></footer>
 </main>
-<script src="assets/start.js"></script>
-<script src="assets/visuals.js"></script>
-<script src="assets/tide-child-bridge.js" data-tide-block-selector="#mm-form:focus-within" data-tide-exit-selector="#mm-explore"></script>
+<dialog id="mm-dialog" aria-labelledby="mm-dialog-title"><div class="dialog-wrap"><button class="dialog-close" id="mm-dialog-close" type="button" aria-label="Chiudi"><span class="icon close" aria-hidden="true"></span></button><div class="dialog-card cut-frame"><h2 id="mm-dialog-title" class="board-title title-gradient" tabindex="-1"></h2><div id="mm-dialog-body"></div></div></div></dialog>
+<script defer src="assets/tide-child-bridge.js" data-tide-block-selector=".faq-panel:focus-within" data-tide-exit-selector="#mm-explore" data-tide-parents="https://mementonav.vercel.app,https://mementostudio.it,https://www.mementostudio.it,https://mementostudio.vercel.app"></script>
 </body>
 </html>
