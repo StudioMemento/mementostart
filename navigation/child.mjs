@@ -1,4 +1,4 @@
-import { CHANNEL, VERSION, DEFAULT_HUB, STATIONS, station, trustedParent, navigationLink, sessionEnvelope, validMessage, routePath } from './core.mjs';
+import { CHANNEL, VERSION, DEFAULT_HUB, STATIONS, station, trustedParent, navigationLink, sessionEnvelope, validMessage, publicRouteURL } from './core.mjs';
 import { mountNav, safeHub, KIT_VERSION } from './navbar.mjs';
 
 export function installChild({ page, hub = DEFAULT_HUB } = {}) {
@@ -81,7 +81,7 @@ export function installChild({ page, hub = DEFAULT_HUB } = {}) {
     if (!link || link.hasAttribute('download') || (link.target && link.target !== '_self')) return;
     const target = navigationLink(link.href, location.href, hub);
     if (!target) return;
-    if (!connection) { link.href = new URL(routePath(target), hub).href; if (embedded) link.target = '_top'; return; }
+    if (!connection) { link.href = publicRouteURL(target); if (embedded) link.target = '_top'; return; }
     event.preventDefault(); event.stopImmediatePropagation();
     if (target.view === 'world') returnIntent('explicit'); else send('NAVIGATE', target);
   }, { capture: true });

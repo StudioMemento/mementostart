@@ -1,12 +1,14 @@
 export const CHANNEL = 'memento:navigation';
 export const VERSION = 2;
-export const DEFAULT_HUB = 'https://mementonav.vercel.app';
+export const PUBLIC_ORIGIN = 'https://mementostudio.it';
+export const LEGACY_HUB = 'https://mementonav.vercel.app';
+export const DEFAULT_HUB = PUBLIC_ORIGIN;
 export const STATIONS = Object.freeze([
-  { id:'memento', label:'Memento', path:'/studio/', url:'https://mementostudio.vercel.app/', stageId:'s01_memento' },
-  { id:'services', label:'Services', path:'/services/', url:'https://mementoservizi.vercel.app/', stageId:'s02_services' },
-  { id:'projects', label:'Projects', path:'/projects/', url:'https://mementoportfolio.vercel.app/', stageId:'s03_projects' },
-  { id:'levelup', label:'LevelUp', path:'/levelup/', url:'https://mementolevelup.vercel.app/', stageId:'s04_levelup' },
-  { id:'start', label:'Start', path:'/start/', url:'https://mementostart.vercel.app/', stageId:'s05_start' }
+  { id:'memento', label:'Memento', path:'/studio', url:'https://mementostudio.vercel.app/', stageId:'s01_memento' },
+  { id:'services', label:'Services', path:'/services', url:'https://mementoservizi.vercel.app/', stageId:'s02_services' },
+  { id:'projects', label:'Projects', path:'/projects', url:'https://mementoportfolio.vercel.app/', stageId:'s03_projects' },
+  { id:'levelup', label:'LevelUp', path:'/levelup', url:'https://mementolevelup.vercel.app/', stageId:'s04_levelup' },
+  { id:'start', label:'Start', path:'/start', url:'https://mementostart.vercel.app/', stageId:'s05_start' }
 ]);
 export const station = id => STATIONS.find(s=>s.id===id);
 export const indexOf = id => STATIONS.findIndex(s=>s.id===id);
@@ -27,9 +29,11 @@ export function readRoute(input) {
 }
 export function routePath(route) {
   const s=station(route.id);if(!s)throw Error('Unknown station');
-  if(route.view!=='page')return '/#'+s.id;
+  if(route.view!=='page')return s.id==='memento'?'/':'/#'+s.id;
   const q=safeContext(route.search);return s.path+(q?'?'+q:'')+safeHash(route.hash);
 }
+// Public navigation never inherits the technical iframe/preview host.
+export function publicRouteURL(route) { return new URL(routePath(route), PUBLIC_ORIGIN).href; }
 export function contentURL(route) {
   const s=station(route.id);if(!s)throw Error('Unknown station');
   const u=new URL(s.url);u.search=safeContext(route.search);u.searchParams.set('mementoEmbed','1');u.hash=safeHash(route.hash);return u.href;
@@ -47,7 +51,7 @@ export function validMessage(event,record) {
 export function trustedParent(origin, hub=DEFAULT_HUB) {
   try {
     if(origin===new URL(hub).origin)return true;
-    if(['https://mementostudio.it','https://www.mementostudio.it',DEFAULT_HUB].includes(origin))return true;
+    if([PUBLIC_ORIGIN,'https://www.mementostudio.it',LEGACY_HUB].includes(origin))return true;
     const u=new URL(origin);
     return u.protocol==='https:'&&/^mementonav-[a-z0-9-]+-studio-memento-s-projects\.vercel\.app$/.test(u.hostname);
   }catch{return false;}
@@ -55,7 +59,9 @@ export function trustedParent(origin, hub=DEFAULT_HUB) {
 export function navigationLink(href,base,hub=DEFAULT_HUB) {
   let u,b;try{u=new URL(href,base);b=new URL(base);}catch{return null;}
   if(!['http:','https:'].includes(u.protocol))return null;
-  const globalOrigins=new Set([DEFAULT_HUB,'https://mementostudio.it','https://www.mementostudio.it',new URL(hub).origin]);
+  // Keep in-page anchors under the page's control, including on the public domain.
+  if(u.origin===b.origin && u.pathname===b.pathname && u.hash && !(u.pathname==='/' && station(u.hash.slice(1))))return null;
+  const globalOrigins=new Set([PUBLIC_ORIGIN,LEGACY_HUB,'https://www.mementostudio.it',new URL(hub).origin]);
   if(globalOrigins.has(u.origin)) {
     const path=u.pathname.split('/').filter(Boolean)[0];
     if(!path)return {id:station(u.hash.slice(1))?.id||'memento',view:'world',search:'',hash:''};

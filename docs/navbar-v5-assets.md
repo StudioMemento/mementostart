@@ -1,4 +1,4 @@
-# Asset Memento Overlay V4
+# Asset Memento Overlay V5
 
 ## Wordmark
 
@@ -6,7 +6,7 @@ Fonte: `DEV_20_Typo(5).svg`, fornito dall'utente. Il componente usa le geometrie
 
 ## Maschere del blur
 
-`blur-mask-top.svg` e `blur-mask-bottom.svg` sono maschere procedurali native SVG. La dissolvenza finale segue approssimativamente `(1 - distanza_normalizzata)^4`; il rumore nella sola alpha distribuisce l'errore di quantizzazione. La coda arriva a zero esatto al limite del 20% della viewport. Non sono immagini generate con AI e non alterano i colori della pagina.
+`progressive-blur.mjs` costruisce sedici maschere SVG incorporate (otto per bordo), con rampe smoothstep e dithering nell’alpha. Ogni livello copre una fascia sovrapposta ai livelli vicini; i raggi aumentano geometricamente verso il bordo. Non sono immagini generate con AI. Le due maschere della V4 non sono più usate.
 
 ## Icone
 

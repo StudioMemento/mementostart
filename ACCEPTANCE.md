@@ -1,3 +1,15 @@
+# START 6.4 — overlay V5
+
+- [x] Kit V5 integrato integralmente, incluso progressive-blur.mjs.
+- [x] Blur progressivo a otto livelli per bordo.
+- [x] Box neri arrotondati; Start attivo con glow ambra e senza dot.
+- [x] Snippet V5 e collegamenti pubblici mementostudio.it.
+- [x] HTML autonomo aggiornato; responsive, bridge e link verificati.
+
+Verifica della revisione attuale: `docs/navbar-v5-verifica.md`.
+
+---
+
 # START 6.3 — overlay V4
 
 - [x] Cartella navigation aggiornata integralmente dal kit V4 allegato.
