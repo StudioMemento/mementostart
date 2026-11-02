@@ -1,8 +1,12 @@
-# Asset Memento Overlay V3
+# Asset Memento Overlay V4
 
 ## Wordmark
 
-Fonte: `DEV_20_Typo(5).svg`, fornito dall'utente. Il componente usa le geometrie vettoriali originali. È stato rimosso il gruppo di sfondo; il viewBox è stato ristretto alla tipografia: `113.39 113.39 1417.32 56.70`. Nessuna lettera è stata ricostruita con un font.
+Fonte: `DEV_20_Typo(5).svg`, fornito dall'utente. Il componente usa le geometrie vettoriali originali, senza sfondo. Nella V4 ogni glifo ha una trasformazione uniforme `scale(0.5)`, con centri redistribuiti per mantenere la larghezza totale. Il viewBox diventa `113.39 113.39 1417.32 28.35`. Nessuna lettera è stata ricostruita con un font o schiacciata solo in verticale.
+
+## Maschere del blur
+
+`blur-mask-top.svg` e `blur-mask-bottom.svg` sono maschere procedurali native SVG. La dissolvenza finale segue approssimativamente `(1 - distanza_normalizzata)^4`; il rumore nella sola alpha distribuisce l'errore di quantizzazione. La coda arriva a zero esatto al limite del 20% della viewport. Non sono immagini generate con AI e non alterano i colori della pagina.
 
 ## Icone
 

@@ -2,9 +2,9 @@ import { STATIONS, DEFAULT_HUB, station, routePath } from './core.mjs';
 import { iconSVG } from './icons.mjs';
 import { overlayCSS, legacyHostLayoutCSS } from './styles.mjs';
 
-export const KIT_VERSION = '3.0.0';
+export const KIT_VERSION = '4.0.0';
 const wordmark = new URL('./assets/memento-wordmark.svg', import.meta.url).href;
-const veil = edge => `<div class="veil veil--${edge}" aria-hidden="true">${'<div class="blur"></div>'.repeat(5)}</div>`;
+const veil = edge => `<div class="veil veil--${edge}" aria-hidden="true"><div class="blur"></div></div>`;
 export function safeHub(input = DEFAULT_HUB) {
   try { const url = new URL(input); if (!['http:', 'https:'].includes(url.protocol)) throw Error(); return url.origin; }
   catch { return DEFAULT_HUB; }
@@ -16,7 +16,7 @@ export class MementoNav extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
-    this.shadowRoot.innerHTML = `<style>${overlayCSS}</style>${veil('top')}${veil('bottom')}<a class="wordmark" data-id="memento" data-view="world" aria-label="Memento — torna alla navigazione"><img src="${wordmark}" width="1417.32" height="56.70" alt="Memento" draggable="false" /></a><nav aria-label="Navigazione Memento">${STATIONS.map(s => `<a class="station" data-id="${s.id}" data-view="page" aria-label="${s.label}">${iconSVG(s.id)}<span class="label" aria-hidden="true">${s.label}</span><i class="dot" aria-hidden="true"></i></a>`).join('')}</nav>`;
+    this.shadowRoot.innerHTML = `<style>${overlayCSS}</style>${veil('top')}${veil('bottom')}<a class="wordmark" data-id="memento" data-view="world" aria-label="Memento — torna alla navigazione"><img src="${wordmark}" width="1417.32" height="28.35" alt="Memento" draggable="false" /></a><nav aria-label="Navigazione Memento">${STATIONS.map(s => `<a class="station" data-id="${s.id}" data-view="page" aria-label="${s.label}">${iconSVG(s.id)}<span class="label" aria-hidden="true">${s.label}</span></a>`).join('')}</nav>`;
     this.shadowRoot.addEventListener('click', event => {
       const link = event.target.closest?.('a[data-id]');
       if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -58,7 +58,7 @@ export class MementoNav extends HTMLElement {
 }
 
 if (!customElements.get('memento-nav')) customElements.define('memento-nav', MementoNav);
-else if (customElements.get('memento-nav').kitVersion !== KIT_VERSION) console.warn('Memento: rimuovere la vecchia navbar prima di caricare il kit V3.');
+else if (customElements.get('memento-nav').kitVersion !== KIT_VERSION) console.warn('Memento: rimuovere la vecchia navbar prima di caricare il kit V4.');
 
 // Same signature as V2: existing hub imports remain valid.
 export function mountNav({ active = 'memento', hub = DEFAULT_HUB, mode = 'standalone', hidden = false } = {}) {

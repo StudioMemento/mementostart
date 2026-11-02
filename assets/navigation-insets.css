@@ -1,4 +1,4 @@
-/* Keep the first/last content clear of the V3 overlay in standalone and hosted mode. */
+/* Keep the first/last content clear of the V4 overlay in standalone and hosted mode. */
 .hero {
   padding-top: max(clamp(80px, 7vw, 112px), calc(env(safe-area-inset-top, 0px) + 60px));
 }
