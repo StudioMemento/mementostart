@@ -1,0 +1,11 @@
+/* Keep the first/last content clear of the V3 overlay in standalone and hosted mode. */
+.hero {
+  padding-top: max(clamp(80px, 7vw, 112px), calc(env(safe-area-inset-top, 0px) + 60px));
+}
+.explore-section {
+  padding-bottom: max(96px, calc(env(safe-area-inset-bottom, 0px) + 80px));
+}
+.skip-link { z-index: 1001; }
+@media (max-width: 767px) {
+  .hero { padding-top: max(76px, calc(env(safe-area-inset-top, 0px) + 60px)); }
+}

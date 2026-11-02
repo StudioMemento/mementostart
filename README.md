@@ -1,4 +1,4 @@
-# Memento START — V6 · revisione 6.1
+# Memento START — V6 · revisione 6.2 — Navbar Overlay V3
 
 Pagina HTML/CSS/JavaScript statica, coerente con il Master Visual DNA 1.1. Font Inter Variable, immagini WebP e icone Tabler sono locali. Nessuna dipendenza runtime da installare.
 
@@ -50,13 +50,21 @@ Modificare `assets/config.js`. Nell’HTML autonomo cercare `window.MEMENTO_CONF
 
 Root, body e pagina sono alpha; in iframe viene normalizzato il color scheme per preservare la trasparenza reale sul parent. Nessuna fog: l’atmosfera appartiene al Nav Hub. Le card conservano le superfici del DNA.
 
-Bridge **Tide v014**, canale `memento:tide`, versione 1. Conservati INIT/READY, VISIBILITY, INPUT, SCROLL, ESCAPE ed END. Il footer emette END con `explicit-explore` quando il parent è connesso; standalone apre il Nav Hub. Le FAQ con focus e i dialog proteggono la navigazione da tastiera. Gli origin consentiti sono nell’attributo `data-tide-parents` dello script finale.
+Overlay **V3** del pacchetto fornito: logo vettoriale, blur progressivo in alto e in basso, cinque icone. **Start è attivo**, con colore e dot ambra; le altre voci rimangono monocromatiche. Il bootstrap è configurato con `data-memento-page="start"` e hub `https://mementonav.vercel.app`.
+
+Bridge `memento:navigation`, protocollo **2**, compatibile con l’hub V2. Il vecchio Tide v014 è stato sostituito. In standalone la navbar è visibile; nell’hub l’handshake nasconde l’overlay locale per lasciare soltanto quello del parent. In un iframe senza handshake compare l’overlay dopo 1,2 secondi.
+
+“CONTINUA IL VIAGGIO!” invia `RETURN` al parent quando è connesso; standalone apre l’hub su `#start`. La rimozione di `target="_top"` dal footer permette al bridge di intercettare correttamente il ritorno. FAQ e dialog mantengono i loro controlli da tastiera. Gli inset aggiuntivi sono applicati soltanto a hero e footer, non al body né agli sfondi.
+
+La cartella `navigation/` è identica a quella del kit V3 allegato. Provenienza degli asset in `docs/navbar-v3-assets.md`. L’HTML autonomo include gli stessi moduli e asset e non richiede un server per la preview.
 
 ## Vercel
 
-Importare la cartella come progetto statico: Framework **Other**, nessun comando di build/installazione, output **`.`**. La configurazione è già in `vercel.json`; entry point `index.html`. Questo pacchetto non pubblica automaticamente il sito.
+Importare la cartella come progetto statico: Framework **Other**, nessun comando di build/installazione, output **`.`**. La configurazione è già in `vercel.json`; entry point `index.html`. Questo pacchetto non pubblica automaticamente il sito. Sostituire i file del progetto Start con il contenuto dello ZIP, mantenendo `index.html`, `assets/` e `navigation/` alla radice. L’HTML `MEMENTO_START_V6.html` è una preview autonoma; l’entry point Vercel resta `index.html`.
 
 ## Verifica e licenze
+
+Overlay V3 della revisione 6.2 verificato in Chromium su sei viewport da 320 a 1920 px, inclusa la vista orizzontale. Stato Start, caricamento asset, tastiera, FAQ, dialoghi, handshake con host, ritorno al mondo e preview autonoma verificati. Resoconto in `docs/navbar-v3-verifica.md`.
 
 V6 verificata in Chrome a 320, 390, 768, 1024, 1600 e 1920 px: nessun overflow dei testi controllati. Verificati hover, immagini FAQ, griglia della sede e titolo. Dettagli e limiti in `design-qa.md`. Nessuna email inviata durante le prove.
 
