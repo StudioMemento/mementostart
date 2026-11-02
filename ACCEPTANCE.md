@@ -1,3 +1,15 @@
+# START 6.5 — overlay ricostruito
+
+- [x] Un backdrop-filter per bordo, dissolvenza alpha nativa, nessuna velatura scura.
+- [x] Attenuazione misurata dei dettagli ai bordi e centro della pagina nitido.
+- [x] Icone più grandi, box allineati alle estremità del logo, Start attivo.
+- [x] Desktop, mobile, landscape, scroll e scala ridotta controllati.
+- [x] Link, bridge, FAQ, dialoghi, tastiera e HTML autonomo verificati.
+
+Verifica attuale: `docs/navbar-v6-verifica.md`. Le sezioni seguenti sono lo storico delle revisioni.
+
+---
+
 # START 6.4 — overlay V5
 
 - [x] Kit V5 integrato integralmente, incluso progressive-blur.mjs.
@@ -6,7 +18,7 @@
 - [x] Snippet V5 e collegamenti pubblici mementostudio.it.
 - [x] HTML autonomo aggiornato; responsive, bridge e link verificati.
 
-Verifica della revisione attuale: `docs/navbar-v5-verifica.md`.
+Verifica storica: `docs/navbar-v5-verifica.md`.
 
 ---
 
@@ -18,7 +30,7 @@ Verifica della revisione attuale: `docs/navbar-v5-verifica.md`.
 - [x] Nuove maschere alpha del blur incluse anche nell’HTML autonomo.
 - [x] Start attivo e bridge già integrato conservati.
 
-Verifica della revisione attuale: `docs/navbar-v4-verifica.md`.
+Verifica storica: `docs/navbar-v4-verifica.md`.
 
 ---
 
@@ -30,7 +42,7 @@ Verifica della revisione attuale: `docs/navbar-v4-verifica.md`.
 - [x] Safe area, responsive e controlli da tastiera verificati.
 - [x] HTML autonomo aggiornato e ZIP pronto per Vercel.
 
-Verifica della revisione attuale: `docs/navbar-v3-verifica.md`.
+Verifica storica: `docs/navbar-v3-verifica.md`.
 
 ---
 

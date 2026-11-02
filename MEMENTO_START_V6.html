@@ -192,17 +192,13 @@ html{scrollbar-width:none}html::-webkit-scrollbar{display:none}
 
 </style>
   <style>
-/* Keep the first/last content clear of the V5 overlay in standalone and hosted mode. */
-.hero {
-  padding-top: max(clamp(80px, 7vw, 112px), calc(env(safe-area-inset-top, 0px) + 60px));
-}
-.explore-section {
-  padding-bottom: max(96px, calc(env(safe-area-inset-bottom, 0px) + 80px));
-}
-.skip-link { z-index: 1001; }
-@media (max-width: 767px) {
-  .hero { padding-top: max(76px, calc(env(safe-area-inset-top, 0px) + 60px)); }
-}
+/* Explicit canvas in standalone mode; keep the embedded 3D background transparent. */
+html[data-embedded="false"],html[data-memento-navigation="standalone"]{background-color:#121212}
+:root{--memento-blur-height:clamp(180px,26dvh,300px)}
+.hero{padding-top:max(clamp(80px,7vw,112px),calc(var(--memento-blur-height) * .85),calc(env(safe-area-inset-top,0px) + 60px))}
+.explore-section{padding-bottom:max(var(--memento-blur-height),calc(env(safe-area-inset-bottom,0px) + 80px))}
+.skip-link{z-index:1001}
+@media(max-height:460px) and (orientation:landscape){:root{--memento-blur-height:120px}}
 
 </style>
 <script type="text/plain" data-third-party-licenses>
@@ -673,128 +669,86 @@ function navigationLink(href,base,hub=DEFAULT_HUB) {
 }
 
 // navigation/progressive-blur.mjs
-// Eight overlapping Gaussian levels, following the Framer reference's
-// band-pass construction. All masks are local, generated once, and static.
-const BLUR_LAYER_COUNT = 8;
-const smooth = value => { const t = Math.max(0, Math.min(1, value)); return t * t * (3 - 2 * t); };
-function alphaAt(u, index) {
-  const start = index / 8, peak = (index + 1) / 8, hold = Math.min(1, (index + 2) / 8), end = (index + 3) / 8;
-  if (u <= start) return 0;
-  if (u < peak) return smooth((u - start) / (peak - start));
-  if (u <= hold || index >= 6) return 1;
-  return 1 - smooth((u - hold) / (end - hold));
+// One compositing surface per edge. Avoid overlapping partially masked backdrops.
+const BLUR_LAYER_COUNT = 1;
+function edgeFade(direction) {
+  const stops = Array.from({length:33}, (_, i) => {
+    const p = i / 32, t = Math.max(0, Math.min(1, (p - .12) / .88));
+    return `rgb(0 0 0 / ${(1-t*t*(3-2*t)).toFixed(5)}) ${(p*100).toFixed(3)}%`;
+  });
+  return `linear-gradient(${direction},${stops.join(',')})`;
 }
-function mask(index, edge) {
-  let stops = '';
-  for (let n = 0; n <= 64; n++) {
-    const y = n / 64, u = edge === 'top' ? 1 - y : y;
-    const alpha = Math.sqrt(Math.max(0, alphaAt(u, index)));
-    stops += `<stop offset="${y}" stop-color="white" stop-opacity="${alpha.toFixed(7)}"/>`;
-  }
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" preserveAspectRatio="none"><defs><linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">${stops}</linearGradient><filter id="dither" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB"><feTurbulence type="fractalNoise" baseFrequency="0.83" numOctaves="1" seed="${17 + index}" result="grain"/><feColorMatrix in="grain" type="matrix" values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 1 0 0 0 0" result="noise"/><feComposite in="SourceGraphic" in2="noise" operator="arithmetic" k1="0" k2="1" k3="0.014" k4="-0.007"/><feComposite in2="SourceGraphic" operator="in"/></filter></defs><rect width="1024" height="1024" fill="url(#fade)" filter="url(#dither)"/></svg>`;
-  // Percent encoding also escapes quotes so the result is safe in CSS url().
-  return 'data:image/svg+xml,' + encodeURIComponent(svg).replace(/'/g, '%27');
-}
-const progressiveBlurCSS = Array.from({ length: BLUR_LAYER_COUNT }, (_, index) => {
-  const blur = 24 / 2 ** (7 - index);
-  return `.blur:nth-child(${index + 1}) { --_blur: ${blur}px; }
-    .veil--top .blur:nth-child(${index + 1}) { --_mask: url("${mask(index, 'top')}"); }
-    .veil--bottom .blur:nth-child(${index + 1}) { --_mask: url("${mask(index, 'bottom')}"); }`;
-}).join('\n');
-
-// navigation/styles.mjs
-// All styling stays inside the component's shadow root.
-
-const overlayCSS = `
-:host {
-  --_width: min(var(--memento-overlay-width, 400px), calc(100% - var(--memento-overlay-gutter, 10%) * 2));
-  --_amber: var(--memento-overlay-accent, #ff7950);
-  --_top: max(var(--memento-overlay-top, 18px), env(safe-area-inset-top, 0px));
-  --_bottom: max(var(--memento-overlay-bottom, 4px), calc(env(safe-area-inset-bottom, 0px) + 2px));
-  position: fixed; inset: 0; z-index: var(--memento-overlay-z, 1000);
-  display: block; pointer-events: none;
-  font: 11px/1.3 Inter, Arial, sans-serif; color: #f4f4f4;
-  -webkit-font-smoothing: antialiased;
-}
-:host([hidden]) { display: none !important; }
-*, *::before, *::after { box-sizing: border-box; }
-.veil { position: absolute; left: 0; right: 0; height: clamp(160px, 18vh, 240px); height: clamp(160px, 18dvh, 240px); pointer-events: none; overflow: hidden; }
-.veil--top { top: 0; }
-.veil--bottom { bottom: 0; }
-.blur { position: absolute; inset: 0; pointer-events: none;
-  -webkit-backdrop-filter: blur(var(--_blur)); backdrop-filter: blur(var(--_blur));
-  -webkit-mask-image: var(--_mask); mask-image: var(--_mask);
-  -webkit-mask-size: 100% 100%; mask-size: 100% 100%;
-  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; mask-mode: alpha;
-}
-${progressiveBlurCSS}
-.wordmark, nav { position: absolute; left: 50%; width: var(--_width); transform: translateX(-50%); }
-.wordmark { top: var(--_top); min-height: 44px; display: flex; align-items: flex-start; padding: 7px 0; pointer-events: auto; text-decoration: none; }
-.wordmark img { display: block; width: 100%; height: auto; aspect-ratio: 1417.32 / 28.35; object-fit: contain; opacity: .94; transition: opacity 220ms ease; }
-.wordmark:hover img, .wordmark:focus-visible img { opacity: 1; }
-nav { bottom: var(--_bottom); display: flex; align-items: center; justify-content: space-between; gap: 0; padding: 0; background: transparent; border: 0; pointer-events: none; }
-.station { position: relative; display: flex; flex: 0 0 44px; width: 44px; height: 44px; align-items: center; justify-content: center; padding: 0; color: inherit; text-decoration: none; pointer-events: auto; background: transparent; border: 0; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
-.tile { display: grid; place-items: center; width: 38px; height: 38px; overflow: hidden; border-radius: 10px; border: 1px solid #ffffff1c; background: linear-gradient(145deg, #101112fa, #010203fc 70%); box-shadow: inset 0 1px 0 #ffffff0a, 0 3px 10px #0003; transition: transform 240ms cubic-bezier(.2,.7,.2,1), border-color 240ms ease, box-shadow 240ms ease; }
-.station[aria-current="page"] .tile { border-color: #ff79503d; box-shadow: inset 0 1px 0 #ffffff0c, 0 0 12px #ff795025, 0 3px 10px #0003; }
-.icon { width: 28px; height: 28px; display: block; overflow: hidden; filter: grayscale(1) brightness(.9); opacity: .86; transform-origin: 50% 60%; transition: filter 280ms ease, opacity 280ms ease; }
-.station[aria-current="page"] .icon { filter: grayscale(0) saturate(1.35) brightness(1.18) drop-shadow(0 0 2px #ff7950c7) drop-shadow(0 0 6px #ff79509e) drop-shadow(0 0 14px #ff795066); opacity: 1; }
-.label { position: absolute; left: 50%; bottom: calc(100% + 10px); transform: translate(-50%, 4px); opacity: 0; pointer-events: none; white-space: nowrap; color: #e8e8e8; font-size: 10px; letter-spacing: .12em; text-shadow: 0 1px 12px #000, 0 1px 4px #000; transition: opacity 180ms ease, transform 180ms ease; }
-.station:first-child .label { left: 0; transform: translate(0, 4px); }
-.station:last-child .label { left: auto; right: 0; transform: translate(0, 4px); }
-.station:focus-visible, .wordmark:focus-visible { outline: 1px solid var(--_amber); outline-offset: 3px; border-radius: 10px; }
-.station:focus-visible .label { opacity: 1; transform: translate(-50%, 0); }
-.station:first-child:focus-visible .label, .station:last-child:focus-visible .label { transform: translate(0, 0); }
-@media (hover: hover) and (pointer: fine) {
-  .station:hover .tile { transform: translateY(-2px); border-color: #ffffff35; }
-  .station:hover .icon { filter: grayscale(1) brightness(1.18); opacity: 1; }
-  .station[aria-current="page"]:hover .icon { filter: grayscale(0) saturate(1.4) brightness(1.24) drop-shadow(0 0 2px #ff7950e0) drop-shadow(0 0 7px #ff7950b0) drop-shadow(0 0 16px #ff795075); }
-  .station:hover .label { opacity: 1; transform: translate(-50%, 0); }
-  .station:first-child:hover .label, .station:last-child:hover .label { transform: translate(0, 0); }
-}
-.station:active .tile { transform: translateY(0) scale(.96); }
-@media (max-width: 600px) {
-  :host { --_top: max(var(--memento-overlay-top, 12px), env(safe-area-inset-top, 0px)); --_bottom: max(var(--memento-overlay-bottom, 3px), calc(env(safe-area-inset-bottom, 0px) + 2px)); }
-  .tile { width: 36px; height: 36px; border-radius: 9px; }
-  .icon { width: 26px; height: 26px; }
-}
-@media (max-height: 460px) and (orientation: landscape) {
-  :host { --_top: max(6px, env(safe-area-inset-top, 0px)); --_bottom: max(2px, env(safe-area-inset-bottom, 0px)); }
-  .veil { height: 130px; }
-  .tile { width: 34px; height: 34px; border-radius: 9px; }
-  .icon { width: 24px; height: 24px; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .tile, .icon, .label, .wordmark img { transition: none; }
-  .station:hover .tile, .station:active .tile { transform: none; }
-}
-@media (prefers-reduced-transparency: reduce) {
-  .blur { -webkit-backdrop-filter: none; backdrop-filter: none; }
-  .blur:not(:last-child) { display: none; }
-  .blur:last-child { background: rgb(4 5 7 / .65); mask-image: linear-gradient(to bottom, #000, transparent); -webkit-mask-image: linear-gradient(to bottom, #000, transparent); }
-  .veil--bottom .blur:last-child { mask-image: linear-gradient(to top, #000, transparent); -webkit-mask-image: linear-gradient(to top, #000, transparent); }
-}
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .blur:not(:last-child) { display: none; }
-  .blur:last-child { background: rgb(4 5 7 / .5); mask-image: linear-gradient(to bottom, #000, transparent); -webkit-mask-image: linear-gradient(to bottom, #000, transparent); }
-  .veil--bottom .blur:last-child { mask-image: linear-gradient(to top, #000, transparent); -webkit-mask-image: linear-gradient(to top, #000, transparent); }
-}
-@media (forced-colors: active) {
-  .veil { display: none; }
-  .icon { forced-color-adjust: none; }
-  .station[aria-current="page"] { outline: 2px solid Highlight; }
-}
-@media print { :host { display: none !important; } }
+const progressiveBlurCSS = `
+.veil--top .blur { --edge-mask: ${edgeFade('to bottom')}; }
+.veil--bottom .blur { --edge-mask: ${edgeFade('to top')}; }
 `;
 
-// Compatibility patch for the published V2 hub, whose CSS reserved a black
-// 100 px footer outside both the canvas and the embed. Applied only when its
-// exact structural anchors are present; it never changes a child page layout.
+// navigation/styles.mjs
+
+// Fresh optical layer: no tint, no opacity wrapper, one true backdrop per edge.
+const overlayCSS = `
+:host {
+ --rail-width:min(var(--memento-overlay-width,400px),calc(100% - var(--memento-overlay-gutter,10%) * 2));
+ --rail-top:max(var(--memento-overlay-top,18px),env(safe-area-inset-top,0px));
+ --rail-bottom:max(var(--memento-overlay-bottom,4px),calc(env(safe-area-inset-bottom,0px) + 2px));
+ --edge-height:var(--memento-blur-height,clamp(180px,26dvh,300px));
+ --edge-radius:var(--memento-blur-radius,42px);
+ --accent:var(--memento-overlay-accent,#ff7950);
+ position:fixed;inset:0;z-index:var(--memento-overlay-z,1000);display:block;
+ pointer-events:none;background:transparent;color:#f4f3f1;font:10px/1.3 Inter,Arial,sans-serif;
+ -webkit-font-smoothing:antialiased;
+}
+:host([hidden]){display:none!important}
+*,*::before,*::after{box-sizing:border-box}
+.veil{position:absolute;inset-inline:0;height:220px;height:var(--edge-height);pointer-events:none}
+.veil--top{top:0}.veil--bottom{bottom:0}
+.blur{position:absolute;inset:0;background:transparent;pointer-events:none;
+ -webkit-backdrop-filter:blur(var(--edge-radius));backdrop-filter:blur(var(--edge-radius));
+ -webkit-mask-image:var(--edge-mask);mask-image:var(--edge-mask);
+ -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-size:100% 100%;mask-size:100% 100%}
+${progressiveBlurCSS}
+.wordmark,nav{position:absolute;left:50%;width:var(--rail-width);transform:translateX(-50%)}
+.wordmark{top:var(--rail-top);min-height:44px;display:flex;align-items:flex-start;padding:7px 0 0;pointer-events:auto;text-decoration:none;-webkit-tap-highlight-color:transparent}
+.wordmark img{width:100%;height:auto;aspect-ratio:1417.32 / 28.35;display:block;opacity:.94}
+nav{bottom:var(--rail-bottom);display:flex;align-items:center;justify-content:space-between;gap:0;padding:0;background:transparent}
+.station{position:relative;width:48px;height:48px;flex:0 0 48px;display:flex;align-items:center;justify-content:center;padding:0;pointer-events:auto;text-decoration:none;color:inherit;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+/* Visible box edges meet the logo edges; tap areas stay at least 48px. */
+.station:first-child{justify-content:flex-start}.station:last-child{justify-content:flex-end}
+.tile{display:grid;place-items:center;width:44px;height:44px;border-radius:11px;background:#08090b;border:1px solid rgb(255 255 255 / .12);box-shadow:inset 0 1px 0 rgb(255 255 255 / .025);transition:transform 240ms cubic-bezier(.2,.7,.2,1),border-color 240ms ease,box-shadow 240ms ease}
+.icon{display:block;width:34px;height:34px;overflow:hidden;opacity:.9;filter:grayscale(1) brightness(.98);transition:filter 240ms ease,opacity 240ms ease}
+.station[aria-current="page"] .tile{border-color:rgb(255 121 80 / .3);box-shadow:0 0 18px rgb(255 121 80 / .12),inset 0 0 12px rgb(255 121 80 / .04)}
+.station[aria-current="page"] .icon{opacity:1;filter:grayscale(0) saturate(1.25) brightness(1.18) drop-shadow(0 0 3px #ff7950a6) drop-shadow(0 0 9px #ff795070)}
+.label{position:absolute;bottom:calc(100% + 9px);left:50%;transform:translate(-50%,3px);white-space:nowrap;letter-spacing:.12em;opacity:0;pointer-events:none;text-shadow:0 1px 10px #000;transition:opacity 160ms ease,transform 160ms ease}
+.station:first-child .label{left:0;transform:translateY(3px)}.station:last-child .label{left:auto;right:0;transform:translateY(3px)}
+.station:focus-visible,.wordmark:focus-visible{outline:1px solid var(--accent);outline-offset:3px;border-radius:10px}
+.station:focus-visible .label{opacity:1;transform:translate(-50%,0)}
+.station:first-child:focus-visible .label,.station:last-child:focus-visible .label{transform:translateY(0)}
+@media(hover:hover) and (pointer:fine){
+ .station:hover .tile{transform:translateY(-2px);border-color:rgb(255 255 255 / .25)}
+ .station:hover .icon{opacity:1}
+ .station[aria-current="page"]:hover .tile{border-color:rgb(255 121 80 / .5);box-shadow:0 0 20px rgb(255 121 80 / .18)}
+ .station:hover .label{opacity:1;transform:translate(-50%,0)}
+ .station:first-child:hover .label,.station:last-child:hover .label{transform:translateY(0)}
+}
+.station:active .tile{transform:scale(.96)}
+@media(max-width:600px){
+ :host{--rail-top:max(var(--memento-overlay-top,12px),env(safe-area-inset-top,0px));--rail-bottom:max(var(--memento-overlay-bottom,3px),calc(env(safe-area-inset-bottom,0px) + 2px));--edge-radius:var(--memento-blur-radius,34px)}
+ .icon{width:32px;height:32px}
+}
+@media(max-height:460px) and (orientation:landscape){
+ :host{--rail-top:max(6px,env(safe-area-inset-top,0px));--rail-bottom:max(2px,env(safe-area-inset-bottom,0px));--edge-height:120px;--edge-radius:28px}
+ .tile{width:42px;height:42px}.icon{width:30px;height:30px}
+}
+@media(prefers-reduced-motion:reduce){.tile,.icon,.label{transition:none}.station:hover .tile,.station:active .tile{transform:none}}
+@media(prefers-reduced-transparency:reduce){.veil{display:none}.tile{background:#000}}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.veil{display:none}}
+@media(forced-colors:active){.veil{display:none}.icon{forced-color-adjust:none}.station[aria-current="page"]{outline:2px solid Highlight}}
+@media print{:host{display:none!important}}
+`;
 const legacyHostLayoutCSS = `
 html[data-memento-overlay-host="v3"] #world,
-html[data-memento-overlay-host="v3"] #page-shell { bottom: 0; }
-@media (max-width: 600px) {
-  html[data-memento-overlay-host="v3"] .utility { top: max(68px, calc(env(safe-area-inset-top, 0px) + 52px)); }
-}
+html[data-memento-overlay-host="v3"] #page-shell { bottom:0; }
+@media(max-width:600px){html[data-memento-overlay-host="v3"] .utility{top:max(68px,calc(env(safe-area-inset-top,0px) + 52px))}}
 `;
 
 // navigation/icons.mjs
@@ -812,7 +766,7 @@ function iconSVG(id) {
 
 
 
-const KIT_VERSION = '5.0.0';
+const KIT_VERSION = '6.0.0';
 const wordmark = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjExMy4zOSAxMTMuMzkgMTQxNy4zMiAyOC4zNSIgcHJlc2VydmVBc3BlY3RSYXRpbz0ieE1pZFlNaWQgbWVldCIgZmlsbD0iI2ZmZiIgd2lkdGg9IjE0MTcuMzIiIGhlaWdodD0iMjguMzUiPgogIDxnIGlkPSJnbHlwaC0wIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMjcuNTYyNTAwIDExMy4zOSkgc2NhbGUoMC41KSB0cmFuc2xhdGUoLTE0MS43MzUwMDAgLTExMy4zOSkiPjxwb2x5Z29uIHBvaW50cz0iMTcwLjA4IDExMy4zOSAxNzAuMDggMTcwLjA4IDE2NC40MSAxNjQuNDEgMTY0LjQxIDEyNi42MiAxNDEuNzMgMTQ5LjI5IDExOS4wNSAxMjYuNjIgMTE5LjA1IDE2NC40MSAxMTMuMzkgMTcwLjA4IDExMy4zOSAxMTMuMzkgMTQxLjczIDE0MS43MyAxNzAuMDggMTEzLjM5IiAvPgogICAgICA8L2c+PGcgaWQ9ImdseXBoLTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDM1OS4wNTgzMzMgMTEzLjM5KSBzY2FsZSgwLjUpIHRyYW5zbGF0ZSgtMzY4LjUwNTAwMCAtMTEzLjM5KSI+PGc+CiAgICAgICAgPHBvbHlnb24gcG9pbnRzPSIzOTEuMTggMTY0LjQxIDM5Ni44NSAxNzAuMDggMzQwLjE2IDE3MC4wOCAzNDUuODMgMTY0LjQxIDM5MS4xOCAxNjQuNDEiIC8+CiAgICAgICAgPHJlY3QgeD0iMzU3LjE3IiB5PSIxMzguOSIgd2lkdGg9IjIyLjY4IiBoZWlnaHQ9IjUuNjciIC8+CiAgICAgICAgPHBvbHlnb24gcG9pbnRzPSIzOTYuODUgMTEzLjM5IDM5MS4xOCAxMTkuMDYgMzQ1LjgzIDExOS4wNiAzNDAuMTYgMTEzLjM5IDM5Ni44NSAxMTMuMzkiIC8+CiAgICAgIDwvZz4KICAgICAgPC9nPjxnIGlkPSJnbHlwaC0yIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg1OTAuNTU0MTY3IDExMy4zOSkgc2NhbGUoMC41KSB0cmFuc2xhdGUoLTU5NS4yNzUwMDAgLTExMy4zOSkiPjxwb2x5Z29uIHBvaW50cz0iNjIzLjYyIDExMy4zOSA2MjMuNjIgMTcwLjA4IDYxNy45NiAxNjQuNDEgNjE3Ljk2IDEyNi42MiA1OTUuMjggMTQ5LjI5IDU3Mi42IDEyNi42MiA1NzIuNiAxNjQuNDEgNTY2LjkzIDE3MC4wOCA1NjYuOTMgMTEzLjM5IDU5NS4yOCAxNDEuNzMgNjIzLjYyIDExMy4zOSIgLz4KICAgICAgPC9nPjxnIGlkPSJnbHlwaC0zIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg4MjIuMDUwMDAwIDExMy4zOSkgc2NhbGUoMC41KSB0cmFuc2xhdGUoLTgyMi4wNDUwMDAgLTExMy4zOSkiPjxnPgogICAgICAgIDxwb2x5Z29uIHBvaW50cz0iODQ0LjcyIDE2NC40MSA4NTAuMzkgMTcwLjA4IDc5My43IDE3MC4wOCA3OTkuMzcgMTY0LjQxIDg0NC43MiAxNjQuNDEiIC8+CiAgICAgICAgPHJlY3QgeD0iODEwLjcxIiB5PSIxMzguOSIgd2lkdGg9IjIyLjY4IiBoZWlnaHQ9IjUuNjciIC8+CiAgICAgICAgPHBvbHlnb24gcG9pbnRzPSI4NTAuMzkgMTEzLjM5IDg0NC43MiAxMTkuMDYgNzk5LjM3IDExOS4wNiA3OTMuNyAxMTMuMzkgODUwLjM5IDExMy4zOSIgLz4KICAgICAgPC9nPgogICAgICA8L2c+PGcgaWQ9ImdseXBoLTQiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEwNTMuNTQ1ODMzIDExMy4zOSkgc2NhbGUoMC41KSB0cmFuc2xhdGUoLTEwNDkuMDcwMDAwIC0xMTMuMzkpIj48cG9seWdvbiBwb2ludHM9IjEwNzMuNjQgMTEzLjM5IDEwNzMuNjQgMTcwLjA4IDEwMzAuMTcgMTI2LjYyIDEwMzAuMTcgMTY0LjQxIDEwMjQuNSAxNzAuMDggMTAyNC41IDExMy4zOSAxMDY3Ljk3IDE1Ni44NSAxMDY3Ljk3IDExOS4wNiAxMDczLjY0IDExMy4zOSIgLz4KICAgICAgPC9nPjxnIGlkPSJnbHlwaC01IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMjg1LjA0MTY2NyAxMTMuMzkpIHNjYWxlKDAuNSkgdHJhbnNsYXRlKC0xMjc1LjU5MDAwMCAtMTEzLjM5KSI+PHBvbHlnb24gcG9pbnRzPSIxMjQ3LjI0IDExMy4zOSAxMzAzLjk0IDExMy4zOSAxMjk4LjI3IDExOS4wNiAxMjc4LjQyIDExOS4wNiAxMjc4LjQyIDE3MC4wOCAxMjcyLjc2IDE2NC40MSAxMjcyLjc2IDExOS4wNiAxMjUyLjkxIDExOS4wNiAxMjQ3LjI0IDExMy4zOSIgLz4KICAgICAgPC9nPjxnIGlkPSJnbHlwaC02IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxNTE2LjUzNzUwMCAxMTMuMzkpIHNjYWxlKDAuNSkgdHJhbnNsYXRlKC0xNTAyLjM2NTAwMCAtMTEzLjM5KSI+PHBhdGggZD0iTTE1MDIuMzcsMTEzLjM5aDBjLTE1LjY1LDAtMjguMzUsMTIuNjktMjguMzUsMjguMzVzMTIuNjksMjguMzUsMjguMzUsMjguMzVoMGMxNS42NiwwLDI4LjM0LTEyLjY5LDI4LjM0LTI4LjM1cy0xMi42OC0yOC4zNC0yOC4zNC0yOC4zNVpNMTUwMi4zNywxNjQuNDFoMGMtMTIuNTIsMC0yMi42Ny0xMC4xNS0yMi42Ny0yMi42OHMxMC4xNS0yMi42NywyMi42Ny0yMi42N2gwYzEyLjUzLDAsMjIuNjgsMTAuMTUsMjIuNjgsMjIuNjdzLTEwLjE1LDIyLjY4LTIyLjY4LDIyLjY4WiIgLz4KICAgIDwvZz48L3N2Zz4=";
 const veil = edge => `<div class="veil veil--${edge}" aria-hidden="true">${'<div class="blur"></div>'.repeat(BLUR_LAYER_COUNT)}</div>`;
 function safeHub(input = DEFAULT_HUB) {
@@ -870,7 +824,7 @@ class MementoNav extends HTMLElement {
 }
 
 if (!customElements.get('memento-nav')) customElements.define('memento-nav', MementoNav);
-else if (customElements.get('memento-nav').kitVersion !== KIT_VERSION) console.warn('Memento: rimuovere la vecchia navbar prima di caricare il kit V5.');
+else if (customElements.get('memento-nav').kitVersion !== KIT_VERSION) console.warn('Memento: rimuovere la vecchia navbar prima di caricare l’overlay V6.');
 
 // Same signature as V2: existing hub imports remain valid.
 function mountNav({ active = 'memento', hub = DEFAULT_HUB, mode = 'standalone', hidden = false } = {}) {

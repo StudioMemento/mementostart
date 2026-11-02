@@ -1,4 +1,4 @@
-# Memento START — V6 · revisione 6.4 — Navbar Overlay V5
+# Memento START — V6 · revisione 6.5 — Overlay ricostruito
 
 Pagina HTML/CSS/JavaScript statica, coerente con il Master Visual DNA 1.1. Font Inter Variable, immagini WebP e icone Tabler sono locali. Nessuna dipendenza runtime da installare.
 
@@ -48,19 +48,19 @@ Modificare `assets/config.js`. Nell’HTML autonomo cercare `window.MEMENTO_CONF
 
 ## Integrazione nel Nav Hub
 
-Root, body e pagina sono alpha; in iframe viene normalizzato il color scheme per preservare la trasparenza reale sul parent. Nessuna fog: l’atmosfera appartiene al Nav Hub. Le card conservano le superfici del DNA.
+La pagina mantiene la trasparenza nell’hub; la versione standalone ha un canvas uniforme `#121212`, equivalente allo sfondo precedente in Chromium.
 
-Overlay **V5** del pacchetto fornito: wordmark con proporzioni della V4, blur progressivo con otto livelli per bordo e cinque icone dentro box neri arrotondati. **Start è attivo**, con bagliore ambra e senza dot; le altre voci rimangono monocromatiche.
+Overlay **6.0** ricostruito: un solo `backdrop-filter` per bordo, raggio 42 px su desktop e 34 px su mobile, con maschera alpha nativa e dissolvenza smoothstep. Le fasce si adattano fra 180 e 300 px; in landscape basso sono 120 px con raggio 28 px. Non ci sono velature colorate né gradienti scuri sovrapposti al blur. Nessuna maschera SVG o filtro turbulence nel nuovo effetto.
 
-La cartella `navigation/` è identica al kit allegato e comprende `progressive-blur.mjs`. Bootstrap unico con `data-memento-page="start"` e `data-memento-hub="https://mementostudio.it"`.
+Le icone sono 34 px su desktop e 32 px su mobile, dentro box da 44 px e aree cliccabili da 48 px. Logo e navbar condividono la stessa larghezza: massimo 400 px, 80% del viewport sui dispositivi stretti. I bordi esterni del primo e dell’ultimo box coincidono con quelli del logo. **Start resta attivo** con bagliore ambra; le altre voci sono monocromatiche. Nessun dot.
 
-Logo e navbar usano i link pubblici della V5: home `https://mementostudio.it/` e pagine `/studio`, `/services`, `/projects`, `/levelup`, `/start`. Gli indirizzi tecnici Vercel degli iframe restano quelli del kit.
+Bootstrap unico con `data-memento-page="start"` e `data-memento-hub="https://mementostudio.it"`. Home e pagine usano i link pubblici `/`, `/studio`, `/services`, `/projects`, `/levelup`, `/start`. Il bridge mantiene il protocollo `memento:navigation` versione **2**, compresa la compatibilità con `mementonav.vercel.app`.
 
-Il bridge mantiene il protocollo `memento:navigation` versione **2** e riconosce anche l’hub tecnico `mementonav.vercel.app`. In standalone l’overlay è visibile; dopo l’handshake nell’hub viene nascosto per lasciare soltanto quello del parent. In un iframe senza handshake compare dopo 1,2 secondi.
+In standalone l’overlay è visibile; nell’hub, dopo l’handshake, rimane soltanto quello del parent. In un iframe senza handshake compare dopo 1,2 secondi. La cartella `navigation/` contiene anche il componente host aggiornato: se Start è aperta dentro un hub già pubblicato, il suo overlay appartiene all’hub e la stessa cartella va aggiornata nel progetto parent.
 
-“CONTINUA IL VIAGGIO!” invia `RETURN` al parent quando è connesso. In standalone il bridge traduce il collegamento esistente verso `https://mementostudio.it/#start`. FAQ e dialoghi mantengono i loro controlli da tastiera. Gli inset restano sui soli hero e footer.
+“CONTINUA IL VIAGGIO!” invia `RETURN` al parent quando connesso; in standalone apre `https://mementostudio.it/#start`. Gli inset iniziale e finale tengono hero e footer fuori dal blur a riposo. FAQ, dialoghi e controlli da tastiera mantengono il comportamento esistente.
 
-L’HTML autonomo include gli stessi moduli e asset del kit, comprese le maschere generate dal nuovo modulo del blur. Provenienza degli asset in `docs/navbar-v5-assets.md`.
+L’HTML autonomo contiene gli stessi moduli, font e asset. Provenienza in `docs/navbar-v6-assets.md`; misure e limiti della verifica in `docs/navbar-v6-verifica.md`.
 
 ## Vercel
 
@@ -68,7 +68,7 @@ Importare la cartella come progetto statico: Framework **Other**, nessun comando
 
 ## Verifica e licenze
 
-Overlay V5 della revisione 6.4 verificato in Chromium su sei viewport da 320 a 1920 px, inclusa la vista orizzontale. Stato Start, box icone, livelli blur, link pubblici, tastiera, FAQ, dialoghi, handshake con host pubblico e tecnico, ritorno al mondo e preview autonoma verificati. Resoconto in `docs/navbar-v5-verifica.md`.
+Overlay della revisione 6.5 verificato in Chromium su sei viewport, con controlli aggiuntivi sui pixel a scala 1× e 0,6×. Verificati allineamento, stato Start, link, FAQ, dialoghi, tastiera, handshake, ritorno al mondo e preview autonoma.
 
 V6 verificata in Chrome a 320, 390, 768, 1024, 1600 e 1920 px: nessun overflow dei testi controllati. Verificati hover, immagini FAQ, griglia della sede e titolo. Dettagli e limiti in `design-qa.md`. Nessuna email inviata durante le prove.
 

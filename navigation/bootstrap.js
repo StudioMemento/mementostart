@@ -1,4 +1,4 @@
-/* Memento overlay V5. Plain browser modules; no framework, build or CDN. */
+/* Memento overlay V6. Plain browser modules; no framework, build or CDN. */
 (() => {
   const script = document.currentScript;
   if (!script) return;

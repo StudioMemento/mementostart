@@ -26,7 +26,7 @@ const overlay=overlayModules.map(file=>{
  return '// navigation/'+file+'\n'+source;
 }).join('\n');
 const bootstrap=/<script defer src="\/navigation\/bootstrap\.js"\s+data-memento-page="([^"]+)"\s+data-memento-hub="([^"]+)"><\/script>/;
-if(!bootstrap.test(html))throw Error('Expected one configured V5 bootstrap.');
+if(!bootstrap.test(html))throw Error('Expected one configured overlay bootstrap.');
 html=html.replace(bootstrap,(_,page,hub)=>inline.join('\n')+'\n<script>\n(()=>{\n"use strict";\n'+overlay.replace(/<\/script/gi,'<\\/script')+'\ninstallChild('+JSON.stringify({page,hub})+');\n})();\n</script>');
 const destination=resolve(root,'../output');mkdirSync(destination,{recursive:true});
 writeFileSync(destination+'/MEMENTO_START_V6.html',html);
