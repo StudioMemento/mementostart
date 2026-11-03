@@ -1,5 +1,5 @@
-import { CHANNEL, VERSION, DEFAULT_HUB, STATIONS, station, trustedParent, navigationLink, sessionEnvelope, validMessage, publicRouteURL } from './core.mjs';
-import { mountNav, safeHub, KIT_VERSION } from './navbar.mjs';
+import { CHANNEL, VERSION, DEFAULT_HUB, STATIONS, station, trustedParent, navigationLink, sessionEnvelope, validMessage, publicRouteURL } from './core.mjs?v=7.0.0';
+import { mountNav, safeHub, KIT_VERSION } from './navbar.mjs?v=7.0.0';
 
 export function installChild({ page, hub = DEFAULT_HUB } = {}) {
   if (window.__MEMENTO_NAV_V3__) return window.__MEMENTO_NAV_V3__;

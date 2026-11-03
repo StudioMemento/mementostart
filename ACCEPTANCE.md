@@ -1,3 +1,15 @@
+# START 6.6 — Navbar V7 Clean
+
+- [x] Kit V7 integrato integralmente con Start attivo e un solo bootstrap versionato.
+- [x] Vecchio renderer rimosso e HTML autonomo aggiornato.
+- [x] Contenuti, immagini, link di contatto e spazi della pagina conservati.
+- [x] Controlli sui sorgenti e sul pacchetto completati.
+- [ ] Nuova verifica visuale/interattiva dell’integrazione: non completata in questa sessione.
+
+Verifica attuale e limiti: `docs/navbar-v7-verifica.md`. Le sezioni seguenti sono lo storico delle revisioni.
+
+---
+
 # START 6.5 — overlay ricostruito
 
 - [x] Un backdrop-filter per bordo, dissolvenza alpha nativa, nessuna velatura scura.

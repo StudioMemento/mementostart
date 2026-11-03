@@ -1,4 +1,4 @@
-# Memento START — V6 · revisione 6.5 — Overlay ricostruito
+# Memento START — V6 · revisione 6.6 — Overlay V7 Clean
 
 Pagina HTML/CSS/JavaScript statica, coerente con il Master Visual DNA 1.1. Font Inter Variable, immagini WebP e icone Tabler sono locali. Nessuna dipendenza runtime da installare.
 
@@ -50,17 +50,18 @@ Modificare `assets/config.js`. Nell’HTML autonomo cercare `window.MEMENTO_CONF
 
 La pagina mantiene la trasparenza nell’hub; la versione standalone ha un canvas uniforme `#121212`, equivalente allo sfondo precedente in Chromium.
 
-Overlay **6.0** ricostruito: un solo `backdrop-filter` per bordo, raggio 42 px su desktop e 34 px su mobile, con maschera alpha nativa e dissolvenza smoothstep. Le fasce si adattano fra 180 e 300 px; in landscape basso sono 120 px con raggio 28 px. Non ci sono velature colorate né gradienti scuri sovrapposti al blur. Nessuna maschera SVG o filtro turbulence nel nuovo effetto.
+Overlay **7.0.0 Clean** integrato integralmente dal kit allegato: otto livelli nativi CSS per bordo, con raggi da 0,0546875 a 7 px e area pari al 20% della viewport. Maschere CSS sovrapposte sfocano il contenuto reale; il fondo resta trasparente. Le vecchie fasce della V6 e il relativo modulo sono rimossi.
 
+Il blur resta visibile anche con **Riduci trasparenza** attivo, come previsto dal kit V7. L’attributo opzionale `respect-system-transparency` ripristina il rispetto automatico della preferenza; `blur="off"` spegne direttamente l’effetto. Movimento ridotto e colori ad alto contrasto mantengono i comportamenti previsti dal kit. Gli spazi iniziale e finale della pagina restano quelli della revisione precedente e non modificano il renderer.
 Le icone sono 34 px su desktop e 32 px su mobile, dentro box da 44 px e aree cliccabili da 48 px. Logo e navbar condividono la stessa larghezza: massimo 400 px, 80% del viewport sui dispositivi stretti. I bordi esterni del primo e dell’ultimo box coincidono con quelli del logo. **Start resta attivo** con bagliore ambra; le altre voci sono monocromatiche. Nessun dot.
 
-Bootstrap unico con `data-memento-page="start"` e `data-memento-hub="https://mementostudio.it"`. Home e pagine usano i link pubblici `/`, `/studio`, `/services`, `/projects`, `/levelup`, `/start`. Il bridge mantiene il protocollo `memento:navigation` versione **2**, compresa la compatibilità con `mementonav.vercel.app`.
+Bootstrap unico `/navigation/bootstrap.js?v=7.0.0` con `data-memento-page="start"` e `data-memento-hub="https://mementostudio.it"`. Home e pagine usano i link pubblici `/`, `/studio`, `/services`, `/projects`, `/levelup`, `/start`. Il bridge mantiene il protocollo `memento:navigation` versione **2**, compresa la compatibilità con `mementonav.vercel.app`.
 
 In standalone l’overlay è visibile; nell’hub, dopo l’handshake, rimane soltanto quello del parent. In un iframe senza handshake compare dopo 1,2 secondi. La cartella `navigation/` contiene anche il componente host aggiornato: se Start è aperta dentro un hub già pubblicato, il suo overlay appartiene all’hub e la stessa cartella va aggiornata nel progetto parent.
 
 “CONTINUA IL VIAGGIO!” invia `RETURN` al parent quando connesso; in standalone apre `https://mementostudio.it/#start`. Gli inset iniziale e finale tengono hero e footer fuori dal blur a riposo. FAQ, dialoghi e controlli da tastiera mantengono il comportamento esistente.
 
-L’HTML autonomo contiene gli stessi moduli, font e asset. Provenienza in `docs/navbar-v6-assets.md`; misure e limiti della verifica in `docs/navbar-v6-verifica.md`.
+L’HTML autonomo contiene gli stessi moduli, font e asset. Provenienza in `docs/navbar-v7-assets.md`; controlli di integrazione e limiti in `docs/navbar-v7-verifica.md`.
 
 ## Vercel
 
@@ -68,7 +69,7 @@ Importare la cartella come progetto statico: Framework **Other**, nessun comando
 
 ## Verifica e licenze
 
-Overlay della revisione 6.5 verificato in Chromium su sei viewport, con controlli aggiuntivi sui pixel a scala 1× e 0,6×. Verificati allineamento, stato Start, link, FAQ, dialoghi, tastiera, handshake, ritorno al mondo e preview autonoma.
+La revisione 6.6 usa esclusivamente la cartella `navigation/` del kit V7 Clean, con moduli versionati per evitare la cache precedente. La verifica locale della nuova integrazione è descritta in `docs/navbar-v7-verifica.md`.
 
 V6 verificata in Chrome a 320, 390, 768, 1024, 1600 e 1920 px: nessun overflow dei testi controllati. Verificati hover, immagini FAQ, griglia della sede e titolo. Dettagli e limiti in `design-qa.md`. Nessuna email inviata durante le prove.
 
