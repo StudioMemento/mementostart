@@ -1,0 +1,142 @@
+{
+  "services": {
+    "width": 1254,
+    "height": 1254,
+    "viewBox": [
+      43.2144,
+      38.625,
+      1173.75,
+      1173.75
+    ],
+    "opaqueBounds": [
+      142,
+      156,
+      1116,
+      1095
+    ],
+    "paintedHeight": 27.2,
+    "paintedWidth": 28.21405,
+    "paintedBottomInSymbol": 30.6,
+    "boxBottomInset": 6.4,
+    "gain": 1,
+    "source": "services-thumb.webp",
+    "bytes": 750136,
+    "normalizedAt40px": {
+      "paintedHeight": 32,
+      "paintedWidth": 33.193,
+      "paintedBottomInSymbol": 36
+    },
+    "symbolSize": 34,
+    "boxSize": 40
+  },
+  "projects": {
+    "width": 1254,
+    "height": 1254,
+    "viewBox": [
+      37.1358,
+      18.4,
+      1157.3333,
+      1157.3333
+    ],
+    "opaqueBounds": [
+      133,
+      192,
+      1106,
+      1060
+    ],
+    "paintedHeight": 25.5,
+    "paintedWidth": 28.58465,
+    "paintedBottomInSymbol": 30.6,
+    "boxBottomInset": 6.4,
+    "gain": 0.96,
+    "source": "exec-cc17b96d-24e9-4837-b243-05636e488b7a.png",
+    "bytes": 701944,
+    "normalizedAt40px": {
+      "paintedHeight": 30,
+      "paintedWidth": 33.629,
+      "paintedBottomInSymbol": 36
+    },
+    "symbolSize": 34,
+    "boxSize": 40
+  },
+  "levelup": {
+    "width": 1254,
+    "height": 1254,
+    "viewBox": [
+      57.3843,
+      65.7846,
+      1122.4615,
+      1122.4615
+    ],
+    "opaqueBounds": [
+      162,
+      164,
+      1084,
+      1076
+    ],
+    "paintedHeight": 27.625,
+    "paintedWidth": 27.9276,
+    "paintedBottomInSymbol": 30.6,
+    "boxBottomInset": 6.4,
+    "gain": 1.04,
+    "source": "levelup-thumb.webp",
+    "bytes": 482064,
+    "normalizedAt40px": {
+      "paintedHeight": 32.5,
+      "paintedWidth": 32.856,
+      "paintedBottomInSymbol": 36
+    },
+    "symbolSize": 34,
+    "boxSize": 40
+  },
+  "start": {
+    "width": 1254,
+    "height": 1254,
+    "viewBox": [
+      89.2647,
+      90.9155,
+      1126.7606,
+      1126.7606
+    ],
+    "opaqueBounds": [
+      162,
+      105,
+      1142,
+      1105
+    ],
+    "paintedHeight": 30.175,
+    "paintedWidth": 29.5715,
+    "paintedBottomInSymbol": 30.6,
+    "boxBottomInset": 6.4,
+    "gain": 1.15,
+    "source": "start-thumb.webp",
+    "bytes": 438176,
+    "normalizedAt40px": {
+      "paintedHeight": 35.5,
+      "paintedWidth": 34.79,
+      "paintedBottomInSymbol": 36
+    },
+    "symbolSize": 34,
+    "boxSize": 40
+  },
+  "memento": {
+    "viewBox": [
+      26.474,
+      41.273,
+      166.741,
+      166.741
+    ],
+    "paintedHeight": 28.9,
+    "paintedWidth": 24.565,
+    "paintedBottomInSymbol": 30.6,
+    "boxBottomInset": 6.4,
+    "source": "original SVG paths, clipped metal facets",
+    "normalizedAt40px": {
+      "paintedHeight": 34,
+      "paintedWidth": 28.9,
+      "paintedBottomInSymbol": 36
+    },
+    "symbolSize": 34,
+    "boxSize": 40
+  }
+}

@@ -1,3 +1,15 @@
+# START 6.7 — Navbar V12 Framer
+
+- [x] Kit V12 copiato integralmente con tutti gli asset aggiornati.
+- [x] Start attivo, un solo bootstrap e moduli con versione 12.0.0.
+- [x] HTML autonomo rigenerato con nuove icone e logotipo vettoriale.
+- [x] Contenuti e asset della pagina conservati.
+- [x] Controlli su sorgenti, integrazione e archivio completati.
+
+Ambito e limiti: `docs/navbar-v12-verifica.md`. Le sezioni seguenti sono lo storico delle revisioni.
+
+---
+
 # START 6.6 — Navbar V7 Clean
 
 - [x] Kit V7 integrato integralmente con Start attivo e un solo bootstrap versionato.

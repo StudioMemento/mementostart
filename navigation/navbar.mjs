@@ -1,10 +1,10 @@
-import { STATIONS,DEFAULT_HUB,PUBLIC_ORIGIN,station,publicRouteURL } from './core.mjs?v=7.0.0';
-import { overlayCSS,legacyHostLayoutCSS } from './styles.mjs?v=7.0.0';
-import { edgeMarkup } from './blur.mjs?v=7.0.0';
-import { iconSVG } from './icons.mjs?v=7.0.0';
+import { STATIONS,DEFAULT_HUB,PUBLIC_ORIGIN,station,publicRouteURL } from './core.mjs?v=12.0.0';
+import { overlayCSS,legacyHostLayoutCSS } from './styles.mjs?v=12.0.0';
+import { edgeMarkup } from './blur.mjs?v=12.0.0';
+import { iconSVG } from './icons.mjs?v=12.0.0';
+import { wordmarkMarkup } from './wordmark.mjs?v=12.0.0';
 
-export const KIT_VERSION = '7.0.0';
-const wordmark = new URL('./assets/memento-wordmark.svg',import.meta.url).href;
+export const KIT_VERSION = '12.0.0';
 export function safeHub(input=DEFAULT_HUB) {
   try { const url=new URL(input); return ['http:','https:'].includes(url.protocol)?url.origin:DEFAULT_HUB; }
   catch { return DEFAULT_HUB; }
@@ -17,8 +17,8 @@ export class MementoNav extends HTMLElement {
     super();
     const root=this.attachShadow({mode:'open'});
     root.innerHTML=`<style>${overlayCSS}</style>${edgeMarkup('top')}${edgeMarkup('bottom')}
-      <a class="mm-wordmark" data-id="memento" data-view="world" href="${PUBLIC_ORIGIN}/" aria-label="Memento — torna alla home"><img src="${wordmark}" width="1417.32" height="28.35" alt="Memento" draggable="false"></a>
-      <nav class="mm-dock" aria-label="Navigazione Memento">${STATIONS.map(item=>`<a class="mm-link" data-id="${item.id}" data-view="page" href="${publicRouteURL({id:item.id,view:'page'})}" aria-label="${item.label}"><span class="mm-tile" aria-hidden="true">${iconSVG(item.id)}</span><span class="mm-label" aria-hidden="true">${item.label}</span></a>`).join('')}</nav>`;
+      <a class="mm-wordmark" data-id="memento" data-view="world" href="${PUBLIC_ORIGIN}/" aria-label="Memento — torna alla home">${wordmarkMarkup()}</a>
+      <nav class="mm-dock" aria-label="Navigazione Memento">${STATIONS.map(item=>`<a class="mm-link" data-id="${item.id}" data-view="page" href="${publicRouteURL({id:item.id,view:'page'})}" aria-label="${item.label}"><span class="mm-tile" aria-hidden="true">${iconSVG(item.id)}</span></a>`).join('')}</nav>`;
     root.addEventListener('click',event=>{
       const link=event.target.closest?.('a[data-id]');
       if(!link||event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey||(link.target&&link.target!=='_self'))return;
@@ -51,7 +51,7 @@ const registered=customElements.get('memento-nav');
 if(!registered)customElements.define('memento-nav',MementoNav);
 
 export function mountNav({active='memento',hub=DEFAULT_HUB,mode='standalone',hidden=false,respectSystemTransparency=false}={}) {
-  if(customElements.get('memento-nav')?.kitVersion!==KIT_VERSION)throw Error('Memento V7: rimuovere il vecchio bootstrap e ricaricare la pagina. Due versioni non possono essere caricate insieme.');
+  if(customElements.get('memento-nav')?.kitVersion!==KIT_VERSION)throw Error('Memento V12: rimuovere il vecchio bootstrap e ricaricare la pagina. Due versioni non possono essere caricate insieme.');
   let nav=document.querySelector('memento-nav');
   if(!nav)nav=document.createElement('memento-nav');
   // A direct child of body avoids page containers with opacity/filter/masks.

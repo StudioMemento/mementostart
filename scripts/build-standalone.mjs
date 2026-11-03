@@ -16,16 +16,15 @@ html=html.replace(/<link rel="stylesheet" href="([^"]+)">/g,(_,file)=>{
 html=html.replace(/(src|href)="(assets\/[^\"]+\.(?:webp|svg))"/g,(_,attr,path)=>attr+'="'+data(resolve(root,path))+'"');
 const inline=[];
 html=html.replace(/\s*<script defer src="(assets\/(?:config|start|motion)\.js)"><\/script>/g,(_,file)=>{inline.push('<script>\n'+readFileSync(root+file,'utf8').replaceAll('</script','<\\/script')+'\n</script>');return '';});
-const overlayModules=['core.mjs','blur.mjs','styles.mjs','icons.mjs','navbar.mjs','child.mjs'];
+const overlayModules=['core.mjs','blur.mjs','styles.mjs','icon-assets.mjs','memento-paths.mjs','wordmark.mjs','icons.mjs','navbar.mjs','child.mjs'];
 const overlay=overlayModules.map(file=>{
  let source=readFileSync(root+'navigation/'+file,'utf8');
  source=source.replace(/^import\s+.+?\s+from\s+['"].+?['"];\s*$/gm,'').replace(/\bexport (const|function|class) /g,'$1 ');
- source=source.replace(/new URL\('\.\/assets\/icons-v3\.png',\s*import\.meta\.url\)\.href/g,JSON.stringify(data(root+'navigation/assets/icons-v3.png')));
- source=source.replace(/new URL\('\.\/assets\/memento-wordmark\.svg',\s*import\.meta\.url\)\.href/g,JSON.stringify(data(root+'navigation/assets/memento-wordmark.svg')));
+ source=source.replace(/new URL\(['"]\.\/assets\/([^'"]+)['"],\s*import\.meta\.url\)\.href/g,(_,asset)=>JSON.stringify(data(root+'navigation/assets/'+asset.split('?')[0])));
  if(source.includes('import.meta'))throw Error('Unresolved module URL: '+file);
  return '// navigation/'+file+'\n'+source;
 }).join('\n');
-const bootstrap=/<script defer src="\/navigation\/bootstrap\.js\?v=7\.0\.0"\s+data-memento-page="([^"]+)"\s+data-memento-hub="([^"]+)"><\/script>/;
+const bootstrap=/<script defer src="\/navigation\/bootstrap\.js\?v=12\.0\.0"\s+data-memento-page="([^"]+)"\s+data-memento-hub="([^"]+)"><\/script>/;
 if(!bootstrap.test(html))throw Error('Expected one configured overlay bootstrap.');
 html=html.replace(bootstrap,(_,page,hub)=>inline.join('\n')+'\n<script>\n(()=>{\n"use strict";\n'+overlay.replace(/<\/script/gi,'<\\/script')+'\ninstallChild('+JSON.stringify({page,hub})+');\n})();\n</script>');
 const destination=resolve(root,'../output');mkdirSync(destination,{recursive:true});
