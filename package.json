@@ -1,12 +1,13 @@
 {
   "name": "memento-start-v6",
-  "version": "6.7.0",
+  "version": "6.9.1",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "node scripts/serve.mjs",
     "check": "node scripts/check.mjs",
     "export": "node scripts/build-standalone.mjs",
-    "gradients": "node scripts/build-gradients.mjs"
+    "gradients": "node scripts/build-gradients.mjs",
+    "check:vfx": "node scripts/check-vfx.mjs"
   }
 }

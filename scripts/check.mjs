@@ -15,5 +15,7 @@ function walk(dir){return readdirSync(dir).flatMap(n=>{const p=resolve(dir,n);re
 for(const file of [...walk(root+'assets'),...walk(root+'navigation')].filter(p=>['.js','.mjs'].includes(extname(p)))){const check=spawnSync(process.execPath,['--check',file],{encoding:'utf8'});if(check.status)issues.push(check.stderr);}
 for(const ramp of JSON.parse(readFileSync(root+'docs/gradient-verification.json','utf8')))if(!ramp.anchorsExact||ramp.maxChannelError>ramp.limit)issues.push('Invalid DNA ramp: '+ramp.name);
 const deployment=JSON.parse(readFileSync(root+'vercel.json','utf8'));if(deployment.outputDirectory!=='.')issues.push('Static output must be project root.');
+const qa=readFileSync(root+'qa/index.html','utf8');
+for(const script of qa.matchAll(/<script>([\s\S]*?)<\/script>/g)){const check=spawnSync(process.execPath,['--check'],{input:script[1],encoding:'utf8'});if(check.status)issues.push(check.stderr);}
 if(issues.length){console.error(issues.join('\n'));process.exit(1);}
 console.log('Passed: local assets, unique IDs, accessible references, JS syntax, DNA gradient tolerance, static output.');

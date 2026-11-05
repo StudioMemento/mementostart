@@ -1,0 +1,16 @@
+/* All masks are enhancements. Default HTML remains fully visible. */
+.mm-fx-pending #memento-contact{opacity:0}
+.hero-title{animation:none}
+.mm-vfx-overlay,.mm-vfx-nav-overlay{position:fixed;inset:0;width:100%;height:100%;overflow:hidden;pointer-events:none!important;z-index:900;contain:strict}
+.mm-vfx-defs{position:absolute;width:0;height:0;overflow:hidden;pointer-events:none}
+[data-mm-mask]{mask-mode:alpha;mask-repeat:no-repeat;-webkit-mask-repeat:no-repeat}
+@media(prefers-reduced-motion:reduce),(forced-colors:active){
+ .mm-fx-pending #memento-contact{opacity:1}
+ .mm-vfx-overlay,.mm-vfx-nav-overlay{display:none!important}
+ [data-mm-mask]{mask-image:none!important;-webkit-mask-image:none!important}
+}
+@media print{.mm-vfx-overlay,.mm-vfx-nav-overlay{display:none!important}[data-mm-mask]{mask-image:none!important}}
+
+.mm-vfx-nav-overlay{z-index:1002}
+
+@media print{.mm-vfx-environment{display:none!important}}
