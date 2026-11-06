@@ -1,6 +1,6 @@
 /* Explicit canvas in standalone mode; keep the embedded 3D background transparent. */
 html[data-embedded="false"],html[data-memento-navigation="standalone"]{background-color:#121212}
-/* Page spacing is independent of the V7 blur renderer. */
+/* Page spacing is independent of the V12 blur renderer. */
 :root{--memento-content-edge-space:clamp(180px,26dvh,300px)}
 .hero{padding-top:max(clamp(80px,7vw,112px),calc(var(--memento-content-edge-space) * .85),calc(env(safe-area-inset-top,0px) + 60px))}
 .explore-section{padding-bottom:max(var(--memento-content-edge-space),calc(env(safe-area-inset-bottom,0px) + 80px))}

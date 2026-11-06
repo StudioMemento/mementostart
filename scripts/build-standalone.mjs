@@ -14,8 +14,6 @@ html=html.replace(/<link rel="stylesheet" href="([^"]+)">/g,(_,file)=>{
  return '<style>\n'+css+'\n</style>';
 });
 html=html.replace(/(src|href)="(assets\/[^\"]+\.(?:webp|svg))"/g,(_,attr,path)=>attr+'="'+data(resolve(root,path))+'"');
-// The synchronous watchdog stays before first paint; deferred application scripts move to body end.
-html=html.replace('<script src="assets/vfx/boot.js"></script>','<script>\n'+readFileSync(root+'assets/vfx/boot.js','utf8')+'\n</script>');
 const inline=[];
 html=html.replace(/\s*<script defer src="(assets\/[^\"]+\.js)"><\/script>/g,(_,file)=>{inline.push('<script>\n'+readFileSync(root+file,'utf8').replaceAll('</script','<\\/script')+'\n</script>');return '';});
 const overlayModules=['core.mjs','blur.mjs','styles.mjs','icon-assets.mjs','memento-paths.mjs','wordmark.mjs','icons.mjs','navbar.mjs','child.mjs'];
@@ -29,5 +27,5 @@ const overlay=overlayModules.map(file=>{
 const bootstrap=/<script defer src="\/navigation\/bootstrap\.js\?v=12\.0\.0"\s+data-memento-page="([^"]+)"\s+data-memento-hub="([^"]+)"><\/script>/;
 if(!bootstrap.test(html))throw Error('Expected configured overlay bootstrap.');
 html=html.replace(bootstrap,(_,page,hub)=>inline.join('\n')+'\n<script>\n(()=>{\n"use strict";\n'+overlay.replace(/<\/script/gi,'<\\/script')+'\ninstallChild('+JSON.stringify({page,hub})+');\n})();\n</script>');
-const destination=resolve(root,'MEMENTO_START_VFX_V2.html');
+const destination=resolve(root,'MEMENTO_START_V7_NAV_OVERLAY.html');
 writeFileSync(destination,html);console.log(destination+' ('+Buffer.byteLength(html)+' bytes)');
