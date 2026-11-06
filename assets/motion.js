@@ -15,7 +15,7 @@
   const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');
   function fit(text,width,tracking=0,padding=0,max=260){ctx.font='350 100px Inter';return Math.min(max,Math.max(12,width/(ctx.measureText(text).width/100+(text.length-1)*tracking+padding)));}
   function typography(){
-    document.querySelectorAll('.hero-line,.explore-words>span,.fit-heading').forEach(el=>{
+    document.querySelectorAll('.hero-line,.explore-line,.fit-heading').forEach(el=>{
       const style=getComputedStyle(el),current=parseFloat(style.fontSize)||100;
       const padding=(parseFloat(style.paddingLeft)+parseFloat(style.paddingRight))/current,tracking=(parseFloat(style.letterSpacing)||0)/current;
       const fitted=fit(el.textContent.trim(),el.clientWidth*.985,tracking,padding);

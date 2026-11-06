@@ -8,7 +8,7 @@ const issues=[];
 const local=(value,base)=>{if(/^(?:data:|https?:|mailto:|tel:|#)/.test(value))return;const file=resolve(value.startsWith('/')?root:base,value.replace(/^\//,'').split(/[?#]/)[0]);if(!existsSync(file))issues.push('Missing asset: '+file);};
 for(const m of html.matchAll(/(?:src|href)="([^"]+)"/g))local(m[1],root);
 for(const filename of ['start.css','gradients.css','navigation-insets.css']){const css=readFileSync(root+'assets/'+filename,'utf8');for(const m of css.matchAll(/url\(['"]?([^'"\)]+)['"]?\)/g))local(m[1],root+'assets');}
-const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);
+const ids=[...html.matchAll(/\s+id="([^"]+)"/g)].map(m=>m[1]);
 for(const id of new Set(ids))if(ids.filter(x=>x===id).length>1)issues.push('Duplicate id: '+id);
 for(const m of html.matchAll(/(?:aria-controls|aria-labelledby|aria-describedby|for)="([^"]+)"/g))for(const id of m[1].split(' '))if(!ids.includes(id))issues.push('Unresolved accessibility reference: '+id);
 function walk(dir){return readdirSync(dir).flatMap(n=>{const p=resolve(dir,n);return statSync(p).isDirectory()?walk(p):[p];});}
