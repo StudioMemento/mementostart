@@ -13,10 +13,16 @@
   <link rel="stylesheet" href="assets/start.css">
   <link rel="stylesheet" href="assets/gradients.css">
   <link rel="stylesheet" href="assets/navigation-insets.css">
+<link rel="stylesheet" href="assets/vfx.css">
+<script>
+(() => { if (matchMedia('(prefers-reduced-motion: reduce)').matches) return; document.documentElement.classList.add('vfx-boot'); window.__mementoVfxBootTimer=setTimeout(() => document.documentElement.classList.remove('vfx-boot'), 900); })();
+</script>
   <script defer src="navigation/start.bundle.js?v=12.1.0"></script>
   <script defer src="assets/config.js"></script>
   <script defer src="assets/start.js"></script>
   <script defer src="assets/motion.js"></script>
+<script defer src="assets/vfx-math.js"></script>
+<script defer src="assets/vfx.js"></script>
 </head>
 <body>
 <!-- MEMENTO_OVERLAY_START -->

@@ -1,13 +1,15 @@
 {
-  "name": "memento-start-v8",
-  "version": "8.0.0",
+  "name": "memento-start-v9-r4",
+  "version": "9.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "node scripts/serve.mjs",
     "check": "node scripts/check.mjs",
-    "export": "node scripts/build-navigation.mjs && node scripts/build-standalone.mjs",
+    "export": "node scripts/build-standalone.mjs",
     "gradients": "node scripts/build-gradients.mjs",
-    "overlay": "node scripts/build-navigation.mjs"
+    "overlay": "node scripts/build-navigation.mjs",
+    "build": "node scripts/build-dist.mjs",
+    "verify": "node scripts/verify-preservation.mjs && node scripts/verify-vfx.mjs && node scripts/verify-package.mjs"
   }
 }

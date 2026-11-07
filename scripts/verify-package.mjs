@@ -1,0 +1,11 @@
+import {readFileSync,existsSync} from 'node:fs';
+import {spawnSync} from 'node:child_process';
+import assert from 'node:assert/strict';
+const root=new URL('../',import.meta.url),run=script=>{const r=spawnSync(process.execPath,[new URL(script,root).pathname],{cwd:root,encoding:'utf8'});if(r.status)throw new Error(r.stdout+r.stderr);return r.stdout;};
+console.log(run('scripts/check.mjs'));console.log(run('scripts/build-standalone.mjs'));
+const html=readFileSync(new URL('MEMENTO_START_V9_VFX_R4.html',root),'utf8');
+assert.ok(html.includes('MementoStartVFX'));assert.ok(html.includes('VFXMath'));assert.equal((html.match(/src="assets\//g)||[]).length,0);
+assert.ok(html.includes('data:font/woff2;base64,'));assert.ok(html.includes('data:image/webp;base64,'));
+const source=readFileSync(new URL('index.html',root),'utf8');for(const file of ['vfx.css','vfx-math.js','vfx.js'])assert.ok(source.includes('assets/'+file));
+assert.ok(existsSync(new URL('navigation/start.bundle.js',root)));
+console.log('PACKAGE_CONFIRMED');

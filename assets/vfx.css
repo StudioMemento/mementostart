@@ -1,0 +1,33 @@
+/* R4 is additive. The V8 DOM, proportions, assets and navigation stay authoritative. */
+html.vfx-boot .hero-title,html.vfx-boot main .reveal{visibility:hidden}
+html.vfx-ready .hero-title{animation:none}
+html.vfx-ready main{z-index:1}
+.memento-vfx-canvas{position:fixed;inset:0;width:100%;height:100%;pointer-events:none!important;contain:strict;user-select:none}
+.memento-vfx-background{z-index:0}
+.memento-vfx-foreground{z-index:2}
+.vfx-glyph{position:relative}
+.vfx-glyph::after{
+  content:attr(data-vfx-text) / "";position:absolute;inset:0;box-sizing:border-box;padding:inherit;
+  font:inherit;line-height:inherit;letter-spacing:inherit;white-space:inherit;text-align:inherit;
+  color:transparent;background-color:transparent;background-image:var(--vfx-texture);background-size:var(--vfx-texture-size,140px 48px);
+  background-clip:text;-webkit-background-clip:text;pointer-events:none;user-select:none;
+  opacity:var(--vfx-text-alpha,0);filter:drop-shadow(0 0 2px #dfaa6b20);
+  mask-image:var(--vfx-text-mask,none);-webkit-mask-image:var(--vfx-text-mask,none)
+}
+.vfx-icon::after{content:"";position:absolute;inset:0;pointer-events:none;background-image:var(--vfx-icon-texture);background-size:32px 32px;opacity:var(--vfx-icon-alpha,0)}
+.vfx-icon{position:relative}
+/* Image activation belongs to the exact hovered/touched/focused card, never the proximity field. */
+html.vfx-ready .contact-section a>img{filter:grayscale(calc(1 - var(--vfx-image,0))) brightness(calc(1 + var(--vfx-image,0)*.08));transition:filter .28s var(--ease)}
+html.vfx-ready .contact-section a::after{opacity:calc(.5*(1 - var(--vfx-image,0)));transition:opacity .28s var(--ease)}
+html.vfx-ready .location-photo{filter:grayscale(calc(1 - var(--vfx-image,0)));opacity:calc(.8 + var(--vfx-image,0)*.2)}
+/* Keep the original border at rest; the engine adds only the local perimeter light. */
+html.vfx-ready .contact-section a:is(:hover,:focus-visible){--frame-gradient:linear-gradient(135deg,#d8d1c3c7 0%,#aaa28f66 27%,#716a5e57 62%,#8c744b75 83%,#d9913de0 100%)}
+html.vfx-ready .contact-section a:is(:hover,:focus-visible) .contact-title{background-position:0 50%}
+html.vfx-ready .contact-section a:is(:hover,:focus-visible) .contact-copy>.icon{color:var(--ink)}
+html.vfx-ready .vfx-reveal:focus-within{mask-image:none!important;-webkit-mask-image:none!important}
+@media(prefers-reduced-motion:reduce){
+  html.vfx-boot .hero-title,html.vfx-boot main .reveal{visibility:visible}
+  .memento-vfx-canvas,.vfx-glyph::after,.vfx-icon::after{display:none!important}
+  .vfx-reveal{mask-image:none!important;-webkit-mask-image:none!important}
+}
+@media(forced-colors:active){.memento-vfx-canvas,.vfx-glyph::after,.vfx-icon::after{display:none!important}.vfx-reveal{mask-image:none!important;-webkit-mask-image:none!important}}

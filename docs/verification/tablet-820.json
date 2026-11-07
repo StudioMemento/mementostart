@@ -1,0 +1,189 @@
+{
+  "viewport": {
+    "width": 820,
+    "height": 900,
+    "dpr": 1,
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36"
+  },
+  "metrics": {
+    "version": "9.0.0-r4",
+    "renderer": "Canvas2D + SVG alpha masks",
+    "enabled": true,
+    "disposed": false,
+    "reducedMotion": false,
+    "frames": 16,
+    "fxMilliseconds": {
+      "samples": 16,
+      "mean": 4.225000000209548,
+      "p95": 14.599999999627471
+    },
+    "frameMilliseconds": {
+      "samples": 16,
+      "mean": 711.3041666666666,
+      "p95": 1016.5000000000007
+    },
+    "quality": 1,
+    "particles": 0,
+    "pulses": 0,
+    "pointerUps": 0,
+    "pointerCancels": 0,
+    "impulses": 0,
+    "layoutBuilds": 3,
+    "backgroundVertices": 413,
+    "targetCount": 16,
+    "maskedTargets": [
+      "mm-phone-link",
+      "mm-whatsapp-link",
+      "mm-instagram-link",
+      "mm-fiverr-link"
+    ],
+    "activeCard": null,
+    "error": null
+  },
+  "scroll": 0,
+  "overflow": false,
+  "boot": false,
+  "canvas": [
+    {
+      "w": 820,
+      "h": 900,
+      "events": "none"
+    },
+    {
+      "w": 820,
+      "h": 900,
+      "events": "none"
+    }
+  ],
+  "images": [
+    {
+      "id": "mm-email-project",
+      "activation": "0",
+      "filter": "grayscale(1) brightness(1)"
+    },
+    {
+      "id": "mm-email-studio",
+      "activation": "0",
+      "filter": "grayscale(1) brightness(1)"
+    },
+    {
+      "id": "mm-phone-link",
+      "activation": "0",
+      "filter": "grayscale(1) brightness(1)"
+    },
+    {
+      "id": "mm-whatsapp-link",
+      "activation": "0",
+      "filter": "grayscale(1) brightness(1)"
+    },
+    {
+      "id": "mm-instagram-link",
+      "activation": "0",
+      "filter": "grayscale(1) brightness(1)"
+    },
+    {
+      "id": "mm-fiverr-link",
+      "activation": "0",
+      "filter": "grayscale(1) brightness(1)"
+    }
+  ],
+  "glyphs": [
+    {
+      "text": "LET’S WORK",
+      "alpha": "0",
+      "content": "\"LET’S WORK\" / \"\""
+    },
+    {
+      "text": "TOGETHER",
+      "alpha": "0",
+      "content": "\"TOGETHER\" / \"\""
+    },
+    {
+      "text": "mementoxdesign@gmail.com",
+      "alpha": "0",
+      "content": "\"mementoxdesign@gmail.com\" / \"\""
+    },
+    {
+      "text": "info@mementostudio.it",
+      "alpha": "0",
+      "content": "\"info@mementostudio.it\" / \"\""
+    },
+    {
+      "text": "+39 328 545 4661",
+      "alpha": "0",
+      "content": "\"+39 328 545 4661\" / \"\""
+    },
+    {
+      "text": "WhatsApp",
+      "alpha": "0",
+      "content": "\"WhatsApp\" / \"\""
+    },
+    {
+      "text": "Instagram",
+      "alpha": "",
+      "content": "\"Instagram\" / \"\""
+    },
+    {
+      "text": "Fiverr",
+      "alpha": "",
+      "content": "\"Fiverr\" / \"\""
+    }
+  ],
+  "results": [],
+  "traces": [
+    {
+      "ms": 60,
+      "boot": false,
+      "masked": 8,
+      "partialPolygons": 115
+    },
+    {
+      "ms": 250,
+      "boot": false,
+      "masked": 8,
+      "partialPolygons": 115
+    },
+    {
+      "ms": 900,
+      "boot": false,
+      "masked": 8,
+      "partialPolygons": 115
+    },
+    {
+      "ms": 500,
+      "boot": false,
+      "masked": 8,
+      "partialPolygons": 115
+    },
+    {
+      "ms": 1400,
+      "boot": false,
+      "masked": 8,
+      "partialPolygons": 66
+    },
+    {
+      "ms": 900,
+      "boot": false,
+      "masked": 8,
+      "partialPolygons": 66
+    },
+    {
+      "ms": 1400,
+      "boot": false,
+      "masked": 8,
+      "partialPolygons": 66
+    },
+    {
+      "ms": 2100,
+      "boot": false,
+      "masked": 8,
+      "partialPolygons": 66
+    },
+    {
+      "ms": 2100,
+      "boot": false,
+      "masked": 4,
+      "partialPolygons": 51
+    }
+  ]
+}

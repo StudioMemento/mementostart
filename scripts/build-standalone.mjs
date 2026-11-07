@@ -19,6 +19,6 @@ html=html.replace(/\s*<script defer src="((?:assets|navigation)\/[^\"]+\.js(?:\?
   scripts.push('<script>\n'+readFileSync(resolve(root,file.split('?')[0]),'utf8').replace(/<\/script/gi,'<\\/script')+'\n</script>');return '';
 });
 html=html.replace('</body>',scripts.join('\n')+'\n</body>');
-const destination=resolve(root,'MEMENTO_START_V8_NAV_OVERLAY.html');
+const destination=resolve(root,'MEMENTO_START_V9_VFX_R4.html');
 writeFileSync(destination,html);
 console.log(destination+' ('+Buffer.byteLength(html)+' bytes)');
