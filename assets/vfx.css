@@ -44,3 +44,8 @@ html:not(.vfx-ready) img.vfx-color-pass{display:none}
 /* Preserve FAQ selection and its low-opacity mobile treatment. */
 html.vfx-ready .vfx-color-pass.faq-photo:not(.is-active){--vfx-photo-opacity:0}
 @media(max-width:767px){html.vfx-ready .vfx-color-pass.faq-photo.is-active{--vfx-photo-opacity:.25}}
+
+/* V12: paint and mask belong to the same element; fallback stays readable. */
+.hero-title.category-gradient,.explore-words.category-gradient{background:none;color:var(--ink);-webkit-text-fill-color:var(--ink)}
+.hero-line,.explore-line{background-image:var(--category-gradient);background-clip:text;-webkit-background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
+@media(forced-colors:active){.hero-line,.explore-line{background:none;color:CanvasText;-webkit-text-fill-color:CanvasText}}

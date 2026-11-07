@@ -64,26 +64,23 @@
       for(let y=-60;y<=h+60;y+=100+rng()*90){add(-32,y);add(w+32,y+25*rng());}
       add(-32,-60);add(w+32,-60);add(-32,h+60);add(w+32,h+60);
       // Variable exclusion radii create real mixed scales, rather than a jittered grid.
-      const count=Math.min(6000,Math.ceil(w*h/1800));
+      const count=Math.min(1800,Math.ceil(w*h/4000));
       for(let i=0;i<count;i++) {
         const x=rng()*w,y=rng()*h;
         let near=0;for(const c of clusters)near=Math.max(near,1-smooth(0,c.r,Math.hypot(x-c.x,y-c.y)));
-        const radius=(w<700?59:89)*(1-near*.76)*( .8+rng()*.55);
+        const radius=(w<700?78:115)*(1-near*.38)*( .8+rng()*.55);
         if(points.every(p=>Math.hypot(x-p[0],y-p[1])>radius))add(x,y);
       }
     } else {
       for(const p of poly)add(...p);
       for(let i=0;i<poly.length;i++) {
         const a=poly[i],b=poly[(i+1)%poly.length],len=Math.hypot(b[0]-a[0],b[1]-a[1]);
-        for(let d=0;d<len;d+=(isReveal?22:8)+rng()*(isReveal?11:8))add(a[0]+(b[0]-a[0])*d/len,a[1]+(b[1]-a[1])*d/len);
+        for(let d=0;d<len;d+=(isReveal?38:32)+rng()*(isReveal?14:20))add(a[0]+(b[0]-a[0])*d/len,a[1]+(b[1]-a[1])*d/len);
       }
-      if(!isReveal) {
-        // Two irregular fine bands follow the actual chamfered perimeter.
-        const boundary=[...points],cx=w/2,cy=h/2;
-        for(const p of boundary)for(let k=1;k<3;k++)if(rng()>.20){const s=(6+rng()*7)*k,dx=cx-p[0],dy=cy-p[1],l=Math.hypot(dx,dy);add(p[0]+dx/l*s,p[1]+dy/l*s);}
-      }
-      const spacing=isReveal?25:24,tries=Math.ceil(w*h/(spacing*spacing)*5);
-      for(let i=0;i<tries;i++){const x=rng()*w,y=rng()*h;if(!inside(x,y,poly))continue;const d=nearest(x,y,poly).distance;const r=isReveal?19+rng()*13:16+Math.min(25,d*.32)+rng()*11;if(points.every(p=>Math.hypot(x-p[0],y-p[1])>r))add(x,y);}
+      // Uniform sparse membrane: no double ring of tiny perimeter cells.
+      const spacing=isReveal?42:48,tries=Math.ceil(w*h/(spacing*spacing)*4);
+      for(let i=0;i<tries;i++){const x=rng()*w,y=rng()*h;if(!inside(x,y,poly))continue;const r=isReveal?30+rng()*14:34+rng()*24;if(points.every(p=>Math.hypot(x-p[0],y-p[1])>r))add(x,y);}
+
     }
     return assemble(points,triangulate(points),seed);
   }
@@ -93,11 +90,40 @@
     const warp=1+.14*Math.sin(x*.009+y*.013)+.10*Math.cos(x*.019-y*.005);
     return clamp((1-smooth(radius*.07,radius*warp,Math.hypot(dx,dy)))**1.5*p.strength);
   }
-  function revealDistance(x,screenY,height,scroll,seed,band=.20){
-    const wave=13*Math.sin(x*.014+seed%31)+6*Math.sin(x*.039+seed%7);
-    const top=scroll<5?-height:height*band+wave;
-    const bottom=height*(1-band)+wave;
-    return Math.min(screenY-top,bottom-screenY);
+  function revealBounds(height,scroll){
+    const edge=clamp(height*.035,24,48);
+    return {top:-80+(edge+80)*smooth(0,100,scroll),bottom:height-edge};
+  }
+  function revealDistance(x,screenY,height,scroll,seed){
+    const b=revealBounds(height,scroll),wave=4*Math.sin(x*.013+seed%31)+3*Math.sin(x*.031+seed%7);
+    return Math.min(screenY-b.top-wave,b.bottom-screenY+wave);
+  }
+  function prepareFragments(mesh,seed){
+    const rng=random(seed);
+    return mesh.triangles.map(tri=>{const points=tri.map(i=>mesh.points[i]),x=points.reduce((n,p)=>n+p[0],0)/3,y=points.reduce((n,p)=>n+p[1],0)/3;
+      return {tri,points,x,y,minY:Math.min(...points.map(p=>p[1])),maxY:Math.max(...points.map(p=>p[1])),jitter:(rng()-.5)*10,v:1,frontier:0,path:'M'+points.map(p=>p.map(n=>n.toFixed(1)).join(',')).join('L')+'Z'};
+    });
+  }
+  function fragmentMask(cells,w,h,offsetX,offsetY,viewH,scroll,seed,load=1){
+    const bounds=revealBounds(viewH,scroll),localTop=bounds.top-offsetY,localBottom=bounds.bottom-offsetY;
+    // The core starts beyond the maximum cell extent. Only edge bands need paths.
+    const span=cells.reduce((m,c)=>Math.max(m,c.maxY-c.minY),0),guard=span+30;
+    const coreTop=clamp(localTop+guard,0,h),coreBottom=clamp(localBottom-guard,0,h);
+    const paths=[];if(load>=1&&coreBottom>coreTop)paths.push(`M0,${coreTop.toFixed(1)}V${coreBottom.toFixed(1)}H${w.toFixed(1)}V${coreTop.toFixed(1)}Z`);
+    let full=true,frontier=0,partial=0;
+    for(const c of cells){
+      if(load>=1&&c.minY>=coreTop&&c.maxY<=coreBottom){c.v=1;c.frontier=0;continue;}
+      const distance=revealDistance(c.x+offsetX,c.y+offsetY,viewH,scroll,seed)+c.jitter;
+      const entrance=load>=1?1:smooth(0,.20,load*1.25-(c.x/w*.3+(1-c.y/h)*.7));
+      c.v=Math.min(smooth(-18,18,distance),entrance);c.frontier=c.v>.001&&c.v<.999?Math.sin(c.v*Math.PI):0;
+      frontier=Math.max(frontier,c.frontier);
+      if(c.v<.999)full=false;
+      if(c.v<=.001)continue;
+      if(c.v>=.999){paths.push(c.path);continue;}
+      partial++;const scale=Math.sqrt(c.v);
+      paths.push('M'+c.points.map(p=>[(c.x+(p[0]-c.x)*scale).toFixed(1),(c.y+(p[1]-c.y)*scale).toFixed(1)].join(',')).join('L')+'Z');
+    }
+    return {path:full?'':paths.join(''),full,frontier,partial};
   }
   function visibility(y,top,bottom,bandTop,bandBottom){return smooth(top,top+bandTop,y)*(1-smooth(bottom-bandBottom,bottom,y));}
   function cellVisibility(x,y,seedOffset,load,scrollY,viewH,top=42,band=.16) {
@@ -135,5 +161,5 @@
     }return result;
   }
   function curl(x,y,t,seed){const a=.016,b=.021,phase=seed*.007;return [Math.cos(y*b+t*.7+phase)*Math.sin(x*a+phase)*b*240,-Math.cos(x*a+phase)*Math.sin(y*b+t*.7+phase)*a*240];}
-  globalThis.MementoVFXMath=Object.freeze({clamp,smooth,hash,random,polygon,inside,nearest,triangulate,assemble,sampleMesh,field,revealDistance,visibility,cellVisibility,pulseTimes,pulseEnergy,displacement,scaledTriangle,clipPolygon,area,curl});
+  globalThis.MementoVFXMath=Object.freeze({clamp,smooth,hash,random,polygon,inside,nearest,triangulate,assemble,sampleMesh,field,revealBounds,revealDistance,prepareFragments,fragmentMask,visibility,cellVisibility,pulseTimes,pulseEnergy,displacement,scaledTriangle,clipPolygon,area,curl});
 })();

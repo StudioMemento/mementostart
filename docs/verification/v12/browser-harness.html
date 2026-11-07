@@ -1,0 +1,44 @@
+<!doctype html><meta charset="utf-8"><title>Start V12 — Visual QA</title>
+<style>*{box-sizing:border-box}body{margin:0;background:#292929;color:#eee;font:12px monospace}#bar{position:fixed;bottom:0;left:0;z-index:5;background:#171717f2;padding:8px;max-height:110px;overflow:auto;width:100%}button{padding:6px;margin-right:6px}iframe{border:0;width:100%;height:100vh;display:block;margin:auto}body.mobile iframe{width:390px;height:844px}#result{white-space:pre-wrap}</style>
+<iframe id="app" src="../../../index.html"></iframe>
+<div id="bar"><button id="suite">Run suite</button><button id="hero">Hero edge</button><button id="card">Card</button><button id="faq">FAQ</button><button id="map">Map edge</button><button id="mobile">Mobile</button><button id="rest">Rest</button><output id="result">Loading</output></div>
+<script>
+const app=document.querySelector('#app'),out=document.querySelector('#result'),sleep=ms=>new Promise(r=>setTimeout(r,ms));let w,d,fx,results=[];
+const rect=el=>el.getBoundingClientRect();const check=(name,pass,detail)=>{results.push({name,pass:!!pass,detail});if(!pass)throw Error(name+': '+JSON.stringify(detail));};
+async function until(fn,label,timeout=12000){const end=Date.now()+timeout;while(Date.now()<end){if(fn())return;await sleep(90);}throw Error('Timeout: '+label);}
+function move(x,y,type='mouse',kind='pointermove'){const el=d.elementFromPoint(x,y)||d.body;el.dispatchEvent(new w.PointerEvent(kind,{clientX:x,clientY:y,pointerId:1,pointerType:type,isPrimary:true,bubbles:true}));}
+function leave(){d.documentElement.dispatchEvent(new w.PointerEvent('pointerleave'));}
+async function pos(y){const prev=fx.getMetrics().frames;w.scrollTo({top:y,behavior:'instant'});fx.invalidateLayout();await until(()=>fx.getMetrics().frames>prev,'render after scroll');}
+async function settle(){await until(()=>fx.getMetrics().sleeping,'idle settle',15000);}
+const path=el=>d.getElementById('vfx-mask-'+el.dataset.vfxSurface)?.querySelector('path')?.getAttribute('d')||'';
+function paths(){return [...d.querySelectorAll('.vfx-reveal')].filter(t=>t.style.maskImage).map(t=>({id:t.dataset.vfxSurface,d:path(t)}));}
+async function show(which){
+ if(which==='mobile')document.body.classList.toggle('mobile');else document.body.classList.remove('mobile');await sleep(250);
+ const target=d.querySelector(which==='hero'?'.hero-line:nth-child(2)':which==='faq'?'.faq-panel':which==='map'?'#mm-map-area':'#mm-email-studio');
+ await pos(rect(target).top+w.scrollY-(which==='hero'?-(rect(target).height*.55):which==='map'?-95:100));
+ const r=rect(target);if(which==='rest')leave();else move(r.x+r.width*.50,r.y+r.height*.52,which==='mobile'?'touch':'mouse',which==='mobile'?'pointerdown':'pointermove');
+ await sleep(1100);out.textContent=which+' '+JSON.stringify(fx.getMetrics());
+}
+app.onload=async()=>{w=app.contentWindow;d=w.document;await until(()=>w.MementoStartVFX?.getMetrics().targetCount>0,'initialization');fx=w.MementoStartVFX;await settle();out.textContent='Ready';};
+for(const id of ['hero','card','faq','map','mobile','rest'])document.querySelector('#'+id).onclick=()=>show(id).catch(e=>out.textContent=String(e));
+document.querySelector('#suite').onclick=async()=>{document.querySelector('#suite').disabled=true;out.textContent='RUNNING';results=[];try{
+ document.body.classList.remove('mobile');await sleep(250);await pos(0);leave();await settle();let m=fx.getMetrics();check('engine healthy',m.error===null&&m.enabled,m);
+ check('canvas aligned',m.logicalWidth===d.documentElement.clientWidth&&m.logicalWidth===m.canvasCSSWidth);
+ const f=m.frames;await sleep(900);check('idle renders zero frames',fx.getMetrics().frames===f,{before:f,after:fx.getMetrics().frames});check('idle energy is neutral',fx.inspect().pointer.strength===0&&fx.inspect().targets.every(t=>t.meshEnergy===0));
+ const title=d.querySelectorAll('.hero-line')[1],tr=rect(title);move(tr.x+tr.width*.4,tr.y+tr.height*.5);await until(()=>parseFloat(title.style.getPropertyValue('--vfx-text-alpha'))>.35,'glyph energy');check('pointer wakes sleeping renderer',fx.getMetrics().frames>f);
+ check('hero paints on masked row',w.getComputedStyle(title).backgroundClip==='text'&&w.getComputedStyle(d.querySelector('.hero-title')).backgroundImage==='none');
+ await pos(rect(title).top+w.scrollY+rect(title).height*.55);leave();check('hero mask really partial',!!title.style.maskImage&&path(title).length>0&&fx.inspect().targets.find(t=>t.id===title.dataset.vfxSurface).coverage.some(v=>v>0&&v<1),{pathBytes:path(title).length});
+ const sample=[];for(const y of [w.scrollY-12,w.scrollY,w.scrollY+12]){await pos(y);sample.push({y,paths:paths()});}for(const v of sample.toReversed()){await pos(v.y);check('reversible geometry '+v.y,JSON.stringify(paths())===JSON.stringify(v.paths));}
+ const card=d.querySelector('#mm-email-studio');await pos(rect(card).top+w.scrollY-140);const cr=rect(card);move(cr.x+cr.width*.5,cr.y+cr.height*.5);await sleep(1200);check('active image 80 percent',card.style.getPropertyValue('--vfx-image')==='.8');check('local color enabled',card.querySelector('.vfx-color-pass').style.getPropertyValue('--vfx-color-on')==='1');check('card fully readable in center',!card.style.maskImage);
+ const map=d.querySelector('#mm-map-area');await pos(rect(map).top+w.scrollY+100);leave();check('map participates in reveal',!!map.style.maskImage&&path(map).length>0,{bytes:path(map).length});check('map iframe remains native',!!map.querySelector('iframe[src*="google.com/maps/embed"]'));
+ await pos(rect(map).top+w.scrollY-140);check('map reading area fully solid',!map.style.maskImage);
+ const faq=d.querySelector('.faq-panel');await pos(rect(faq).top+w.scrollY-120);let fr=rect(faq);move(fr.x+fr.width*.7,fr.y+fr.height*.5);await sleep(1000);check('FAQ mask bounded',path(faq).length<12000,path(faq).length);
+ if(d.querySelector('[data-faq="existing"]').open)d.querySelector('#question-idea').click();d.querySelector('#question-existing').focus();d.querySelector('#question-existing').click();await sleep(900);check('FAQ still expands',d.querySelector('[data-faq="existing"]').open);check('focused FAQ remains fully visible',!faq.style.maskImage);d.activeElement?.blur();
+ document.body.classList.add('mobile');await sleep(500);await pos(0);m=fx.getMetrics();check('mobile width',m.logicalWidth===390,m.logicalWidth);check('no mobile horizontal overflow',d.documentElement.scrollWidth===390);
+ let before=m;move(210,250,'touch','pointerdown');move(220,270,'touch');move(220,270,'touch','pointerup');await sleep(400);m=fx.getMetrics();check('touch single release impulse',m.impulses===before.impulses+1);before=m;move(210,250,'touch','pointerdown');move(210,250,'touch','pointercancel');check('cancel without impulse',fx.getMetrics().pointerCancels===before.pointerCancels+1&&fx.getMetrics().impulses===before.impulses);
+ await pos(rect(faq).top+w.scrollY-90);fr=rect(faq);move(fr.x+fr.width*.6,fr.y+fr.height*.3);await sleep(1200);const clones=[...d.querySelectorAll('.vfx-color-pass.faq-photo')];await until(()=>clones.some(c=>parseFloat(w.getComputedStyle(c).opacity)>.24),'FAQ settled color');check('FAQ only selected image',clones.filter(c=>parseFloat(w.getComputedStyle(c).opacity)>.01).length===1,clones.map(c=>w.getComputedStyle(c).opacity));check('FAQ mobile photo opacity',Math.abs(parseFloat(w.getComputedStyle(clones.find(c=>c.classList.contains('is-active'))).opacity)-.25)<.01);
+ fx.setEnabled(false);check('fallback clears all masks',[...d.querySelectorAll('.vfx-reveal')].every(t=>!t.style.maskImage)&&!d.documentElement.classList.contains('vfx-ready'));check('fallback hero retains paint',w.getComputedStyle(title).backgroundImage!=='none');fx.setEnabled(true);await sleep(1000);check('restart healthy',fx.getMetrics().error===null&&fx.getMetrics().enabled);
+ leave();await settle();const stop=fx.getMetrics().frames;fx.invalidateLayout();await until(()=>fx.getMetrics().frames>stop,'API wakes idle');check('API wakes idle',true);await settle();check('two canvases one engine',d.querySelectorAll('.memento-vfx-canvas').length===2);
+ const metrics=fx.getMetrics();document.body.classList.remove('mobile');out.textContent=JSON.stringify({status:'PASS',results,metrics},null,2);
+ }catch(e){out.textContent=JSON.stringify({status:'FAIL',error:String(e),results},null,2);}finally{document.querySelector('#suite').disabled=false;}};
+</script>

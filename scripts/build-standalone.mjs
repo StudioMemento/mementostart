@@ -19,6 +19,6 @@ html=html.replace(/\s*<script defer src="((?:assets|navigation)\/[^\"]+\.js(?:\?
   scripts.push('<script>\n'+readFileSync(resolve(root,file.split('?')[0]),'utf8').replace(/<\/script/gi,'<\\/script')+'\n</script>');return '';
 });
 html=html.replace('</body>',scripts.join('\n')+'\n</body>');
-const destination=resolve(root,'MEMENTO_START_V11_VFX_CALIBRATED.html');
+const destination=resolve(root,'MEMENTO_START_V12_VFX_REFINED.html');
 writeFileSync(destination,html);
 console.log(destination+' ('+Buffer.byteLength(html)+' bytes)');

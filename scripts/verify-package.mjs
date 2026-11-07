@@ -3,7 +3,7 @@ import {spawnSync} from 'node:child_process';
 import assert from 'node:assert/strict';
 const root=new URL('../',import.meta.url),run=script=>{const r=spawnSync(process.execPath,[new URL(script,root).pathname],{cwd:root,encoding:'utf8'});if(r.error||r.status!==0)throw new Error(r.error?.message||r.stdout+r.stderr);return r.stdout;};
 console.log(run('scripts/check.mjs'));console.log(run('scripts/build-standalone.mjs'));
-const html=readFileSync(new URL('MEMENTO_START_V11_VFX_CALIBRATED.html',root),'utf8');
+const html=readFileSync(new URL('MEMENTO_START_V12_VFX_REFINED.html',root),'utf8');
 assert.ok(html.includes('MementoStartVFX'));assert.ok(html.includes('VFXMath'));
 assert.equal((html.match(/(?:src|href)="(?:assets|navigation)\//g)||[]).length,0,'Standalone must not depend on local asset files');
 assert.ok(html.includes('data:font/woff2;base64,'));assert.ok(html.includes('data:image/webp;base64,'));
@@ -35,4 +35,4 @@ for(const a of manifest.assets){
 }
 assert.throws(()=>webpSize(Buffer.alloc(32)),'Malformed asset control must fail');
 assert.equal(manifest.assets.length,12);assert.ok(html.includes('href="https://mementostudio.it/#start" target="_top"'));
-console.log(`PACKAGE_CONFIRMED: V11 standalone, 12 real WebP replacements (${bytes} bytes), original image dimensions, one engine and official CTA.`);
+console.log(`PACKAGE_CONFIRMED: V12 standalone, 12 real WebP replacements (${bytes} bytes), original image dimensions, one engine and official CTA.`);
