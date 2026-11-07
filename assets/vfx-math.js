@@ -75,15 +75,15 @@
       for(const p of poly)add(...p);
       for(let i=0;i<poly.length;i++) {
         const a=poly[i],b=poly[(i+1)%poly.length],len=Math.hypot(b[0]-a[0],b[1]-a[1]);
-        for(let d=0;d<len;d+=(isReveal?40:6)+rng()*(isReveal?35:9))add(a[0]+(b[0]-a[0])*d/len,a[1]+(b[1]-a[1])*d/len);
+        for(let d=0;d<len;d+=(isReveal?22:8)+rng()*(isReveal?11:8))add(a[0]+(b[0]-a[0])*d/len,a[1]+(b[1]-a[1])*d/len);
       }
       if(!isReveal) {
         // Two irregular fine bands follow the actual chamfered perimeter.
         const boundary=[...points],cx=w/2,cy=h/2;
         for(const p of boundary)for(let k=1;k<3;k++)if(rng()>.20){const s=(6+rng()*7)*k,dx=cx-p[0],dy=cy-p[1],l=Math.hypot(dx,dy);add(p[0]+dx/l*s,p[1]+dy/l*s);}
       }
-      const spacing=isReveal?38:22,tries=Math.ceil(w*h/(spacing*spacing)*5);
-      for(let i=0;i<tries;i++){const x=rng()*w,y=rng()*h;if(!inside(x,y,poly))continue;const d=nearest(x,y,poly).distance;const r=isReveal?30+rng()*29:14+Math.min(25,d*.32)+rng()*11;if(points.every(p=>Math.hypot(x-p[0],y-p[1])>r))add(x,y);}
+      const spacing=isReveal?25:24,tries=Math.ceil(w*h/(spacing*spacing)*5);
+      for(let i=0;i<tries;i++){const x=rng()*w,y=rng()*h;if(!inside(x,y,poly))continue;const d=nearest(x,y,poly).distance;const r=isReveal?19+rng()*13:16+Math.min(25,d*.32)+rng()*11;if(points.every(p=>Math.hypot(x-p[0],y-p[1])>r))add(x,y);}
     }
     return assemble(points,triangulate(points),seed);
   }
@@ -92,6 +92,12 @@
     const dx=x-p.x+Math.sin(y*.017+x*.004)*radius*.075,dy=(y-p.y)*.94+Math.cos(x*.013-y*.006)*radius*.07;
     const warp=1+.14*Math.sin(x*.009+y*.013)+.10*Math.cos(x*.019-y*.005);
     return clamp((1-smooth(radius*.07,radius*warp,Math.hypot(dx,dy)))**1.5*p.strength);
+  }
+  function revealDistance(x,screenY,height,scroll,seed,band=.20){
+    const wave=13*Math.sin(x*.014+seed%31)+6*Math.sin(x*.039+seed%7);
+    const top=scroll<5?-height:height*band+wave;
+    const bottom=height*(1-band)+wave;
+    return Math.min(screenY-top,bottom-screenY);
   }
   function visibility(y,top,bottom,bandTop,bandBottom){return smooth(top,top+bandTop,y)*(1-smooth(bottom-bandBottom,bottom,y));}
   function cellVisibility(x,y,seedOffset,load,scrollY,viewH,top=42,band=.16) {
@@ -119,6 +125,15 @@
     const p=tri.map(i=>points[i]),cx=p.reduce((s,v)=>s+v[0],0)/3,cy=p.reduce((s,v)=>s+v[1],0)/3,s=Math.sqrt(clamp(coverage));
     return p.map(v=>[cx+(v[0]-cx)*s,cy+(v[1]-cy)*s]);
   }
+  function area(poly){let a=0;for(let i=0,j=poly.length-1;i<poly.length;j=i++)a+=poly[j][0]*poly[i][1]-poly[i][0]*poly[j][1];return Math.abs(a)*.5;}
+  function clipPolygon(poly,distance){
+    const result=[];if(!poly.length)return result;
+    let a=poly[poly.length-1],da=distance(...a);
+    for(const b of poly){const db=distance(...b),ain=da>=0,bin=db>=0;
+      if(ain!==bin){const t=da/(da-db);result.push([a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t]);}
+      if(bin)result.push(b);a=b;da=db;
+    }return result;
+  }
   function curl(x,y,t,seed){const a=.016,b=.021,phase=seed*.007;return [Math.cos(y*b+t*.7+phase)*Math.sin(x*a+phase)*b*240,-Math.cos(x*a+phase)*Math.sin(y*b+t*.7+phase)*a*240];}
-  globalThis.MementoVFXMath=Object.freeze({clamp,smooth,hash,random,polygon,inside,nearest,triangulate,assemble,sampleMesh,field,visibility,cellVisibility,pulseTimes,pulseEnergy,displacement,scaledTriangle,curl});
+  globalThis.MementoVFXMath=Object.freeze({clamp,smooth,hash,random,polygon,inside,nearest,triangulate,assemble,sampleMesh,field,revealDistance,visibility,cellVisibility,pulseTimes,pulseEnergy,displacement,scaledTriangle,clipPolygon,area,curl});
 })();

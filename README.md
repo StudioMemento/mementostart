@@ -1,53 +1,77 @@
-# Memento START — V9 / VFX R4
+# Memento START — V11 / VFX Calibrated
 
-Integrazione dell’handoff R4 sulla Start V8 con navbar overlay V12.1.0. HTML principale, copy, contatti, immagini, font e navigazione originali sono conservati.
+Correzione della V10 basata sulle tavole Ambra V2 e sulla regola della tab attiva V4. Il markup, le dodici immagini lowpoly, i contatti, la mappa, le FAQ e la navbar sono preservati.
 
-## Cosa cambia
+- Typo: facce ambra e reticolo dentro i glifi, risposta locale al cursore e al fronte di reveal.
+- Tab: rete fine al perimetro e leggibile anche nel nucleo; bordo illuminato soltanto vicino al campo.
+- Coordinate: larghezza reale del canvas in CSS pixel, senza errore della scrollbar; aggiornamento anche quando un dialogo cambia la larghezza disponibile.
+- Background: topologia irregolare stabile, facce carbone tenui, linee e luce ambra locale. Nessuna scia curva disegnata.
+- Scroll: fronte ampio, costruzione e distruzione reversibili, centro di lettura completo. La copertura dipende dalla posizione, le emissioni si esauriscono separatamente.
+- Colore: immagine della tab attiva all’80% di saturazione; un secondo pass decorativo porta al 100% la zona raggiunta dal campo. Il resto della tab mantiene i propri FX. Le tab vicine non si colorano per sola prossimità.
+- Input: mouse, penna e touch, impulso al rilascio e cancellazione senza impulso duplicato; fallback leggibile e reduced motion.
 
-- Fondo con triangolazione irregolare monocroma e ambra locale.
-- Rete indipendente su ogni card: minuta sul bordo, attenuata al centro; glow vicino all’interazione.
-- Micro-reticolo dentro etichette e icone, con propagazione breve nel testo. Titoli secondari.
-- Asset originale a colori soltanto sulla card in hover, touch o focus.
-- Impulso lungo i legami al touch up; nessun impulso su pointercancel.
-- Loading e scroll con maschere triangolari sul contenuto reale, reversibili.
-- Un motore, due canvas decorativi, pool condiviso, movimento ridotto e fallback leggibile.
+## Parametri principali
 
-## Vercel
+I valori sono in `assets/vfx.js`, oggetto `CONFIG`: range mouse 370 CSS px, touch 220 CSS px, fascia scroll 20% del viewport. Sono parametri di questa implementazione, non misure estratte dalle tavole.
 
-Estrarre lo ZIP e usare come radice la cartella con `index.html`.
+## Informazioni privacy e cookie
+
+I pannelli locali descrivono il comportamento effettivo della pagina e consentono di richiedere le informative complete. **Non sostituiscono una privacy policy o cookie policy completa.** Non sono stati inventati dati del titolare, basi giuridiche, tempi di conservazione o altri elementi non forniti.
+
+Quando disponibili, inserire gli URL HTTPS ufficiali in `privacyUrl`, `cookiePolicyUrl` e `legalUrl` dentro `assets/config.js`. Lasciarli vuoti mantiene i pannelli locali. Le preferenze mappa valgono per la visita corrente; non costituiscono una piattaforma di gestione del consenso dell’intero sito Framer.
+
+## Deploy Vercel
+
+Estrarre lo ZIP e usare come radice la cartella che contiene `index.html`.
 
 | Impostazione | Valore |
 | --- | --- |
-| Framework | Other |
+| Framework preset | Other |
 | Install command | Vuoto |
 | Build command | Vuoto |
 | Output directory | `.` |
 | Entry point | `index.html` |
 
-`vercel.json` è già configurato. Il pacchetto non modifica automaticamente il dominio Memento.
+`vercel.json` è incluso. Il pacchetto è statico e non richiede dipendenze da installare. La consegna dello ZIP non aggiorna automaticamente il dominio pubblico.
 
-`MEMENTO_START_V9_VFX_R4.html` è la versione autonoma con CSS, JavaScript, font e immagini incorporati, utile anche per l’embed. Google Maps e le destinazioni esterne richiedono Internet. Per il deploy usare la struttura completa.
+`MEMENTO_START_V11_VFX_CALIBRATED.html` è l’export autonomo con CSS, JavaScript, font e immagini incorporati. Google Maps e i collegamenti esterni richiedono Internet. Per il deploy usare preferibilmente la struttura completa dello ZIP.
 
-## Sviluppo
+## Sviluppo e verifiche
 
-Nessuna dipendenza da installare.
+Usare Node.js 20 o successivo.
 
 ```sh
-npm run dev
+npm run dev -- --port 4173
+npm run check
 npm run verify
 npm run export
+npm run build
 ```
 
-`assets/vfx.js` contiene configurazione e lifecycle; `assets/vfx-math.js` geometria e driver; `assets/vfx.css` compone le texture nei glifi originali. `assets/motion.js` mantiene il solo adattamento tipografico, perché il nuovo motore possiede il reveal. I dati dello studio restano in `assets/config.js`.
+- `check`: asset locali, ID, riferimenti accessibili, sintassi JavaScript e configurazione statica.
+- `verify`: preservazione del contenuto, regressioni dei collegamenti, invarianti geometriche, integrità e dimensioni reali dei nuovi WebP, export autonomo.
+- `export`: rigenera `MEMENTO_START_V11_VFX_CALIBRATED.html`.
+- `build`: crea `dist/` per un hosting statico o una preview.
 
-Non aggiungere un secondo bootstrap navbar o un secondo motore nello stesso documento. Il rendering va nel documento dei contenuti, anche in embed.
+La verifica di preservazione ammette solo le dodici sostituzioni immagini e la destinazione della CTA nel blocco semantico principale. Font e moduli navbar sono confrontati con la base; le quattro modifiche di stile della navbar per il monocromo sono normalizzate esplicitamente. Le immagini precedenti non devono essere presenti nel pacchetto finale.
 
-API: `window.MementoStartVFX.dispose()`, `.setEnabled(false)`, `.setEnabled(true)`, `.invalidateLayout()` e `.getMetrics()`. La disattivazione rimuove le maschere e lascia il contenuto leggibile. La pagina di produzione non contiene UI diagnostica.
+## File principali
 
-## Verifica
+| File | Ruolo |
+| --- | --- |
+| `index.html` | Struttura semantica, contenuti e associazione dei nuovi asset |
+| `assets/polish.css` | Direzione monocroma e correzioni visive |
+| `assets/vfx.js` | Motore, input, background fisso, reveal e lifecycle |
+| `assets/vfx-math.js` | Geometria, campo e calcolo della copertura |
+| `assets/vfx.css` | Composizione dei layer e risposte di immagini, glifi e icone |
+| `assets/start.js` | Contatti, FAQ, mappa e pannelli informativi |
+| `assets/config.js` | Dati pubblici dello studio e destinazioni |
+| `assets/lowpoly/` | Dodici nuovi WebP e manifest |
 
-`docs/VERIFICA_V9_R4.md` descrive risultati, limiti e differenze intenzionali. `docs/verification/` contiene tracce JSON del browser. Le tracce documentano stati e controlli; non sono screencast.
+API diagnostica: `window.MementoStartVFX.getMetrics()`, `.invalidateLayout()`, `.setEnabled(false)`, `.setEnabled(true)` e `.dispose()`. La disattivazione lascia i contenuti leggibili. Evitare un secondo bootstrap navbar o motore nello stesso documento.
 
-Il target di 60 fps e il comportamento su dispositivi fisici iOS/Android richiedono prove su quei dispositivi. Non sono certificati da questa sessione.
+## Verifica e limiti
 
-Documenti V7/V8 e precedenti conservati come storico. Licenze Inter e Tabler conservate.
+`QA_V11.md` contiene i risultati di questa revisione. I report V7–V10 sono storico. I controlli comprendono preservazione dei contenuti, geometria deterministica, driver di reveal effettivamente utilizzato, pacchetto statico e interazioni nel browser.
+
+Una viewport mobile e Pointer Events sintetici non equivalgono a una prova fisica su iPhone o Android. Non è certificato un frame rate di 60 fps; la cadenza del browser remoto non è una misura affidabile delle prestazioni su dispositivo. Verificare il wrapper Framer finale: preferire iframe a viewport intero con scroll interno. Il pacchetto non aggiorna automaticamente il dominio pubblico.
