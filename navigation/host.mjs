@@ -1,5 +1,5 @@
-import { DEFAULT_HUB, readRoute, station } from './core.mjs?v=12.0.0';
-import { mountNav, safeHub, KIT_VERSION } from './navbar.mjs?v=12.0.0';
+import { DEFAULT_HUB, readRoute, station } from './core.mjs?v=12.1.0';
+import { mountNav, safeHub, KIT_VERSION } from './navbar.mjs?v=12.1.0';
 
 // Overlay adapter only. The existing hub continues to own its scene and iframes.
 export function installHost({ hub = DEFAULT_HUB, active, onNavigate, subscribe } = {}) {

@@ -1,5 +1,5 @@
-import { CHANNEL, VERSION, DEFAULT_HUB, STATIONS, station, trustedParent, navigationLink, sessionEnvelope, validMessage, publicRouteURL } from './core.mjs?v=12.0.0';
-import { mountNav, safeHub, KIT_VERSION } from './navbar.mjs?v=12.0.0';
+import { CHANNEL, VERSION, DEFAULT_HUB, STATIONS, station, trustedParent, navigationLink, sessionEnvelope, validMessage, publicRouteURL } from './core.mjs?v=12.1.0';
+import { mountNav, safeHub, KIT_VERSION } from './navbar.mjs?v=12.1.0';
 
 export function installChild({ page, hub = DEFAULT_HUB } = {}) {
   if (window.__MEMENTO_NAV_V3__) return window.__MEMENTO_NAV_V3__;
@@ -10,8 +10,9 @@ export function installChild({ page, hub = DEFAULT_HUB } = {}) {
   hub = safeHub(hub);
   const id = station(page)?.id || STATIONS.find(s => new URL(s.url).origin === location.origin)?.id || 'memento';
   const embedded = parent !== window;
-  const nav = mountNav({ active: id, hub, hidden: embedded });
-  let connection = null, active = !embedded, lastWheel = 0, debt = 0, lastSign = 0, touch = null, readyAt = 0;
+  const expectedHost = embedded && new URLSearchParams(location.search).get('mementoEmbed') === '1';
+  const nav = mountNav({ active: id, hub, hidden: expectedHost });
+  let connection = null, active = !expectedHost, lastWheel = 0, debt = 0, lastSign = 0, touch = null, readyAt = 0;
   const controller = new AbortController(), signal = controller.signal;
   const listen = (target, name, handler, options = {}) => target.addEventListener(name, handler, { ...options, signal });
   const style = document.createElement('style');
@@ -114,7 +115,7 @@ export function installChild({ page, hub = DEFAULT_HUB } = {}) {
   }, { passive: true });
   listen(window, 'touchcancel', () => { touch = null; }, { passive: true });
   let fallback;
-  if (!embedded) setMode(false); else fallback = setTimeout(() => { if (!connection) setMode(false); }, 1200);
+  if (!expectedHost) setMode(false); else fallback = setTimeout(() => { if (!connection) setMode(false); }, 1200);
   const api = { version: VERSION, kitVersion: KIT_VERSION, page: id, nav, get connected() { return Boolean(connection); }, destroy() {
     controller.abort(); clearTimeout(fallback); style.remove(); nav.remove();
     delete document.documentElement.dataset.mementoPage; delete document.documentElement.dataset.mementoNavigation; delete document.documentElement.dataset.mementoActive;
