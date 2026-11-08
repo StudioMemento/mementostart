@@ -1,0 +1,18 @@
+/* Static artwork: the triangular mesh and amber lighting are baked into images. */
+.hero-title,.explore-words{background-image:var(--title-gradient)}
+.email-photo{object-fit:contain;object-position:right center}
+.channel img{object-fit:contain;object-position:center top}
+.location-photo{object-fit:contain;object-position:center top}
+.faq-visual{width:68%;mask-image:linear-gradient(90deg,transparent,#000 32%)}
+.faq-photo{object-fit:cover;object-position:right center}
+.card-legibility{height:46%;background:linear-gradient(to top,rgba(0,0,0,.8),rgba(0,0,0,.25) 45%,transparent)}
+.card-legibility>span{display:none}
+@media(max-width:767px){
+  .email-photo{object-fit:contain;object-position:right center}
+  .faq-visual{width:100%;mask-image:linear-gradient(90deg,transparent,#000 42%)}
+  .faq-photo{left:-35%;width:150%;max-width:none;object-fit:contain;object-position:center}
+}
+@media(hover:none){
+  .contact-section a>img,.location-photo{filter:grayscale(.3)}
+  .contact-section a::after{opacity:.12}
+}

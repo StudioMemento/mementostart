@@ -13,6 +13,8 @@
   <link rel="stylesheet" href="assets/start.css">
   <link rel="stylesheet" href="assets/gradients.css">
   <link rel="stylesheet" href="assets/navigation-insets.css">
+  <link rel="stylesheet" href="assets/artwork.css">
+
   <script defer src="navigation/start.bundle.js?v=12.1.0"></script>
   <script defer src="assets/config.js"></script>
   <script defer src="assets/start.js"></script>
@@ -62,12 +64,12 @@
 .mm-symbol { position:relative; z-index:1; display:block; width:34px; height:34px; overflow:hidden; opacity:.9; filter:grayscale(1) brightness(calc(.98 * var(--mm-icon-gain,1))); transition:filter 220ms ease,opacity 220ms ease; }
 .mm-memento-light { opacity:var(--mm-memento-light,0); transition:opacity 220ms ease; }
 .mm-link[aria-current="page"] { --mm-memento-light:1; }
-.mm-link[aria-current="page"] .mm-tile::before { opacity:1; }
-.mm-link[aria-current="page"] .mm-tile::after { opacity:1; }
-.mm-link[aria-current="page"] .mm-symbol { opacity:1; filter:grayscale(0) saturate(1.12) brightness(calc(1.15 * var(--mm-icon-gain,1))); }
+.mm-link:is(:hover,:focus-visible) .mm-tile::before { opacity:1; }
+.mm-link:is(:hover,:focus-visible) .mm-tile::after { opacity:1; }
+.mm-link:is(:hover,:focus-visible) .mm-symbol { opacity:1; filter:grayscale(0) saturate(1.12) brightness(calc(1.15 * var(--mm-icon-gain,1))); }
 .mm-wordmark:focus-visible,.mm-link:focus-visible { outline:1px solid #ffffffb3; outline-offset:3px; border-radius:10px; }
 @media (hover:hover) and (pointer:fine) {
-  .mm-link:not([aria-current="page"]):hover .mm-symbol { opacity:1; filter:grayscale(.75) brightness(calc(1.04 * var(--mm-icon-gain,1))); }
+  .mm-link:not([aria-current="page"]):hover .mm-symbol { opacity:1; filter:grayscale(0) brightness(calc(1.04 * var(--mm-icon-gain,1))); }
   .mm-link:not([aria-current="page"]):hover { --mm-memento-light:1; }
 }
 .mm-link:active .mm-tile { transform:scale(.97); }
@@ -151,21 +153,21 @@
     <h2 class="sr-only" id="contact-title">Scrivici</h2>
     <div class="email-grid">
       <a class="email-card cut-frame reveal" id="mm-email-project" href="mailto:mementoxdesign@gmail.com" aria-label="Scrivi a mementoxdesign@gmail.com">
-        <img class="email-photo" src="assets/images/email-project-v61.webp" width="960" height="640" alt="" decoding="async"><span class="card-legibility" aria-hidden="true"><span></span><span></span><span></span></span>
+        <img class="email-photo" src="assets/images/email-project.webp" width="1536" height="1024" fetchpriority="high" alt="" decoding="async"><span class="card-legibility" aria-hidden="true"><span></span><span></span><span></span></span>
         <span class="icon chevron-down card-chevron" aria-hidden="true"></span>
         <span class="contact-copy"><span class="icon mail" aria-hidden="true"></span><span class="email-address contact-title" data-project-email-label>mementoxdesign@gmail.com</span></span>
       </a>
       <a class="email-card cut-frame reveal" id="mm-email-studio" href="mailto:info@mementostudio.it" aria-label="Scrivi a info@mementostudio.it">
-        <img class="email-photo" src="assets/images/email-studio-v61.webp" width="960" height="640" alt="" decoding="async"><span class="card-legibility" aria-hidden="true"><span></span><span></span><span></span></span>
+        <img class="email-photo" src="assets/images/email-studio.webp" width="1536" height="1024" alt="" decoding="async"><span class="card-legibility" aria-hidden="true"><span></span><span></span><span></span></span>
         <span class="icon chevron-down card-chevron" aria-hidden="true"></span>
         <span class="contact-copy"><span class="icon mail" aria-hidden="true"></span><span class="email-address contact-title" data-studio-email-label>info@mementostudio.it</span></span>
       </a>
     </div>
     <nav class="channels" aria-label="Altri modi per contattarci">
-      <a class="channel cut-frame reveal" id="mm-phone-link" href="tel:+393285454661" aria-label="Chiama +39 328 545 4661"><img src="assets/images/channel-phone-v61.webp" width="800" height="800" alt="" loading="lazy" decoding="async"><span class="card-legibility" aria-hidden="true"><span></span><span></span><span></span></span><span class="icon chevron-down card-chevron" aria-hidden="true"></span><span class="contact-copy channel-copy"><span class="icon phone" aria-hidden="true"></span><span class="channel-labels"><span class="channel-title contact-title" data-phone-label>+39 328 545 4661</span></span></span></a>
-      <a class="channel cut-frame reveal" id="mm-whatsapp-link" href="https://wa.me/393285454661?text=Ciao%20Memento!%20Vorrei%20parlarvi%20di%20un%20progetto." target="_blank" rel="noopener noreferrer" aria-label="Scrivici su WhatsApp"><img src="assets/images/channel-whatsapp-v61.webp" width="800" height="800" alt="" loading="lazy" decoding="async"><span class="card-legibility" aria-hidden="true"><span></span><span></span><span></span></span><span class="icon chevron-down card-chevron" aria-hidden="true"></span><span class="contact-copy channel-copy"><span class="icon whatsapp" aria-hidden="true"></span><span class="channel-labels"><span class="channel-title contact-title">WhatsApp</span></span></span></a>
-      <a class="channel cut-frame reveal" id="mm-instagram-link" href="https://www.instagram.com/mementostudio.it/" target="_blank" rel="noopener noreferrer" aria-label="Apri il profilo Instagram di Memento Studio"><img src="assets/images/channel-instagram-v61.webp" width="800" height="800" alt="" loading="lazy" decoding="async"><span class="card-legibility" aria-hidden="true"><span></span><span></span><span></span></span><span class="icon chevron-down card-chevron" aria-hidden="true"></span><span class="contact-copy channel-copy"><span class="icon instagram" aria-hidden="true"></span><span class="channel-labels"><span class="channel-title contact-title">Instagram</span></span></span></a>
-      <a class="channel cut-frame reveal" id="mm-fiverr-link" href="https://www.fiverr.com/studio_memento" target="_blank" rel="noopener noreferrer" aria-label="Apri il profilo Fiverr di Memento Studio"><img src="assets/images/channel-fiverr-v61.webp" width="800" height="800" alt="" loading="lazy" decoding="async"><span class="card-legibility" aria-hidden="true"><span></span><span></span><span></span></span><span class="icon chevron-down card-chevron" aria-hidden="true"></span><span class="contact-copy channel-copy"><span class="icon fiverr" aria-hidden="true"></span><span class="channel-labels"><span class="channel-title contact-title">Fiverr</span></span></span></a>
+      <a class="channel cut-frame reveal" id="mm-phone-link" href="tel:+393285454661" aria-label="Chiama +39 328 545 4661"><img src="assets/images/channel-phone.webp" width="800" height="800" alt="" loading="lazy" decoding="async"><span class="card-legibility" aria-hidden="true"><span></span><span></span><span></span></span><span class="icon chevron-down card-chevron" aria-hidden="true"></span><span class="contact-copy channel-copy"><span class="icon phone" aria-hidden="true"></span><span class="channel-labels"><span class="channel-title contact-title" data-phone-label>+39 328 545 4661</span></span></span></a>
+      <a class="channel cut-frame reveal" id="mm-whatsapp-link" href="https://wa.me/393285454661?text=Ciao%20Memento!%20Vorrei%20parlarvi%20di%20un%20progetto." target="_blank" rel="noopener noreferrer" aria-label="Scrivici su WhatsApp"><img src="assets/images/channel-whatsapp.webp" width="800" height="800" alt="" loading="lazy" decoding="async"><span class="card-legibility" aria-hidden="true"><span></span><span></span><span></span></span><span class="icon chevron-down card-chevron" aria-hidden="true"></span><span class="contact-copy channel-copy"><span class="icon whatsapp" aria-hidden="true"></span><span class="channel-labels"><span class="channel-title contact-title">WhatsApp</span></span></span></a>
+      <a class="channel cut-frame reveal" id="mm-instagram-link" href="https://www.instagram.com/mementostudio.it/" target="_blank" rel="noopener noreferrer" aria-label="Apri il profilo Instagram di Memento Studio"><img src="assets/images/channel-instagram.webp" width="800" height="800" alt="" loading="lazy" decoding="async"><span class="card-legibility" aria-hidden="true"><span></span><span></span><span></span></span><span class="icon chevron-down card-chevron" aria-hidden="true"></span><span class="contact-copy channel-copy"><span class="icon instagram" aria-hidden="true"></span><span class="channel-labels"><span class="channel-title contact-title">Instagram</span></span></span></a>
+      <a class="channel cut-frame reveal" id="mm-fiverr-link" href="https://www.fiverr.com/studio_memento" target="_blank" rel="noopener noreferrer" aria-label="Apri il profilo Fiverr di Memento Studio"><img src="assets/images/channel-fiverr.webp" width="800" height="800" alt="" loading="lazy" decoding="async"><span class="card-legibility" aria-hidden="true"><span></span><span></span><span></span></span><span class="icon chevron-down card-chevron" aria-hidden="true"></span><span class="contact-copy channel-copy"><span class="icon fiverr" aria-hidden="true"></span><span class="channel-labels"><span class="channel-title contact-title">Fiverr</span></span></span></a>
     </nav>
   </section>
 
@@ -177,13 +179,13 @@
         <div class="map-frame" id="mm-map-frame"><iframe title="Google Maps — Studio Memento, Maniago" src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2762.891299543338!2d12.7091736!3d46.172819499999996!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x477983c7589f96e3%3A0xc01de6724c9b8d3d!2sStudio%20Memento!5e0!3m2!1sen!2sit!4v1793534389295!5m2!1sen!2sit" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>
       </div>
       <a class="location-card location-address-card cut-frame reveal" id="mm-map-link" href="https://www.google.com/maps/place/Studio+Memento/@46.1728195,12.7091736,17z/data=!3m1!4b1!4m6!3m5!1s0x477983c7589f96e3:0xc01de6724c9b8d3d!8m2!3d46.1728195!4d12.7091736!16s%2Fg%2F11xlzkk8fv?entry=ttu&amp;g_ep=EgoyMDI2MTAyOC4wIKXMDSoASAFQAw%3D%3D" target="_blank" rel="noopener noreferrer" aria-label="Piazza Trento 12, 33085 Maniago (PN) — Studio Memento su Google Maps">
-        <img class="location-photo" src="assets/images/location-address-v61.webp" width="800" height="800" alt="" loading="lazy" decoding="async">
+        <img class="location-photo" src="assets/images/location-address.webp" width="800" height="800" alt="" loading="lazy" decoding="async">
         <span class="card-legibility" aria-hidden="true"><span></span><span></span><span></span></span>
         <span class="icon map-pin" aria-hidden="true"></span>
         <address class="location-address">Piazza Trento 12<span>33085 Maniago (PN)</span></address>
       </a>
       <div class="location-card location-hours-card cut-frame reveal" aria-label="Orari dello studio">
-        <img class="location-photo" src="assets/images/location-hours-v61.webp" width="800" height="800" alt="" loading="lazy" decoding="async">
+        <img class="location-photo" src="assets/images/location-hours.webp" width="800" height="800" alt="" loading="lazy" decoding="async">
         <span class="card-legibility" aria-hidden="true"><span></span><span></span><span></span></span>
         <span class="icon clock" aria-hidden="true"></span>
         <dl class="hours"><div><dt>Lunedì — Venerdì</dt><dd><time datetime="14:00">14:00</time><span aria-hidden="true">—</span><time datetime="18:00">18:00</time></dd></div></dl>
@@ -194,10 +196,10 @@
   <section class="faq-section content-width" id="faq" aria-labelledby="faq-title">
     <div class="faq-panel cut-frame reveal">
       <div class="faq-visual" aria-hidden="true">
-        <img class="faq-photo is-active" data-faq-image="idea" src="assets/images/faq-idea-v61.webp" width="1200" height="800" alt="" loading="lazy" decoding="async">
-        <img class="faq-photo" data-faq-image="existing" src="assets/images/faq-existing-v61.webp" width="1200" height="800" alt="" loading="lazy" decoding="async">
-        <img class="faq-photo" data-faq-image="time" src="assets/images/faq-planning-v61.webp" width="1200" height="800" alt="" loading="lazy" decoding="async">
-        <img class="faq-photo" data-faq-image="commit" src="assets/images/faq-conversation-v61.webp" width="1200" height="800" alt="" loading="lazy" decoding="async">
+        <img class="faq-photo is-active" data-faq-image="idea" src="assets/images/faq-idea.webp" width="1200" height="800" alt="" loading="lazy" decoding="async">
+        <img class="faq-photo" data-faq-image="existing" src="assets/images/faq-existing.webp" width="1200" height="800" alt="" loading="lazy" decoding="async">
+        <img class="faq-photo" data-faq-image="time" src="assets/images/faq-planning.webp" width="1200" height="800" alt="" loading="lazy" decoding="async">
+        <img class="faq-photo" data-faq-image="commit" src="assets/images/faq-conversation.webp" width="1200" height="800" alt="" loading="lazy" decoding="async">
       </div>
       <h2 class="faq-title category-gradient" id="faq-title"><span>Frequently Asked</span> <span>Questions</span></h2>
       <div class="faq-list">
@@ -231,7 +233,7 @@
     </div>
   </section>
 
-  <footer class="explore-section content-width" id="esplora"><a class="explore-link" id="mm-explore" href="https://mementonav.vercel.app/#start" aria-label="Continua il viaggio!"><span class="explore-words category-gradient"><span class="explore-line">CONTINUA</span> <span class="explore-line">IL VIAGGIO!</span></span><span class="icon chevron-down explore-chevron" aria-hidden="true"></span></a></footer>
+  <footer class="explore-section content-width" id="esplora"><a class="explore-link" id="mm-explore" href="https://mementostudio.it/#start" target="_top" aria-label="Continua il viaggio!"><span class="explore-words category-gradient"><span class="explore-line">CONTINUA</span> <span class="explore-line">IL VIAGGIO!</span></span><span class="icon chevron-down explore-chevron" aria-hidden="true"></span></a></footer>
 </main>
 <dialog id="mm-dialog" aria-labelledby="mm-dialog-title"><div class="dialog-wrap"><button class="dialog-close" id="mm-dialog-close" type="button" aria-label="Chiudi"><span class="icon close" aria-hidden="true"></span></button><div class="dialog-card cut-frame"><h2 id="mm-dialog-title" class="board-title title-gradient" tabindex="-1"></h2><div id="mm-dialog-body"></div></div></div></dialog>
 

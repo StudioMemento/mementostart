@@ -1,13 +1,11 @@
 {
-  "name": "memento-start-v8",
-  "version": "8.0.0",
+  "name": "memento-start-v13-lowpoly-amber-clean",
+  "version": "13.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "node scripts/serve.mjs",
     "check": "node scripts/check.mjs",
-    "export": "node scripts/build-navigation.mjs && node scripts/build-standalone.mjs",
-    "gradients": "node scripts/build-gradients.mjs",
-    "overlay": "node scripts/build-navigation.mjs"
+    "build": "node scripts/build-dist.mjs"
   }
 }
