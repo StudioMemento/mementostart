@@ -1,5 +1,5 @@
-import { iconAssets } from './icon-assets.mjs?v=12.1.0';
-import { mementoPaths } from './memento-paths.mjs?v=12.1.0';
+import { iconAssets } from './icon-assets.mjs?v=12.0.0';
+import { mementoPaths } from './memento-paths.mjs?v=12.0.0';
 let iconSequence=0;
 export function iconSVG(id) {
   if(id==='memento'){

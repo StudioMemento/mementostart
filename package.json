@@ -1,15 +1,12 @@
 {
-  "name": "memento-start-v12-vfx",
-  "version": "12.0.0",
+  "name": "memento-start-v7",
+  "version": "7.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "node scripts/serve.mjs",
     "check": "node scripts/check.mjs",
     "export": "node scripts/build-standalone.mjs",
-    "gradients": "node scripts/build-gradients.mjs",
-    "overlay": "node scripts/build-navigation.mjs",
-    "build": "node scripts/build-dist.mjs",
-    "verify": "node scripts/verify-preservation.mjs && node scripts/verify-vfx.mjs && node scripts/verify-package.mjs"
+    "gradients": "node scripts/build-gradients.mjs"
   }
 }

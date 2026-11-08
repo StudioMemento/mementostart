@@ -2,15 +2,7 @@
   'use strict';
   const $ = id => document.getElementById(id);
   const config = window.MEMENTO_CONFIG || {};
-  // Empty optional URLs must stay empty. new URL('', location.href) would
-  // otherwise reopen this page instead of showing its information dialog.
-  const safeHttps = value => {
-    if (typeof value !== 'string' || !value.trim()) return '';
-    try {
-      const u = new URL(value.trim(), location.href);
-      return u.protocol === 'https:' && !u.username && !u.password ? u.href : '';
-    } catch { return ''; }
-  };
+  const safeHttps = value => { try { const u = new URL(value, location.href); return u.protocol === 'https:' && !u.username && !u.password ? u.href : ''; } catch { return ''; } };
   const validEmail = value => /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(value);
   const email = validEmail(config.email) ? config.email : 'info@mementostudio.it';
   const projectEmail = validEmail(config.projectEmail) ? config.projectEmail : 'mementoxdesign@gmail.com';
@@ -27,11 +19,7 @@
   [['mm-email-project', projectEmail], ['mm-email-studio', email]].forEach(([id, address]) => {
     const card=$(id); card.href='mailto:'+address; card.setAttribute('aria-label','Scrivi a '+address); card.querySelector('.email-address').textContent=address;
   });
-  const explore = $('mm-explore');
-  explore.href = safeHttps(config.hubUrl) || 'https://mementostudio.it/#start';
-  // The page is embedded in Framer: navigate the containing page, preserving
-  // native link gestures instead of nesting the hub inside the Start iframe.
-  explore.target = '_top';
+  if (safeHttps(config.hubUrl)) $('mm-explore').href = safeHttps(config.hubUrl);
   if (safeHttps(config.fiverrUrl)) $('mm-fiverr-link').href = safeHttps(config.fiverrUrl);
 
   const dialog = $('mm-dialog');
@@ -88,16 +76,12 @@
     const destination=kind==='privacy'?safeHttps(config.privacyUrl):kind==='cookies'?safeHttps(config.cookiePolicyUrl):kind==='studio'?safeHttps(config.legalUrl):'';
     if (destination) { window.open(destination,'_blank','noopener,noreferrer'); return; }
     if (kind==='privacy') showDialog('Privacy policy',body=>{
-      paragraph(body,'Questa pagina permette di contattare Memento Design Studio tramite email, telefono e servizi esterni. Non contiene un modulo per inviare messaggi.');
-      paragraph(body,'I collegamenti email aprono la tua app di posta; i collegamenti WhatsApp, Instagram e Fiverr aprono i rispettivi servizi. Nessun messaggio viene inviato automaticamente.');
-      paragraph(body,'Google Maps è incorporato nella pagina e può essere disattivato dalle preferenze cookie per questa visita.');
-      paragraph(body,'Per ricevere l’informativa privacy completa di Memento Design Studio, scrivici:');
+      paragraph(body,'Richiedi l’informativa privacy completa di Memento Design Studio.');
       contactAction(body,'Richiesta informativa privacy');
     });
     if (kind==='cookies') showDialog('Cookie & contenuti',body=>{
       paragraph(body,'I collegamenti email aprono la tua app di posta. Questa pagina non raccoglie messaggi tramite un modulo.');
-      paragraph(body,'Google Maps è un servizio esterno incorporato nella pagina e può usare cookie propri. Puoi disattivare la mappa dalle preferenze cookie; la scelta vale per questa visita.');
-      paragraph(body,'Per ricevere la cookie policy completa di Memento Design Studio, scrivici:');
+      paragraph(body,'Google Maps è un servizio esterno incorporato nella pagina e può usare cookie propri. Puoi disattivare la mappa dalle preferenze.');
       contactAction(body,'Richiesta cookie policy completa');
     });
     if (kind==='preferences') showDialog('Le tue preferenze',body=>{
