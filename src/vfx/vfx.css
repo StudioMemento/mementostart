@@ -48,14 +48,9 @@ main :focus-visible { scroll-margin-block: 20vh; }
   --category-gradient: linear-gradient(0deg, #77767a 0%, #c3c2bf 34%, #f4f3f0 66%, #f8f7f4 100%);
   --frame-gradient: linear-gradient(135deg, #d6d5d2c7 0%, #a3a29f66 27%, #6b6a6857 62%, #7b7a7875 83%, #b9b8b5cc 100%);
 }
-.hero-title > .hero-line,
-.explore-words > .explore-line,
-.faq-title > span {
-  background-image: var(--category-gradient);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
+/* Titles: tighter lines, so one gradient runs over the whole block (light above, shade at the base). */
+.hero-line, .explore-line { line-height: .9; }
+.hero-title, .explore-words { background-image: var(--category-gradient); }
 
 @media print { .vfx-canvas { display: none; } }
 @media (forced-colors: active) { .vfx-canvas { display: none; } }

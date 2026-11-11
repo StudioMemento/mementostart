@@ -35,12 +35,12 @@ export function VfxProvider({ children }: { children: ReactNode }) {
 export function useSurface<T extends HTMLElement>(kind: SurfaceKind, options: Omit<SurfaceOptions, 'kind'> = {}) {
   const registry = useContext(VfxContext);
   const current = useRef<T | null>(null);
-  const { gain, cut } = options;
+  const { gain, cut, solid, panel } = options;
   return useCallback((node: T | null) => {
     if (current.current && current.current !== node) registry?.remove(current.current);
     current.current = node;
-    if (node) { node.dataset.vfx = kind; registry?.add(node, { kind, gain, cut }); }
-  }, [registry, kind, gain, cut]);
+    if (node) { node.dataset.vfx = kind; registry?.add(node, { kind, gain, cut, solid, panel }); }
+  }, [registry, kind, gain, cut, solid, panel]);
 }
 
 /** invalidate(): content inside a surface changed. impulse(el): one short local pulse of energy at an element. */
