@@ -7,7 +7,7 @@ vi.mock('gsap/ScrollTrigger', () => ({ ScrollTrigger: {} }));
 import { BorderLight, outline } from '../border';
 import { ChainField } from '../chain';
 import { VFX } from '../config';
-import { buildArch, buildNetwork, mulberry } from '../geometry';
+import { buildCells, buildNetwork, buildTunnel, mulberry } from '../geometry';
 import { PointerField } from '../input';
 import { Particles } from '../particles';
 import { SurfaceRegistry } from '../registry';
@@ -87,40 +87,30 @@ describe('geometry', () => {
     expect(areas[Math.floor(areas.length * 0.9)] / areas[Math.floor(areas.length * 0.1)]).toBeGreaterThan(3);   // mixed sizes
   });
 
-  it('the background is one sheet without holes: the only open edges are its outer border', () => {
-    for (const [aspect, h] of [[16 / 9, 900], [1.5, 800], [0.46, 844]] as const) {
-      const t = buildArch(aspect, h);
-      expect(t.open).toBe(t.border);
-      expect(t.faces).toBeGreaterThan(3000);                    // dense
+  it('the background is one closed surface: every edge is shared except the near rim, off screen', () => {
+    for (const aspect of [16 / 9, 1.5, 0.46]) {
+      const t = buildTunnel(aspect);
+      expect(t.open).toBe(VFX.background.around);
+      for (let f = 0; f < t.faces; f++) expect(t.nbStart[f + 1] - t.nbStart[f]).toBeGreaterThanOrEqual(2);
     }
   });
 
-  it('cells get smaller toward the centre, and depth depends on the horizontal only (vertical bands)', () => {
-    const aspect = 1.6, t = buildArch(aspect, 900), T = Math.tan((52 * Math.PI) / 360);
-    const sx = (o: number) => t.position[o] / (-t.position[o + 2] * T * aspect), sy = (o: number) => t.position[o + 1] / (-t.position[o + 2] * T);
-    const byBand: number[][] = [[], [], [], [], []];
-    const depthAtX = new Map<number, number[]>();
+  it('cells get smaller and darker toward the vanishing point', () => {
+    const t = buildTunnel(1.6);
+    const near: number[] = [], far: number[] = [];
     for (let f = 0; f < t.faces; f++) {
-      const o = f * 9;
-      const cx = (sx(o) + sx(o + 3) + sx(o + 6)) / 3, cy = (sy(o) + sy(o + 3) + sy(o + 6)) / 3;
-      if (Math.abs(cx) > 1 || Math.abs(cy) > 1) continue;
-      const len = Math.max(Math.hypot(sx(o + 3) - sx(o), sy(o + 3) - sy(o)), Math.hypot(sx(o + 6) - sx(o + 3), sy(o + 6) - sy(o + 3)));
-      byBand[Math.min(4, Math.floor(Math.abs(cx) * 5))].push(len);
-      const key = Math.round(cx * 10);
-      if (!depthAtX.has(key)) depthAtX.set(key, []);
-      depthAtX.get(key)!.push(t.depth[f]);
+      // projected size on screen: the longest edge after perspective division
+      const p = t.position, o = f * 9;
+      const sx = (k: number) => p[o + k * 3] / -p[o + k * 3 + 2], sy = (k: number) => p[o + k * 3 + 1] / -p[o + k * 3 + 2];
+      const len = Math.max(Math.hypot(sx(1) - sx(0), sy(1) - sy(0)), Math.hypot(sx(2) - sx(1), sy(2) - sy(1)), Math.hypot(sx(0) - sx(2), sy(0) - sy(2)));
+      (t.depth[f] < 0.3 ? near : t.depth[f] > 0.6 ? far : []).push(len);
     }
     const mean = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length;
-    expect(mean(byBand[4])).toBeGreaterThan(mean(byBand[0]) * 4);
-    // within one column of the screen, depth barely changes from top to bottom
-    for (const list of depthAtX.values()) if (list.length > 10) {
-      const m = mean(list), sd = Math.sqrt(mean(list.map(v => (v - m) ** 2)));
-      expect(sd).toBeLessThan(0.08);
-    }
+    expect(mean(near)).toBeGreaterThan(mean(far) * 4);
   });
 
-  it('structural cells keep the silhouette exact and differ in size', () => {
-    const m = buildNetwork(500, 300, 21, 0, 200, 3);
+  it('structural cells keep the silhouette exact', () => {
+    const m = buildCells(500, 300, 36, 3);
     for (let i = 0; i < m.position.length; i += 2) {
       expect(m.position[i]).toBeGreaterThanOrEqual(0); expect(m.position[i]).toBeLessThanOrEqual(500);
       expect(m.position[i + 1]).toBeGreaterThanOrEqual(0); expect(m.position[i + 1]).toBeLessThanOrEqual(300);

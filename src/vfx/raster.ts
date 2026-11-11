@@ -5,8 +5,8 @@ import { VFX } from './config';
  * This is a preparation step, cached per surface and redone only when content, fonts or layout change.
  */
 type Op =
-  | { type: 'text'; ch: string; x: number; y: number; font: string; alpha: number; grad: { id: number; top: number; bottom: number } }
-  | { type: 'icon'; url: string; cx: number; cy: number; w: number; h: number; alpha: number; m: [number, number, number, number] }
+  | { type: 'text'; ch: string; x: number; y: number; font: string; color: string; clip: { top: number; bottom: number } | null }
+  | { type: 'icon'; url: string; cx: number; cy: number; w: number; h: number; color: string; m: [number, number, number, number] }
   | { type: 'line'; x: number; y: number; w: number };
 
 export interface Collected { ops: Op[]; box: DOMRect; fontSize: number }
@@ -16,12 +16,13 @@ const icons = new Map<string, Promise<HTMLImageElement | null>>();
 let measure: CanvasRenderingContext2D | null = null;
 const ascents = new Map<string, number>();
 
-/** Opacity of a CSS colour: type and icons are repainted white with a grey base, keeping only their opacity. */
-function opacityOf(color: string) {
+/** Rest state is monochrome: every stored colour is reduced to its luminance. */
+function neutral(color: string) {
   const m = /rgba?\(([^)]+)\)/.exec(color);
-  if (!m) return 1;
-  const v = m[1].split(/[,/ ]+/).filter(Boolean).map(Number);
-  return v.length > 3 ? v[3] : 1;
+  if (!m) return '#f3f0ea';
+  const [r, g, b, a = 1] = m[1].split(/[,/ ]+/).filter(Boolean).map(Number);
+  const l = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+  return `rgba(${l},${l},${l},${a})`;
 }
 
 function loadIcon(url: string) {
@@ -54,7 +55,6 @@ export function collect(root: HTMLElement): Collected {
     return null;
   };
   let fontSize = 0;
-  const blocks: Element[] = [];
   const range = document.createRange();
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
@@ -76,7 +76,7 @@ export function collect(root: HTMLElement): Collected {
         const r = el.getBoundingClientRect();
         const t = /matrix\(([^)]+)\)/.exec(s.transform)?.[1].split(',').map(Number);
         ops.push({ type: 'icon', url: mask, cx: r.left + r.width / 2, cy: r.top + r.height / 2, w: el.offsetWidth, h: el.offsetHeight,
-          alpha: filled ? opacityOf(s.backgroundColor) : 1, m: t ? [t[0], t[1], t[2], t[3]] : [1, 0, 0, 1] });
+          color: filled ? neutral(s.backgroundColor) : '#d4d2ce', m: t ? [t[0], t[1], t[2], t[3]] : [1, 0, 0, 1] });
       }
       if (el !== root && el.matches(DIVIDERS)) { const r = el.getBoundingClientRect(); ops.push({ type: 'line', x: r.left, y: r.bottom - 1, w: r.width }); }
       return;
@@ -89,10 +89,9 @@ export function collect(root: HTMLElement): Collected {
     let ascent = ascents.get(font);
     if (ascent === undefined) { measure!.font = font; ascent = measure!.measureText('H').fontBoundingBoxAscent; ascents.set(font, ascent); }
     const clipEl = clipOf(parent);
-    // every piece of type is white with a grey base: one gradient over a clipped block (a title), one per line elsewhere
-    let id = -1;
-    if (clipEl) { id = blocks.indexOf(clipEl); if (id < 0) id = blocks.push(clipEl) - 1; }
-    const alpha = clipEl ? 1 : opacityOf(s.color);
+    // clipped display type takes the line gradient (cap line → baseline); small clipped labels are plain ink
+    const clip = clipEl && size >= 24 ? { top: -size * 0.74, bottom: size * 0.03 } : null;
+    const color = clipEl ? '#f3f0ea' : neutral(s.color);
     const upper = s.textTransform === 'uppercase';
     fontSize = Math.max(fontSize, size);
     for (let i = 0; i < text.length; i++) {
@@ -100,7 +99,7 @@ export function collect(root: HTMLElement): Collected {
       if (ch === ' ' || ch === '\n' || ch === '\t') continue;
       range.setStart(node, i); range.setEnd(node, i + 1);
       const r = range.getBoundingClientRect();
-      if (r.width) ops.push({ type: 'text', ch: upper ? ch.toUpperCase() : ch, x: r.left, y: r.top + ascent, font, alpha, grad: { id, top: r.top + ascent - size * 0.74, bottom: r.top + ascent + size * 0.03 } });
+      if (r.width) ops.push({ type: 'text', ch: upper ? ch.toUpperCase() : ch, x: r.left, y: r.top + ascent, font, color, clip });
     }
   };
   if (root.nodeType === Node.ELEMENT_NODE) visit(root);
@@ -119,30 +118,22 @@ export async function paint(canvas: HTMLCanvasElement, { ops, box }: Collected, 
   ctx.setTransform(scale, 0, 0, scale, -box.left * scale, -box.top * scale);
   ctx.textBaseline = 'alphabetic';
   const gradients = new Map<string, CanvasGradient>();
-  const gradient = (c: CanvasRenderingContext2D, top: number, bottom: number) => {
-    const g = c.createLinearGradient(0, top, 0, bottom);
-    for (const [stop, color] of VFX.color.titleGradient) g.addColorStop(stop, color);
-    return g;
-  };
-  // a clipped block (a title) spans one gradient from its first cap line to its last baseline
-  const extent = new Map<number, [number, number]>();
-  for (const op of ops) if (op.type === 'text' && op.grad.id >= 0) {
-    const e = extent.get(op.grad.id) ?? [Infinity, -Infinity];
-    extent.set(op.grad.id, [Math.min(e[0], op.grad.top), Math.max(e[1], op.grad.bottom)]);
-  }
   let scratch: HTMLCanvasElement | null = null;
   for (const op of ops) {
     if (op.type === 'text') {
       ctx.font = op.font;
-      // light from above, shade at the base
-      const [top, bottom] = op.grad.id >= 0 ? extent.get(op.grad.id)! : [op.grad.top, op.grad.bottom];
-      const key = `${top}|${bottom}`;
-      let g = gradients.get(key);
-      if (!g) { g = gradient(ctx, top, bottom); gradients.set(key, g); }
-      ctx.fillStyle = g;
-      ctx.globalAlpha = op.alpha;
+      if (op.clip) {
+        // light from above, shade at the base: one vertical gradient per line of type
+        const key = `${op.y + op.clip.top}|${op.y + op.clip.bottom}`;
+        let g = gradients.get(key);
+        if (!g) {
+          g = ctx.createLinearGradient(0, op.y + op.clip.top, 0, op.y + op.clip.bottom);
+          for (const [stop, color] of VFX.color.titleGradient) g.addColorStop(stop, color);
+          gradients.set(key, g);
+        }
+        ctx.fillStyle = g;
+      } else ctx.fillStyle = op.color;
       ctx.fillText(op.ch, op.x, op.y);
-      ctx.globalAlpha = 1;
     } else if (op.type === 'line') {
       const g = ctx.createLinearGradient(op.x, 0, op.x + op.w, 0);
       g.addColorStop(0, 'rgba(226,224,220,.22)'); g.addColorStop(0.5, 'rgba(226,224,220,.14)'); g.addColorStop(1, 'rgba(226,224,220,0)');
@@ -156,13 +147,11 @@ export async function paint(canvas: HTMLCanvasElement, { ops, box }: Collected, 
       const s = scratch.getContext('2d')!;
       const side = Math.min(sw, sh);
       s.drawImage(image, (sw - side) / 2, (sh - side) / 2, side, side);
-      s.globalCompositeOperation = 'source-in'; s.fillStyle = gradient(s, (sh - side) / 2, (sh + side) / 2); s.fillRect(0, 0, sw, sh);
-      ctx.globalAlpha = op.alpha;
+      s.globalCompositeOperation = 'source-in'; s.fillStyle = op.color; s.fillRect(0, 0, sw, sh);
       ctx.save();
       ctx.translate(op.cx, op.cy); ctx.transform(op.m[0], op.m[1], op.m[2], op.m[3], 0, 0);
       ctx.drawImage(scratch, -op.w / 2, -op.h / 2, op.w, op.h);
       ctx.restore();
-      ctx.globalAlpha = 1;
     }
   }
   // coarse coverage for particle emission
