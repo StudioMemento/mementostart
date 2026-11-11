@@ -1,34 +1,83 @@
-# Memento Start — V13
+# Memento Start — V14 (React + VFX)
 
-Pagina Start senza VFX dinamici, con tutte le 12 immagini dei contenuti rigenerate nello stile del riferimento: carbone, superfici lowpoly, reticolo triangolare sottile e luce ambra dall'alto a destra.
+The START page rebuilt on React + Vite, with the R6 VFX set: loading, interactions, text, scroll, background.
+Markup, copy, layout CSS, images and the shared navigation overlay come unchanged from the V13 skeleton.
 
-Il rollback rimuove il motore VFX, l'avvio VFX, i particellari e gli effetti dinamici su testi e bordi. L'aspetto poligonale è incorporato nelle immagini WebP. Restano i normali hover CSS, il cambio immagine delle FAQ e la navbar overlay condivisa.
-
-## Deploy su Vercel
-
-1. Estrai questo ZIP.
-2. Usa come cartella del progetto quella contenente `index.html`, `assets`, `navigation` e `vercel.json`.
-3. Per un progetto esistente, sostituisci i file pubblicati con il contenuto di questa cartella e avvia il nuovo deploy.
-4. Framework Preset: **Other**. Root Directory: la cartella estratta. Output Directory: **`.`**. Nessun comando di installazione o build richiesto: il progetto è statico.
-
-La configurazione è già presente in `vercel.json`. Non caricare lo ZIP come unico file del repository.
-
-## Anteprima locale
-
-Con Node.js installato:
+## Run and deploy
 
 ```sh
-npm run dev
+npm install
+npm run dev       # http://localhost:4173
+npm run build     # type-check, bundle, prerender → dist/
+npm run preview   # serves dist/
 ```
 
-Apri `http://localhost:4173`.
+Vercel: import the folder as-is. `vercel.json` sets framework **Vite**, build `npm run build`, output `dist`.
+The page is prerendered at build time (`scripts/prerender.mjs`), so the HTML ships with its content and React hydrates it.
 
-`npm run check` verifica asset, riferimenti accessibili, sintassi JavaScript e configurazione statica. `npm run build` crea anche una copia autonoma in `dist` per altri hosting statici; il deploy Vercel preconfigurato usa direttamente la root.
+## Structure
 
-## Contenuti e asset
+```
+index.html                 head, first-paint script, prerendered navigation overlay, #root
+public/                    navigation kit, images, font, favicon (served as-is)
+src/config.ts              contacts and links
+src/components/            Hero, Contact, Location, Faq, Legal, Explore, PolicyDialog, FitLine
+src/styles/                start.css, gradients.css, artwork.css, navigation-insets.css (from V13)
+src/vfx/
+  engine.ts                the engine: no React inside, reusable on the other pages
+  shaders.ts               GLSL: background, veil (loading + scroll), glyph, tab, particles
+  registry.ts              list of reacting elements
+  react.tsx                <VfxProvider>, useVfx(), useVfxInvalidate()
+  vfx.css                  canvas layers, monochrome resting gradients
+```
 
-Configurazione contatti: `assets/config.js`. Layout: `assets/start.css`. Adattamento delle nuove immagini: `assets/artwork.css`. Immagini: `assets/images/`.
+## Making an element react
 
-Rigenerate: email progetto, email studio, telefono, WhatsApp, Instagram, Fiverr, indirizzo, orari e quattro FAQ. Logo, icone funzionali e icone della navbar condivisa sono conservati.
+```tsx
+const ref = useVfx<HTMLAnchorElement>('tab');                 // cut-corner card: border + surface cells
+const ref = useVfx<HTMLSpanElement>('text', { gain: 0.9 });   // cells inside the glyphs
+const ref = useVfx<HTMLSpanElement>('icon');                  // a CSS-masked icon, treated like a glyph
+const ref = useVfx<HTMLElement>('column');                    // marks the content column (one per page)
+```
 
-Il pacchetto non modifica direttamente il sito già online.
+`gain` scales the response; `cut: 'tl'` is for tabs with only the top-left corner cut (the map).
+Text targets need no duplicate markup: the engine rasterises each glyph where the browser placed it.
+
+## How the briefs map to the code
+
+| Brief | Where | Behaviour |
+|---|---|---|
+| 1 Loading | `VEIL_FRAG`, `uLoad` | Cells of the page itself join in a clustered random order; late groups stay amber, a mesh trace fades, nothing amber is left at the end. |
+| 2 Interactions | `TAB_FRAG` | Nearest stretch of border lights from outside the tab; inside, cells switch on and off, sparse islands answer weakly; neighbours in range answer at half strength. |
+| 4 Text | `GLYPH_FRAG` + particles | Cells inside the nearest glyphs, local warming of the grey gradient, thin outer glow, a few triangles that detach and end. |
+| 5 Scroll | `VEIL_FRAG`, `uScrollE` | Exit and entry bands fragment by position, so a stop keeps the phase reached; amber and particles exist only while scroll energy lasts. |
+| 6 Background | `BG_FRAG` | Three overlapping plate layers on the lateral margins: wide and lighter at the viewport edge, finer and darker toward the layout, near-silent centre; slow light wave; amber on edges and faces near the pointer. |
+
+Release: the pointer deposits energy where it leaves, and every cell decays at its own rate, so groups let go at different times.
+
+## Tuning
+
+All numbers are in `TUNE` at the top of `src/vfx/engine.ts` (durations, cell sizes, ranges, particle count, resolution caps).
+Colours: the amber scale is `ramp()` in `shaders.ts` (#FF4500 → #FFBF00). The surface black is `TUNE.base`.
+
+Resting gradients are monochrome (block at the end of `vfx.css`): delete that block to return to the warm V13 gradients.
+
+## Performance design
+
+- Two canvases, no libraries: the engine chunk is ~13 kB gzip and loads after the content.
+- The energy canvas draws only while something is happening (pointer energy, particles, scroll, loading). At rest it costs nothing.
+- Only targets a pointer sample can reach are drawn; glyph masks are built once, during idle time.
+- Background: 30 fps for the slow wave, 60 fps only while the pointer reaches a margin; resolution capped at 1.5× (1.25× on touch).
+- Quality tiers: frames that keep running long step the background down (0.75×, 0.5×, then rendered only when it changes). A software renderer starts on the last tier.
+- The engine clock advances at most 50 ms per frame: a long frame slows the motion instead of skipping it.
+- `prefers-reduced-motion`: static background, no loading sequence, no pointer or scroll energy.
+- No WebGL2: the page is the plain V13 page.
+
+## Hosted mode (Framer iframe, `?mementoEmbed=1`)
+
+The surface is transparent there, so nothing opaque is drawn over the host page: loading and scroll show amber and mesh only, and the background fades to transparent toward the centre.
+
+## Not verified here
+
+- Frame cost on real GPUs and phones. Development ran in headless Chrome on a software renderer (2–4 fps), which is enough to check the look but not the speed.
+- Safari and Firefox rendering, in particular glyph-mask alignment.
