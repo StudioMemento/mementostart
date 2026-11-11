@@ -1,24 +1,30 @@
-export type TargetKind = 'text' | 'tab' | 'icon' | 'column';
+export type SurfaceKind = 'title' | 'card';
 
-export interface TargetOptions {
-  kind: TargetKind;
-  /** Response strength relative to a directly addressed element (default 1). */
+export interface SurfaceOptions {
+  kind: SurfaceKind;
+  /** Corners cut on a card: both (default), top-left only, or none. */
+  cut?: 'both' | 'tl' | 'none';
+  /** Response strength relative to a primary surface (default 1). */
   gain?: number;
-  /** Which corners of a tab are cut: both (default) or top-left only. */
-  cut?: 'both' | 'tl';
 }
 
-type Listener = (reason: 'targets' | 'layout') => void;
+type Listener = (reason: 'surfaces' | 'layout', target?: Element, strength?: number) => void;
 
-/** Framework-free list of the elements that react to energy. React fills it; the engine reads it. */
-export class VfxRegistry {
-  readonly targets = new Map<HTMLElement, TargetOptions>();
+/**
+ * Surface registry: the DOM elements that own a GPU representation.
+ * React fills it; the engine reads it. No React, no WebGL in here.
+ */
+export class SurfaceRegistry {
+  readonly surfaces = new Map<HTMLElement, SurfaceOptions>();
   private listeners = new Set<Listener>();
 
-  add(el: HTMLElement, options: TargetOptions) { this.targets.set(el, options); this.emit('targets'); }
-  remove(el: HTMLElement) { if (this.targets.delete(el)) this.emit('targets'); }
-  /** Call after a layout change the engine cannot observe (e.g. fitted type). */
+  add(el: HTMLElement, options: SurfaceOptions) { this.surfaces.set(el, options); this.emit('surfaces'); }
+  remove(el: HTMLElement) { if (this.surfaces.delete(el)) this.emit('surfaces'); }
+  /** Content or layout inside surfaces changed in a way observers cannot see (accordion, fitted type). */
   invalidate = () => this.emit('layout');
+  /** One short local impulse at an element (accordion opening, for instance). */
+  impulse = (target: Element, strength = 0.8) => this.listeners.forEach(l => l('layout', target, strength));
   subscribe(listener: Listener) { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; }
-  private emit(reason: 'targets' | 'layout') { this.listeners.forEach(l => l(reason)); }
+  get listenerCount() { return this.listeners.size; }
+  private emit(reason: 'surfaces' | 'layout') { this.listeners.forEach(l => l(reason)); }
 }

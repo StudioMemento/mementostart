@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, type ElementType, type ReactNode } from 'react';
-import { useVfx, useVfxInvalidate } from '../vfx/react';
+import { useVfxSignals } from '../vfx/react';
 
 let measure: CanvasRenderingContext2D | null = null;
 
@@ -24,8 +24,7 @@ type Props = { as?: ElementType; className?: string; id?: string; children: Reac
 
 export function FitLine({ as: Tag = 'span', className, id, children }: Props) {
   const ref = useRef<HTMLElement | null>(null);
-  const vfx = useVfx<HTMLElement>('text');
-  const invalidate = useVfxInvalidate();
+  const { invalidate } = useVfxSignals();
 
   useLayoutEffect(() => {
     const el = ref.current;
@@ -43,7 +42,7 @@ export function FitLine({ as: Tag = 'span', className, id, children }: Props) {
   }, [invalidate]);
 
   return (
-    <Tag id={id} className={className} ref={(node: HTMLElement | null) => { ref.current = node; vfx(node); }}>
+    <Tag id={id} className={className} ref={(node: HTMLElement | null) => { ref.current = node; }}>
       {children}
     </Tag>
   );

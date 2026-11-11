@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { config, links } from '../config';
-import { useVfx } from '../vfx/react';
+import { useSurface } from '../vfx/react';
 import { Icon } from './Icon';
 
 function Legibility() {
@@ -8,12 +8,11 @@ function Legibility() {
 }
 
 function Label({ className, children }: { className: string; children: ReactNode }) {
-  const ref = useVfx<HTMLSpanElement>('text', { gain: 0.9 });
-  return <span className={`${className} contact-title`} ref={ref}>{children}</span>;
+  return <span className={`${className} contact-title`}>{children}</span>;
 }
 
 function EmailCard({ id, address, image, priority }: { id: string; address: string; image: string; priority?: boolean }) {
-  const ref = useVfx<HTMLAnchorElement>('tab');
+  const ref = useSurface<HTMLAnchorElement>('card');
   return (
     <a className="email-card cut-frame reveal" id={id} href={`mailto:${address}`} aria-label={`Scrivi a ${address}`} ref={ref}>
       <img className="email-photo" src={image} width={1536} height={1024} alt="" decoding="async" fetchPriority={priority ? 'high' : undefined} />
@@ -30,7 +29,7 @@ function EmailCard({ id, address, image, priority }: { id: string; address: stri
 type ChannelProps = { id: string; href: string; label: string; aria: string; image: string; icon: 'phone' | 'whatsapp' | 'instagram' | 'fiverr'; external?: boolean };
 
 function Channel({ id, href, label, aria, image, icon, external }: ChannelProps) {
-  const ref = useVfx<HTMLAnchorElement>('tab');
+  const ref = useSurface<HTMLAnchorElement>('card');
   return (
     <a className="channel cut-frame reveal" id={id} href={href} aria-label={aria} ref={ref}
       {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>

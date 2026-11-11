@@ -1,22 +1,50 @@
 /* Resolved length for the engine: getComputedStyle returns px instead of the raw clamp(). */
 @property --cut { syntax: '<length>'; inherits: true; initial-value: 16px; }
 
-.vfx-layer { position: fixed; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
-.vfx-bg { z-index: 0; }
-.vfx-fx { z-index: 900; }
+.vfx-canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; pointer-events: none; }
 main { z-index: 1; }
+html { background: #070708; }
+html[data-memento-surface='transparent'] { background: transparent; }
 
+/* Before the engine is live the page waits in black (failsafe in index.html: 3 s). */
 html.vfx-boot main { opacity: 0; }
-html.vfx-off .vfx-layer { display: none; }
-@media print { .vfx-layer { display: none; } }
-@media (forced-colors: active) { .vfx-layer { display: none; } }
+html.vfx-off .vfx-canvas { display: none; }
 
 /*
- * Quiet state is monochrome: amber only ever comes from energy (pointer, scroll, loading).
- * Remove this block to return to the warm resting gradients of the skeleton.
+ * Live GPU representation: the DOM keeps layout, semantics, focus and hit areas, but stops painting the
+ * surfaces the canvas now draws, so nothing is rendered twice. Removing .vfx-live restores the DOM page.
  */
+html.vfx-live [data-vfx],
+html.vfx-live [data-vfx] *:not(iframe):not(.map-frame):not(input) {
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border-color: transparent !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  caret-color: transparent;
+}
+html.vfx-live [data-vfx] img { visibility: hidden !important; }
+/* Colours and positions are read by the engine at rest: no transition or animation may be half-way when it measures. */
+html.vfx-ready [data-vfx],
+html.vfx-ready [data-vfx] * { transition: none !important; animation: none !important; }
+html.vfx-live [data-vfx]::before,
+html.vfx-live [data-vfx] *::before,
+html.vfx-live [data-vfx] *::after { opacity: 0 !important; }
+html.vfx-live [data-vfx] ::selection { background: rgba(255, 255, 255, 0.22); }
+
+/* A focused control is never left inside a transition band. */
+main :focus-visible { scroll-margin-block: 20vh; }
+
+/* Rest state is monochrome in the DOM fallback too: amber only ever comes from energy. */
 :root {
-  --title-gradient: linear-gradient(135deg, #f6f5f2 0%, #f6f5f2 36%, #dcdbd8 62%, #a9a8a5 84%, #838280 100%);
-  --category-gradient: linear-gradient(0deg, #8a8987 0%, #b5b4b1 24%, #e2e1de 53%, #f6f5f2 83%, #f6f5f2 100%);
+  --title-gradient: linear-gradient(135deg, #f7f6f3 0%, #f7f6f3 40%, #d9d8d5 68%, #a8a7a4 88%, #868583 100%);
+  --category-gradient: linear-gradient(135deg, #f7f6f3 0%, #f7f6f3 40%, #d9d8d5 68%, #a8a7a4 88%, #868583 100%);
   --frame-gradient: linear-gradient(135deg, #d6d5d2c7 0%, #a3a29f66 27%, #6b6a6857 62%, #7b7a7875 83%, #b9b8b5cc 100%);
 }
+
+@media print { .vfx-canvas { display: none; } }
+@media (forced-colors: active) { .vfx-canvas { display: none; } }

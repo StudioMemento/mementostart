@@ -1,5 +1,5 @@
 import { config } from '../config';
-import { useVfx } from '../vfx/react';
+import { useSurface } from '../vfx/react';
 import { Icon } from './Icon';
 
 export type PolicyKind = 'privacy' | 'cookies' | 'preferences' | 'studio';
@@ -20,8 +20,7 @@ const EXTERNAL: Record<PolicyKind, string> = {
 };
 
 export function Legal({ onPolicy }: { onPolicy: (kind: PolicyKind) => void }) {
-  const card = useVfx<HTMLDivElement>('tab', { gain: 0.7 });
-  const title = useVfx<HTMLHeadingElement>('text', { gain: 0.9 });
+  const card = useSurface<HTMLDivElement>('card', { gain: 0.7 });
   // Empty optional URLs open the local information panel instead.
   const open = (kind: PolicyKind) => {
     if (EXTERNAL[kind]) window.open(EXTERNAL[kind], '_blank', 'noopener,noreferrer');
@@ -33,7 +32,7 @@ export function Legal({ onPolicy }: { onPolicy: (kind: PolicyKind) => void }) {
   return (
     <section className="legal-section content-width" aria-labelledby="legal-title">
       <div className="legal-card cut-frame reveal" ref={card}>
-        <h2 className="board-title title-gradient" id="legal-title" ref={title}>Privacy &amp; legal</h2>
+        <h2 className="board-title title-gradient" id="legal-title">Privacy &amp; legal</h2>
         <div className="legal-layout">
           <nav className="legal-group" aria-label="Privacy e cookie">
             <h3>Privacy e cookie</h3>

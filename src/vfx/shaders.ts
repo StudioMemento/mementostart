@@ -1,14 +1,17 @@
 /**
- * GLSL for the Memento VFX layers.
- * One shared triangular lattice drives every effect so loading, hover, text and scroll read as the same material.
+ * GLSL (ES 3.0) for the single WebGL context: background shards, content surfaces, particles, selective bloom.
+ * Structure (which cells exist) is decided in the vertex stage from rest positions; energy (amber light) in the fragment stage.
  */
-
 const COMMON = /* glsl */ `
 precision highp float;
-
+precision highp int;
 uniform float uTime;
-uniform vec4 uS[8];   // pointer samples: xy = document px, z = age in seconds, w = strength
+uniform float uMotion;        // 0 with prefers-reduced-motion
+uniform vec4 uS[8];           // energy samples: xy document px, z age (s), w strength
 uniform int uN;
+uniform vec3 uAmb[4];         // amber scale: deep, mid, hot, core
+uniform vec3 uAmbBase;        // translucent low-energy tint
+uniform float uEmissive;      // 1 while rendering the emission-only pass that feeds the bloom
 
 float h11(float p){ p=fract(p*.1031); p*=p+33.33; p*=p+p; return fract(p); }
 float h21(vec2 p){ vec3 p3=fract(vec3(p.xyx)*.1031); p3+=dot(p3,p3.yzx+33.33); return fract((p3.x+p3.y)*p3.z); }
@@ -16,32 +19,38 @@ float vnoise(vec2 p){
   vec2 i=floor(p), f=fract(p); f=f*f*(3.-2.*f);
   return mix(mix(h21(i),h21(i+vec2(1,0)),f.x), mix(h21(i+vec2(0,1)),h21(i+vec2(1,1)),f.x), f.y);
 }
-
-/* Sampled amber scale: #FF4500 > #FF6600 > #FF8C00 > #FFB300 > #FFBF00, with a pale hot core. */
 vec3 ramp(float x){
   x=clamp(x,0.,1.);
-  vec3 c=mix(vec3(1.,.27,0.), vec3(1.,.40,0.), smoothstep(0.,.25,x));
-  c=mix(c, vec3(1.,.549,0.), smoothstep(.25,.5,x));
-  c=mix(c, vec3(1.,.702,0.), smoothstep(.5,.72,x));
-  c=mix(c, vec3(1.,.749,0.), smoothstep(.72,.88,x));
-  return mix(c, vec3(1.,.9,.62), smoothstep(.9,1.,x));
+  vec3 c=mix(uAmb[0],uAmb[1],smoothstep(0.,.36,x));
+  c=mix(c,uAmb[2],smoothstep(.36,.72,x));
+  return mix(c,uAmb[3],smoothstep(.76,1.,x));
 }
-
-/* Energy left by the pointer at c. Each cell passes its own decay rate, so groups release at different times. */
+/* Energy at c: nucleus, mid zone and an irregular tail. Distance gives the trend, noise breaks the rim. */
 float field(vec2 c, float radius, float rate){
   float I=0.;
+  float rim=1.+.34*(vnoise(c/64.)-.5);
   for(int k=0;k<8;k++){
     if(k>=uN) break;
-    vec2 d=c-uS[k].xy;
+    vec2 d=(c-uS[k].xy)*rim;
     I=max(I, uS[k].w*exp(-dot(d,d)/(radius*radius))*exp(-uS[k].z*rate));
   }
   return I;
 }
+`;
 
-struct Tri { vec3 b; vec2 c; float id; float edge; float scale; };
+const CLIP = /* glsl */ `
+uniform vec2 uView;           // viewport, CSS px
+uniform float uScroll;
+vec4 clipOf(vec2 doc){ vec2 c=(doc-vec2(0.,uScroll))/uView*2.-1.; return vec4(c.x,-c.y,0.,1.); }
+`;
 
-/* Triangle containing lattice point q; up to two levels of 1:4 subdivision give cells of mixed size. */
-Tri tri(vec2 q, vec3 sub){
+/* Micro-lattice for energy: stable ids from position only, mixed cell sizes through 1:4 subdivision. */
+const LATTICE = /* glsl */ `
+struct Tri { vec3 b; vec2 c; float id; float edge; };
+const mat2 ROT=mat2(.9455,.3256,-.3256,.9455);
+vec2 toL(vec2 p,float S){ p=ROT*p; float qy=p.y/.866; return vec2(p.x-.5*qy,qy)/S; }
+vec2 fromL(vec2 q,float S){ q*=S; return transpose(ROT)*vec2(q.x+.5*q.y,.866*q.y); }
+Tri tri(vec2 q, vec2 sub){
   vec2 i=floor(q), f=fract(q);
   bool up=f.x+f.y>1.;
   vec2 v0,v1,v2; vec3 b;
@@ -49,7 +58,7 @@ Tri tri(vec2 q, vec3 sub){
   else { v0=i+vec2(1,1); v1=i+vec2(0,1); v2=i+vec2(1,0); b=vec3(f.x+f.y-1.,1.-f.x,1.-f.y); }
   float id=h21(i+(up?vec2(.37,.61):vec2(0.))+vec2(17.3,5.9));
   float scale=1.;
-  for(int l=0;l<3;l++){
+  for(int l=0;l<2;l++){
     if(h11(id*91.7+float(l)*3.1)>=sub[l]) break;
     vec2 A=v0,B=v1,C=v2; float k;
     if(b.x>.5){ v1=(A+B)*.5; v2=(A+C)*.5; b=vec3(2.*b.x-1.,2.*b.y,2.*b.z); k=1.; }
@@ -58,337 +67,302 @@ Tri tri(vec2 q, vec3 sub){
     else { v0=(B+C)*.5; v1=(A+C)*.5; v2=(A+B)*.5; b=vec3(1.)-2.*b; k=4.; }
     id=h11(id*57.3+k*13.7); scale*=.5;
   }
-  Tri t; t.b=b; t.c=(v0+v1+v2)/3.; t.id=id; t.scale=scale; t.edge=min(b.x,min(b.y,b.z))*scale;
+  Tri t; t.b=b; t.c=(v0+v1+v2)/3.; t.id=id; t.edge=min(b.x,min(b.y,b.z))*scale;
   return t;
 }
 `;
 
-/* Document-space lattice used by every overlay effect: rotated, slightly stretched, gently warped. */
-const DOC_LATTICE = /* glsl */ `
-const mat2 ROT=mat2(.9455,.3256,-.3256,.9455);
-const float STRETCH=1.3;
-vec2 warp(vec2 p,float S){ return (vec2(vnoise(p/(S*4.5)),vnoise(p/(S*4.5)+19.7))-.5)*S*.7; }
-vec2 toL(vec2 p,float S){ p+=warp(p,S); p=ROT*p; p.x/=STRETCH; float qy=p.y/.866; return vec2(p.x-.5*qy,qy)/S; }
-vec2 fromL(vec2 q,float S){ q*=S; vec2 p=vec2((q.x+.5*q.y)*STRETCH,.866*q.y); p=transpose(ROT)*p; return p-warp(p,S); }
-`;
+/* ------------------------------------------------------------------ background */
 
-export const QUAD_VERT = /* glsl */ `#version 300 es
-precision highp float;
-layout(location=0) in vec2 aUnit;
-uniform vec4 uRect;     // document px: x, y, w, h
-uniform vec2 uView;     // viewport css px
-uniform float uScroll;
-out vec2 vDoc;
-out vec2 vUv;
+export const BG_VERT = /* glsl */ `
+${COMMON}
+${CLIP}
+in vec2 position;             // viewport px
+in vec4 data;                 // seed, tone, gloss edge, layer
+in float grad;
+in vec3 bary;
+out vec2 vPos; out float vGrad; out vec3 vBary; flat out vec4 vData;
 void main(){
-  vUv=aUnit;
-  vDoc=uRect.xy+aUnit*uRect.zw;
-  vec2 c=(vDoc-vec2(0.,uScroll))/uView*2.-1.;
+  float s=data.x;
+  // slow wave: the same surface breathing; vertices move a few px, never a fold
+  vec2 p=position+uMotion*vec2(sin(uTime*.21+position.y*.006+s*6.3),cos(uTime*.17+position.x*.005+s*4.1))*2.2*step(.5,data.w);
+  vPos=p; vGrad=grad; vBary=bary; vData=data;
+  vec2 c=p/uView*2.-1.;
   gl_Position=vec4(c.x,-c.y,0.,1.);
 }`;
 
-/* Loading cells + scroll fronts. Covers content cell by cell; amber marks where the composition is changing. */
-export const VEIL_FRAG = /* glsl */ `#version 300 es
+export const BG_FRAG = /* glsl */ `
 ${COMMON}
-${DOC_LATTICE}
-in vec2 vDoc;
 uniform vec2 uView;
-uniform float uScroll;
-uniform float uLoad;      // 0 = all cells absent, 1 = present
-uniform float uScrollE;   // scroll energy 0..1
-uniform float uBand;      // height of the exit / entry bands in px
-uniform vec2 uCol;        // content column: left, right
+uniform vec2 uCol;            // content column: left, right
 uniform vec3 uBase;
-uniform float uCell;
-uniform float uCover;     // 0 on a transparent surface: nothing opaque is laid over the host page
+uniform float uLoad;
+uniform float uAlpha;         // 1 on a transparent (hosted) surface
+uniform float uScroll;
+uniform float uBgGain;
+uniform float uBgRadius;
+uniform vec2 uRate;
+in vec2 vPos; in float vGrad; in vec3 vBary; flat in vec4 vData;
 out vec4 o;
+float aa(float b){ float w=fwidth(b); return 1.-smoothstep(w*.35,w*1.35,b); }
 void main(){
-  Tri t=tri(toL(vDoc,uCell),vec3(.62,.4,0.));
-  vec2 c=fromL(t.c,uCell);
-  float cy=c.y-uScroll;
-  float edgePx=t.edge*uCell*.8;
-  float line=1.-smoothstep(0.,1.1,edgePx);
-  float h=h11(t.id*7.13);
+  float s=vData.x, tone=vData.y, layer=vData.w;
+  float h2=h11(s*7.3), h3=h11(s*13.1), h4=h11(s*21.7);
+  // presence: quiet reading centre, lateral extremes strongest, no rigid side strips
+  vec2 c=vec2((uCol.x+uCol.y)*.5,uView.y*.5);
+  vec2 ax=vec2(max((uCol.y-uCol.x)*.5,uView.x*.3),uView.y*.56);
+  vec2 d=abs(vPos-c)/ax;
+  float r=pow(pow(d.x,2.6)+pow(d.y*.8,2.6),1./2.6);
+  float P=mix(.07,1.,smoothstep(.5,1.22,r));
+  float breathe=.5+.5*sin(uTime*.29+s*6.28)*uMotion;
 
-  // --- Scroll: fragmentation depends only on the position inside the band, so a stop keeps the phase reached.
-  float e=clamp(max(1.-cy/uBand, 1.-(uView.y-cy)/uBand),0.,1.);
-  float inCol=smoothstep(uCol.x-uCell*.4,uCol.x,c.x)*(1.-smoothstep(uCol.y,uCol.y+uCell*.4,c.x));
-  float F=pow(e,1.45)*.94*step(.5,inCol);
-  float gone=smoothstep(t.id-.035,t.id+.035,F)*step(.0005,F);
-  float front=exp(-pow((F-t.id)/.17,2.))*step(.012,F)*uScrollE;
+  float be=vData.z<.5?vBary.x:(vData.z<1.5?vBary.y:vBary.z);     // distance from this face's gloss edge
+  float gloss=pow(h3,2.4)*(.72+.28*breathe);
+  float body=.006+.03*tone*tone+(.016+.24*pow(h2,2.6)*(.7+.3*breathe))*pow(vGrad,1.6);
+  float sheen=exp(-be*mix(4.,14.,h2))*gloss*.95*smoothstep(-.1,.55,vGrad);
+  float l0=aa(vBary.x), l1=aa(vBary.y), l2=aa(vBary.z);
+  float lg=vData.z<.5?l0:(vData.z<1.5?l1:l2);
+  float bell=exp(-pow((vGrad-.25-.5*h4)/.3,2.));
+  float lines=(l0+l1+l2)*.035+lg*(.07+1.9*gloss*bell);
+  float gray=(body+sheen)*(layer>.5?1.:.55)+lines;
+  float appear=smoothstep(h4-.12,h4+.12,uLoad*1.3-.15);
+  vec3 col=vec3(gray)*vec3(.97,.985,1.)*P*appear;
 
-  // --- Loading: distributed random order, clustered so portions join continuously.
-  float r=clamp(mix(h, vnoise(c/230.+3.7), .58)*1.25-.12,0.,1.);
-  float L=uLoad*1.34-.14;
-  float covered=1.-smoothstep(r-.012,r+.012,L);
-  float since=max(L-r,0.);
-  float settling=(1.-uLoad);
-  float heatL=exp(-since/.15)*(1.-covered)*step(.3,h11(t.id*3.3))*settling;   // just joined: amber
-  float pre=exp(-max(r-L,0.)/.07)*covered*step(.45,h11(t.id*5.9))*settling;   // about to join: lit facet
+  // proximity: vertices and edges gather the amber, faces inherit part of it; the rest stays calm
+  vec3 em=vec3(0.);
+  if(uN>0){
+    // groups of faces release with different delays: the rate belongs to the face
+    float vE=field(vPos+vec2(0.,uScroll),uBgRadius,mix(uRate.x,uRate.y,h11(s*9.7))*.8)*uBgGain;
+    float core=field(vPos+vec2(0.,uScroll),uBgRadius*.42,uRate.y)*uBgGain;
+    float sel=.16+.84*step(.3,h11(s*5.1));
+    float x=clamp(vE*vE*(.6+.6*h2)*1.25,0.,1.);
+    float towards=pow(clamp(1.-be*1.05,0.,1.),1.5);
+    em=ramp(x*(.28+.5*towards)+core*.16)*x*sel*(.22+.78*towards)*1.25;
+    em+=ramp(.55+.45*vE)*(lg*1.5+(l0+l1+l2)*.75)*vE*vE*1.6;
+    em*=max(P,.22)*appear;
+  }
 
-  float late=smoothstep(.66,.9,r);                                            // last groups to join stay amber
-  float cover=max(gone*.97,covered)*uCover;
-  float shade=.93+.14*h11(t.id*2.31);
-  vec3 col=uBase*shade*cover;
-  float a=cover;
-  // what stays after a stop: monochrome seams, and uneven shading while the composition settles
-  col+=vec3(.1)*line*F*(1.-gone)*.4;
-  a+=line*F*(1.-gone)*.25*uCover;
-  a+=(1.-covered)*settling*.34*h*step(.004,uLoad)*uCover;
-  col+=vec3(.2)*line*covered*.08;
-
-  // amber marks where the composition is changing: it tints the content of the cell itself
-  float grad=.3+.7*t.b.x;
-  float fa=front*(.45+.55*h);
-  float la=heatL*(.25+.75*h11(t.id*4.7));
-  float tint=clamp(fa+la,0.,1.)*(1.-cover);
-  float heat=clamp(max(fa,la)*1.05,0.,1.);
-  col+=ramp(heat)*tint*.9*grad;
-  a+=tint*.78;
-  // cells about to join: lit facets instead of plain black
-  float pa=clamp(pre*(.3+.7*h)+late*covered*(.25+.5*h)*smoothstep(.5,.85,uLoad),0.,1.);
-  col+=ramp(pa*.8)*pa*.55*grad;
-  // fine mesh and vertices on the active front
-  float vert=smoothstep(.86,.96,max(t.b.x,max(t.b.y,t.b.z)));
-  col+=ramp(.8)*line*(front*1.1+heatL*.6+pre*.6+late*covered*.35*smoothstep(.5,.85,uLoad));
-  col+=ramp(.95)*vert*(front*.75+heatL*.3);
-  // latent mesh trace while settling
-  col+=vec3(.5,.42,.3)*line*settling*uLoad*(1.-covered)*.12;
-  o=vec4(col,clamp(a,0.,1.));
+  if(uEmissive>.5){ o=vec4(em,1.); return; }
+  col+=uBase+em+(h21(gl_FragCoord.xy)-.5)/255.;
+  if(uAlpha>.5){ float a=clamp(smoothstep(.07,.6,P)+max(em.r,em.g),0.,1.); o=vec4(col*a,a); }
+  else o=vec4(col,1.);
 }`;
 
-/* Energy inside glyphs (or an icon silhouette): cells light up, the grey gradient warms locally, a thin glow hugs the outline. */
-export const GLYPH_FRAG = /* glsl */ `#version 300 es
+/* ------------------------------------------------------------------ content surfaces */
+
+export const SURFACE_VERT = /* glsl */ `
 ${COMMON}
-${DOC_LATTICE}
-in vec2 vDoc;
-in vec2 vUv;
-uniform sampler2D uMask;  // r = glyph coverage, g = soft halo
-uniform float uCell;
-uniform float uGain;
-uniform float uRadius;
-out vec4 o;
+${CLIP}
+in vec2 position;             // rest position, local px
+in vec2 cellCenter;
+in float seed;
+in vec3 bary;
+uniform vec2 uOrigin;         // document px of the surface's top-left
+uniform float uBand;          // px
+uniform vec2 uBandK;          // top, bottom enable (0 at document start / end)
+uniform float uLoad;
+uniform float uScrollE;
+uniform float uPush;
+out vec2 vLocal; out vec2 vDoc; out vec3 vBary; flat out float vSeed; out float vGone; out float vHeat;
 void main(){
-  vec2 mk=texture(uMask,vUv).rg;
-  float m=mk.r, g=mk.g;
-  if(m+g<.004) discard;
-  float Is=field(vDoc,uRadius*1.15,2.4)*uGain;
-  if(Is<.004) discard;
-  Tri t=tri(toL(vDoc,uCell),vec3(.55,.3,0.));
-  vec2 c=fromL(t.c,uCell);
-  float h=h11(t.id*5.1), h2=h11(t.id*9.7);
-  float I=field(c,uRadius,mix(.7,3.4,h2))*uGain;
-  float th=.12+.6*h*h+.07*sin(uTime*(2.+5.*h2)+h*40.);
-  float lit=smoothstep(th,th+.1,I);
-  float heat=clamp(I*(.5+.75*h2),0.,1.);
-  float facet=.72+.5*h11(t.id*2.7)-.25*t.b.y;
-  vec3 col=ramp(heat)*facet;
-  float edgePx=t.edge*uCell*.8;
-  float line=(1.-smoothstep(0.,.9,edgePx))*step(.4,h11(t.id*11.3+floor(uTime*2.5)));
-  col+=vec3(1.,.82,.45)*line*.55;
-  float aLit=m*lit*.94;
-  float aWarm=m*(1.-lit)*Is*.42;
-  vec3 rgb=col*aLit+ramp(.55)*aWarm;
-  rgb+=vec3(1.,.8,.4)*line*m*(1.-lit)*Is*.35;          // intermittent triangular weave
-  rgb+=ramp(.4)*g*(1.-m)*Is*Is*1.25;                       // thin outer edge glow
-  o=vec4(rgb,aLit+aWarm*.85);
+  vec2 cd=uOrigin+cellCenter;
+  float cy=cd.y-uScroll;
+  // structure = f(rest position). Mirrors structure.ts: fragmentation(), cellAbsence(), loadingAbsence().
+  float eT=clamp(1.-cy/uBand,0.,1.)*uBandK.x, eB=clamp(1.-(uView.y-cy)/uBand,0.,1.)*uBandK.y;
+  float F=pow(max(eT,eB),1.25);
+  float th=.14+.7*seed;
+  float aS=smoothstep(th-.13,th+.13,F);
+  float delay=clamp(mix(seed,vnoise(cd/250.+3.7),.64)*1.16-.08,0.,1.);
+  float aL=1.-smoothstep(delay-.09,delay+.09,uLoad*1.3-.15);
+  float a=max(aS,aL);
+  float dir=eT>eB?-1.:1.;
+  // dispersal: the cell shrinks, turns and drifts outward carrying its own piece of content
+  vec2 off=vec2((h11(seed*91.)-.5)*1.5,dir*(.45+h11(seed*37.)))*uPush*aS*aS
+          +(vec2(h11(seed*53.),h11(seed*71.))-.5)*uPush*.9*aL*aL;
+  float rot=(h11(seed*17.)-.5)*1.3*a;
+  vec2 dv=position-cellCenter;
+  dv=mat2(cos(rot),sin(rot),-sin(rot),cos(rot))*dv*(1.-.72*a);
+  vLocal=position; vDoc=uOrigin+position; vBary=bary; vSeed=seed; vGone=a;
+  vHeat=clamp(4.*aS*(1.-aS)*uScrollE+4.*aL*(1.-aL)*step(.001,uLoad)*(1.-uLoad),0.,1.);
+  gl_Position=clipOf(cd+dv+off);
 }`;
 
-/* Tabs: the nearest stretch of border lights first; inside, cells switch on and off over the content. */
-export const TAB_FRAG = /* glsl */ `#version 300 es
+export const SURFACE_FRAG = /* glsl */ `
 ${COMMON}
-${DOC_LATTICE}
-in vec2 vDoc;
-uniform vec4 uBox;      // document px: x, y, w, h
-uniform vec2 uCut;      // cut size at top-left and bottom-right (0 = square corner)
-uniform float uGain;
-uniform float uHover;   // 0..1
-uniform float uCell;
+${LATTICE}
+uniform vec2 uSize;
+uniform float uPanel;         // 1 = cut-corner card with fill and border
+uniform vec2 uCut;            // top-left, bottom-right
+uniform vec4 uPanelCol;
+uniform sampler2D uInk;       // glyphs, icons, dividers: premultiplied colour
+uniform float uHasInk;
+uniform sampler2D uImg;
+uniform float uHasImg;
+uniform vec4 uImgBox;         // local px: x, y, w, h of the <img> box
+uniform vec4 uImgFit;         // uv = q * zw + xy  (object-fit / object-position)
+uniform vec3 uImgStyle;       // opacity, left fade (faq), legibility gradient
+uniform float uTitle;         // 1 = large type: full cell language inside the glyphs
+uniform float uGain;          // 1 primary surface, lower for neighbours in range
+uniform float uHover;
+uniform float uPulse;         // entry impulse
 uniform float uRadius;
+uniform float uMicro;         // px, micro-lattice cell
+uniform vec2 uRate;           // slowest, fastest release (1/s)
+in vec2 vLocal; in vec2 vDoc; in vec3 vBary; flat in float vSeed; in float vGone; in float vHeat;
 out vec4 o;
+float aa(float b){ float w=fwidth(b); return 1.-smoothstep(w*.35,w*1.35,b); }
 float sdTab(vec2 p){
-  vec2 h=uBox.zw*.5, q=p-uBox.xy-h;
-  vec2 d=abs(q)-h;
+  vec2 h=uSize*.5, q=p-h, d=abs(q)-h;
   float box=length(max(d,0.))+min(max(d.x,d.y),0.);
-  float tl=(uCut.x-(q.x+h.x)-(q.y+h.y))*.7071;
-  float br=(uCut.y-(h.x-q.x)-(h.y-q.y))*.7071;
+  float tl=(uCut.x-p.x-p.y)*.7071, br=(uCut.y-(uSize.x-p.x)-(uSize.y-p.y))*.7071;
   return max(box,max(tl,br));
 }
 void main(){
-  float sd=sdTab(vDoc);
-  float Ib=field(vDoc,uRadius*1.35,2.)*uGain;      // proximity range (wider than the hover core)
-  float island=0.;
-  vec3 rgb=vec3(0.); float a=0.;
-  if(sd<0.){
-    Tri t=tri(toL(vDoc,uCell),vec3(.6,.35,0.));
-    vec2 c=fromL(t.c,uCell);
-    float h=h11(t.id*5.1), h2=h11(t.id*9.7);
-    float I=field(c,uRadius,mix(.7,3.4,h2))*uGain;
-    float th=.3+.5*h+.08*sin(uTime*(1.6+5.*h2)+h*31.);
-    float lit=smoothstep(th,th+.1,I)*mix(.35,1.,uHover);
-    // sparse islands elsewhere in the hovered tab respond more weakly
-    island=step(.955,h11(t.id*3.9))*uHover*(.5+.5*sin(uTime*(1.2+3.*h)+h2*20.))*.5;
-    float heat=clamp(I*(.45+.7*h2),0.,1.);
-    float grad=.3+.7*t.b.z;
-    float edgePx=t.edge*uCell*.8;
-    float line=1.-smoothstep(0.,.8,edgePx);
-    float inner=smoothstep(0.,10.,-sd);
-    rgb+=ramp(heat)*lit*grad*.26*inner;
-    rgb+=ramp(.35)*island*grad*.3*inner;
-    rgb+=ramp(.7)*line*(lit*.5+I*uHover*.22+island*.4)*inner;      // very fine mesh
-    a+=(1.-lit)*smoothstep(.12,.5,I)*uHover*.2*step(.5,h)*inner;   // unlit cells shade the content
-    rgb+=ramp(.5)*exp(sd/16.)*Ib*.16;                              // light inner glow
-  } else {
-    rgb+=ramp(.45)*exp(-sd/7.)*Ib*.5;                              // thin outer edge glow
+  vec2 p=vLocal;
+  float sd=uPanel>.5?sdTab(p):-40.;
+  float inside=uPanel>.5?1.-smoothstep(-.7,.3,sd):1.;
+  vec4 col=vec4(0.);
+  vec3 em=vec3(0.);
+  float lum=0.;
+  if(uPanel>.5) col=vec4(uPanelCol.rgb,1.)*uPanelCol.a*inside;
+
+  // photograph: framing, scale and UVs never move; only light changes
+  if(uHasImg>.5){
+    vec2 q=(p-uImgBox.xy)/uImgBox.zw;
+    vec2 uv=q*uImgFit.zw+uImgFit.xy;
+    if(q.x>0.&&q.x<1.&&q.y>0.&&q.y<1.&&uv.x>0.&&uv.x<1.&&uv.y>0.&&uv.y<1.){
+      vec4 t=texture(uImg,uv);
+      lum=dot(t.rgb,vec3(.299,.587,.114));
+      float a=t.a*uImgStyle.x*inside*mix(1.,smoothstep(0.,.36,q.x),uImgStyle.y);
+      col.rgb=mix(col.rgb,vec3(lum),a);
+      lum*=a;
+    }
+    if(uImgStyle.z>.5){
+      float y=clamp((p.y-uSize.y*.34)/(uSize.y*.66),0.,1.);        // bottom 66%: label stays readable
+      float k=y<.35?mix(0.,.12,y/.35):(y<.75?mix(.12,.56,(y-.35)/.4):mix(.56,.88,(y-.75)/.25));
+      col.rgb*=1.-k; lum*=1.-k*.6;
+    }
   }
-  float edge=1.-smoothstep(0.,1.35,abs(sd+.6));
-  rgb+=ramp(.55+.45*Ib)*edge*pow(Ib,.8)*1.15;
-  if(rgb.r+a<.002) discard;
-  o=vec4(rgb,a);
+  // neutral frame: thin, discreet
+  if(uPanel>.5){
+    float frame=1.-smoothstep(.0,1.,abs(sd+.7)-.15);
+    float g=mix(.74,.3,smoothstep(.1,.9,(p.x/uSize.x+p.y/uSize.y)*.5));
+    g=mix(g,.62,smoothstep(.75,1.,(p.x/uSize.x+p.y/uSize.y)*.5));
+    col=mix(col,vec4(vec3(g),1.),frame*.62);
+  }
+  vec4 ink=uHasInk>.5?texture(uInk,p/uSize):vec4(0.);
+  col=ink+col*(1.-ink.a);
+
+  // ---------------- energy: local, on what is present
+  float Is=field(vDoc,uRadius*1.25,uRate.x)*uGain;
+  if(Is>.004){
+    Tri t=tri(toL(vDoc,uMicro),vec2(.5,.22));
+    vec2 c=fromL(t.c,uMicro);
+    float h=h11(t.id*5.1), h2=h11(t.id*9.7);
+    float I=field(c,uRadius,mix(uRate.x,uRate.y,h2))*uGain*(1.+.7*uPulse);
+    // "shift": with pointer and geometry still, the distribution of light drifts slowly
+    float th=(uTitle>.5?.2+.46*h*h:.2+.58*h)+.07*sin(uTime*(.35+.9*h2)+h*40.)*uMotion;
+    float lit=smoothstep(th,th+.1,I);
+    float heat=clamp(I*(.42+.62*h2),0.,1.);
+    float wire=1.-smoothstep(0.,1.,t.edge*uMicro*.8);
+    if(uTitle>.5){
+      float facet=.74+.46*h11(t.id*2.7)-.22*t.b.y;
+      vec3 lava=ramp(heat)*facet+uAmb[3]*wire*.42;
+      float k=lit*.97;
+      col.rgb=col.rgb*(1.-k)+lava*ink.a*k;
+      float warm=(1.-lit)*Is*.5;                                   // the grey warms locally, the rest keeps its base
+      col.rgb=mix(col.rgb,uAmbBase*ink.a*(.55+.45*dot(ink.rgb,vec3(.333))),warm);
+      col.rgb+=uAmb[2]*wire*ink.a*(1.-lit)*Is*.3;
+      em+=lava*ink.a*k*.5+uAmbBase*ink.a*warm*.2;
+    } else {
+      float inner=inside*smoothstep(0.,10.,-sd);
+      float rim=mix(.32,1.,smoothstep(.12,.5,length(p/uSize-.5)));  // edges and vertices recede toward the centre
+      // translucent amber that follows the luminance of the image; some faces go darker instead
+      float facet=.55+.75*h11(t.id*2.7)*(.35+.65*t.b.x);
+      vec3 tint=ramp(heat*(.55+.45*facet))*(.07*facet+2.1*lum);
+      float k=lit*mix(.3,.92,uHover)*inner;
+      col.rgb=col.rgb*(1.-k*.45)+tint*k;
+      col.rgb*=1.-.34*(1.-lit)*smoothstep(.12,.5,I)*step(.5,h)*uHover*inner;
+      float island=step(.962,h11(t.id*3.9))*uHover*(.5+.5*sin(uTime*(.8+2.*h)+h2*20.))*.45;
+      float part=step(.5,h11(t.id*7.9+floor(t.b.x*3.)));               // incomplete edges
+      vec3 w=ramp(.7)*wire*part*(lit*.22+island*.4)*rim*inner+ramp(.3)*island*.16*inner;
+      col.rgb+=w;
+      em+=tint*k*.75+w;
+      // labels take a contained accent, no lattice
+      float acc=ink.a*Is*.78;
+      col.rgb=mix(col.rgb,uAmb[2]*ink.a+col.rgb*(1.-ink.a),acc);
+      em+=uAmb[2]*acc*.28;
+      if(uPanel>.5){
+        // border answers per segment and by distance: thin bright core, soft local halo
+        float Ib=field(vDoc,uRadius*1.4,uRate.x)*uGain;
+        float core=1.-smoothstep(0.,1.25,abs(sd+.7));
+        vec3 eb=ramp(.45+.55*Ib)*core*pow(Ib,1.35)*1.6;
+        col.rgb+=eb+ramp(.4)*exp(sd/13.)*Ib*.2*inside;
+        col.a=max(col.a,core*min(Ib*2.,1.));
+        em+=eb*1.2;
+      }
+    }
+  }
+  // ---------------- structure: amber only marks cells that are changing
+  if(vHeat>.004){
+    float seam=aa(min(vBary.x,min(vBary.y,vBary.z)));
+    vec3 fh=ramp(.3+.6*vHeat)*(.2+1.3*max(lum,dot(col.rgb,vec3(.333))))*vHeat;
+    col.rgb=col.rgb*(1.-vHeat*.45)+fh*col.a+ramp(.9)*seam*vHeat*col.a;
+    em+=(fh+ramp(.9)*seam*vHeat)*col.a;
+  }
+  float present=1.-smoothstep(.5,.98,vGone);
+  if(uEmissive>.5){ o=vec4(em*present,col.a*present); return; }
+  o=col*present;
 }`;
 
-/* Short-lived triangles detached from glyphs, borders and scroll fronts. */
-export const PART_VERT = /* glsl */ `#version 300 es
+/* ------------------------------------------------------------------ particles */
+
+export const PART_VERT = /* glsl */ `
 precision highp float;
-layout(location=0) in vec2 aCorner;
-layout(location=1) in vec4 aP;   // x, y (document px), size, rotation
-layout(location=2) in vec2 aL;   // life 1..0, heat
-uniform vec2 uView;
-uniform float uScroll;
-out float vLife;
-out float vHeat;
+${CLIP}
+in vec2 corner;
+in vec4 aP;                   // x, y (document px), size, rotation
+in vec2 aL;                   // life 1..0, heat
+out float vLife; out float vHeat;
 void main(){
   float s=sin(aP.w), c=cos(aP.w);
-  vec2 p=aP.xy+mat2(c,s,-s,c)*aCorner*aP.z;
-  vec2 n=(p-vec2(0.,uScroll))/uView*2.-1.;
-  gl_Position=vec4(n.x,-n.y,0.,1.);
+  gl_Position=clipOf(aP.xy+mat2(c,s,-s,c)*corner*aP.z);
   vLife=aL.x; vHeat=aL.y;
 }`;
 
-export const PART_FRAG = /* glsl */ `#version 300 es
-precision highp float;
+export const PART_FRAG = /* glsl */ `
+${COMMON}
 in float vLife; in float vHeat;
 out vec4 o;
 void main(){
-  float x=clamp(vHeat,0.,1.);
-  vec3 c=mix(vec3(1.,.3,0.), vec3(1.,.72,.05), x);
-  float a=smoothstep(0.,.25,vLife)*smoothstep(1.,.8,vLife);
-  o=vec4(c*a*.95,a*.15);
+  float a=smoothstep(0.,.3,vLife)*smoothstep(1.,.82,vLife);
+  vec3 c=ramp(.35+.6*vHeat)*a;
+  o=vec4(c,uEmissive>.5?a:a*.35);
 }`;
 
-export const BG_VERT = /* glsl */ `#version 300 es
-layout(location=0) in vec2 aUnit;
-void main(){ gl_Position=vec4(aUnit*2.-1.,0.,1.); }`;
+/* ------------------------------------------------------------------ selective bloom */
 
-/*
- * Background: one continuous faceted surface along both lateral margins.
- * Wide open cells at the viewport edge, finer and darker toward the layout padding, near silence behind the content.
- */
-export const BG_FRAG = /* glsl */ `#version 300 es
-${COMMON}
-uniform vec2 uRes;
-uniform float uDpr;
-uniform float uScroll;
-uniform vec2 uCol;
-uniform vec3 uBase;
-uniform float uAlpha;   // 1 = transparent surface (hosted in the hub)
-out vec4 o;
+export const FS_VERT = /* glsl */ `
+precision highp float;
+in vec2 position;
+out vec2 vUv;
+void main(){ vUv=position*.5+.5; gl_Position=vec4(position,0.,1.); }`;
 
-float sideOf;
-vec2 origin;
-
-/* viewport px <> lattice of one layer: long plates, each layer leaning at its own angle */
-vec2 toB(vec2 p, float S, vec2 cs, float stretch){
-  p-=origin; p.x*=sideOf;
-  p=vec2(cs.x*p.x+cs.y*p.y, -cs.y*p.x+cs.x*p.y);
-  p.x/=stretch;
-  float qy=p.y/.866;
-  return vec2(p.x-.5*qy,qy)/S;
-}
-vec2 fromB(vec2 q, float S, vec2 cs, float stretch){
-  q*=S;
-  vec2 p=vec2((q.x+.5*q.y)*stretch,.866*q.y);
-  p=vec2(cs.x*p.x-cs.y*p.y, cs.y*p.x+cs.x*p.y);
-  p.x*=sideOf;
-  return p+origin;
-}
-
-/* Glossy plate: mostly near-black graphite; a few faces carry a reflection that fades across the face. */
-float plate(Tri t, vec2 cw, float seed, out float gloss){
-  float h1=h11(t.id*3.7+seed), h2=h11(t.id*8.3+seed), h3=h11(t.id*12.9+seed);
-  // slow wave: the reflection drifts from face to face, the relief itself stays shallow
-  float wave=sin(cw.x*.0061+cw.y*.0043+uTime*.34+h3*2.)*.5+.5;
-  gloss=pow(clamp(h1*.8+wave*.3,0.,1.),5.);
-  float along=h2<.34?t.b.x:(h2<.67?t.b.y:t.b.z);
-  float sweep=pow(clamp(1.-along*1.1,0.,1.),2.2);
-  return .014+.034*h3*h3+gloss*(.04+.5*sweep);
-}
-
+export const BLUR_FRAG = /* glsl */ `
+precision highp float;
+uniform sampler2D uTex;
+uniform vec2 uStep;
+in vec2 vUv; out vec4 o;
 void main(){
-  vec2 p=vec2(gl_FragCoord.x,uRes.y-gl_FragCoord.y)/uDpr;
-  vec2 V=uRes/uDpr;
-  sideOf=p.x<(uCol.x+uCol.y)*.5?-1.:1.;
-  float edgeX=sideOf<0.?uCol.x:uCol.y;
-  float marginW=max(sideOf<0.?uCol.x:V.x-uCol.y,24.);
-  float dx=sideOf<0.?uCol.x-p.x:p.x-uCol.y;
-  float din=clamp(.22*marginW+26.,30.,110.);
-  float pres=pow(smoothstep(-din,marginW*.55,dx),1.7);
-  float dither=(h21(gl_FragCoord.xy)-.5)/255.;
-  if(pres<.002){ o=uAlpha>.5?vec4(0.):vec4(uBase+dither,1.); return; }
-
-  float S=clamp(marginW*.5,70.,190.);
-  origin=vec2(edgeX,-uScroll*.12+sideOf*137.);
-  vec2 pw=p+(vec2(vnoise(p/310.),vnoise(p/310.+31.7))-.5)*S*.22;
-
-  // three overlapping layers: wide plates toward the viewport edge, a finer and darker mesh toward the layout
-  const vec2 CS1=vec2(.8480,.5299), CS2=vec2(.9272,-.3746), CS3=vec2(.6018,.7986);
-  float S1=S, S2=S*.52, S3=S*.27;
-  Tri t1=tri(toB(pw,S1,CS1,2.5),vec3(0.));
-  Tri t2=tri(toB(pw,S2,CS2,2.1)+vec2(.37,.11),vec3(0.));
-  Tri t3=tri(toB(pw,S3,CS3,1.8)+vec2(.13,.71),vec3(0.));
-  vec2 c1=fromB(t1.c,S1,CS1,2.5), c2=fromB(t2.c-vec2(.37,.11),S2,CS2,2.1);
-  float m1=(sideOf<0.?uCol.x-c1.x:c1.x-uCol.y)/marginW;
-  float m2=(sideOf<0.?uCol.x-c2.x:c2.x-uCol.y)/marginW;
-  float on1=step(h11(t1.id*4.1),smoothstep(.12,.92,m1)*.8);
-  float on2=step(h11(t2.id*6.3),smoothstep(-.05,.6,m2)*.75)*(1.-on1);
-  float on3=(1.-on1)*(1.-on2);
-
-  float g1,g2,g3;
-  float f1=plate(t1,c1,0.,g1), f2=plate(t2,c2,5.,g2)*.72, f3=plate(t3,c2,9.,g3)*.5;
-  float e1=t1.edge*S1*.82, e2=t2.edge*S2*.82, e3=t3.edge*S3*.82;
-  // contact shadow under the edge of every plate above
-  float sh1=mix(.28,1.,smoothstep(0.,S1*.16,e1));
-  float sh2=mix(.4,1.,smoothstep(0.,S2*.16,e2));
-  float l1=1.-smoothstep(0.,1.2,e1), l2=1.-smoothstep(0.,1.1,e2), l3=1.-smoothstep(0.,1.,e3);
-  float gray=on1*(f1+l1*(.03+.8*g1))
-            +on2*(f2+l2*(.022+.6*g2))*sh1
-            +on3*(f3+l3*(.016+.4*g3))*sh1*sh2;
-  float m=clamp(dx/marginW,0.,1.);
-  gray*=mix(.5,1.15,m);
-
-  // the cell that answers the pointer is whichever layer is on top here
-  Tri tA=t1; vec2 cA=c1; float lineA=l1;
-  if(on2>.5){ tA=t2; cA=c2; lineA=l2; }
-  else if(on3>.5){ tA=t3; cA=p; lineA=l3*.7; }
-  float open=on3;
-
-  // proximity: edges gather amber reflections, faces inherit part of that light
-  vec2 pd=p+vec2(0.,uScroll);
-  float Is=field(pd,240.,1.7);
-  vec3 amber=vec3(0.);
-  if(Is>.003){
-    float h=h11(tA.id*5.1), h2=h11(tA.id*9.7);
-    float I=field(cA+vec2(0.,uScroll),215.,mix(.6,3.,h2));
-    float e=I*(.3+.9*h*h);
-    float lit=smoothstep(.24,.62,e)*(1.-open*.75);
-    float along=h2<.5?tA.b.x:tA.b.y;
-    float grad=pow(clamp(1.-along*1.15,0.,1.),1.8);
-    amber+=ramp(clamp(e*.9,0.,.86)*(.2+.8*grad))*lit*(.06+.94*grad);
-    amber+=ramp(.25+.75*Is*Is)*lineA*Is*Is*1.3*(1.-open*.8);
-    amber+=ramp(.2)*Is*Is*.05;
-  }
-  vec3 col=uBase+(vec3(gray)*vec3(.97,.985,1.)+amber)*pres;
-  col+=dither;
-  if(uAlpha>.5){ float al=smoothstep(0.,.3,pres); o=vec4(col*al,al); }
-  else o=vec4(col,1.);
+  vec3 c=texture(uTex,vUv).rgb*.2270;
+  c+=(texture(uTex,vUv+uStep*1.385).rgb+texture(uTex,vUv-uStep*1.385).rgb)*.3162;
+  c+=(texture(uTex,vUv+uStep*3.231).rgb+texture(uTex,vUv-uStep*3.231).rgb)*.0703;
+  o=vec4(c,1.);
 }`;
+
+export const COMPOSITE_FRAG = /* glsl */ `
+precision highp float;
+uniform sampler2D uTex;
+uniform float uStrength;
+in vec2 vUv; out vec4 o;
+void main(){ o=vec4(texture(uTex,vUv).rgb*uStrength,0.); }`;
