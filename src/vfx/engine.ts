@@ -7,7 +7,7 @@ import {
 import { BorderLight, outline } from './border';
 import { ChainField } from './chain';
 import { VFX, gradientRange, hexToRgb, type ChainProfile, type QualityName } from './config';
-import { buildCells, buildNetwork, buildTunnel, hashString, type SurfaceNetwork, type Tunnel } from './geometry';
+import { buildArch, buildNetwork, hashString, type Arch, type SurfaceNetwork } from './geometry';
 import { PointerField } from './input';
 import { GPU_STRIDE, Particles } from './particles';
 import { collect, imageFit, paint } from './raster';
@@ -85,10 +85,12 @@ export class VfxEngine {
   private camera = new PerspectiveCamera(VFX.background.fov, 1, 0.02, 400);
   private globals: Uniforms;
   private bg: Mesh<BufferGeometry, RawShaderMaterial>;
-  private tunnel: Tunnel | null = null;
+  private arch: Arch | null = null;
   private bgChain: ChainField | null = null;
   private bgEnergy: BufferAttribute | null = null;
-  private bgAspect = 0; private bgDebt = 0; private bgHot = false;
+  private lastScroll = 0;
+  private bgKey = ''; private bgDebt = 0; private bgHot = false; private bgStage = 0;
+  private still = 0;
   private parts = new Particles();
   private partGeo = new InstancedBufferGeometry();
   private partBuf: InstancedInterleavedBuffer;
@@ -101,8 +103,7 @@ export class VfxEngine {
   private input = new PointerField();
   private scroll: ScrollState;
   private hovered: Surface | null = null;
-  private viewW = 1; private viewH = 1;
-  private look = new Vector2();
+  private viewH = 1;
   private clock = 0; private frame = 0;
   private load = { value: 0 };
   private loadTween: gsap.core.Tween | null = null;
@@ -137,6 +138,7 @@ export class VfxEngine {
       uEmissive: { value: 0 },
       uView: { value: new Vector2(1, 1) }, uScroll: { value: 0 },
       uBand: { value: 120 }, uBandK: { value: new Vector2(0, 0) }, uLoad: { value: 0 },
+      uDrift: { value: new Vector3(0, VFX.scroll.drift, VFX.scroll.fade) },
     };
 
     // background: a real 3D surface with depth, drawn first
@@ -146,6 +148,7 @@ export class VfxEngine {
       uniforms: {
         ...this.globals, uBase: { value: [...VFX.color.base] }, uZ: { value: new Vector2(1, 10) }, uFog: { value: VFX.background.fog }, uAlpha: { value: 0 },
         uLight: { value: new Float32Array(VFX.background.lights.flat()) }, uShade: { value: new Vector4(...VFX.background.shade) },
+        uBand: { value: new Vector3(1, 0.4, VFX.background.centre) },
       },
     }));
     this.bg.frustumCulled = false; this.bg.renderOrder = 0;
@@ -309,7 +312,7 @@ export class VfxEngine {
   private layout() {
     this.layoutDirty = false; this.renderDirty = true;
     const w = root().clientWidth, h = innerHeight;
-    this.viewW = w; this.viewH = h;
+    this.viewH = h;
     const q = this.profile();
     this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, q.dpr));
     this.renderer.setSize(w, h, false);
@@ -321,7 +324,11 @@ export class VfxEngine {
     this.globals.uBand.value = this.scroll.bandPx;
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
-    if (Math.abs(this.camera.aspect - this.bgAspect) / this.camera.aspect > 0.02) this.buildBackground(this.camera.aspect);
+    const bgKey = `${Math.round((w / h) * 50)}|${Math.round(h / 40)}`;
+    if (bgKey !== this.bgKey) { this.bgKey = bgKey; this.buildBackground(w / h, h); }
+    const column = document.querySelector('.content-width')?.getBoundingClientRect();
+    const bu = this.bg.material.uniforms.uBand.value as Vector3;
+    bu.set(this.renderer.getContext().drawingBufferWidth, column ? Math.min(0.5, column.width / 2 / w) : 0.4, VFX.background.centre);
 
     // DOM colours and opacities are read in their normal state, then the GPU representation takes over again
     const live = this.live;
@@ -345,23 +352,22 @@ export class VfxEngine {
     this.bg.material.uniforms.uAlpha.value = root().dataset.mementoSurface === 'transparent' ? 1 : 0;
   }
 
-  private buildBackground(aspect: number) {
-    this.bgAspect = aspect;
-    const t = buildTunnel(aspect);
+  private buildBackground(aspect: number, viewH: number) {
+    const t = buildArch(aspect, viewH);
     const g = unbounded(new BufferGeometry());
     g.setAttribute('position', new BufferAttribute(t.position, 3));
     g.setAttribute('bary', new BufferAttribute(barycentric(t.faces), 3));
     g.setAttribute('face', new BufferAttribute(t.face, 4));
     g.setAttribute('edge', new BufferAttribute(t.edge, 3));
-    g.setAttribute('wave', new BufferAttribute(t.wave, 3));
     const energy = new BufferAttribute(new Float32Array(t.faces * 6), 2);
     energy.setUsage(DynamicDrawUsage);
     g.setAttribute('energy', energy);
     this.bg.geometry.dispose();
     this.bg.geometry = g;
-    (this.bg.material.uniforms.uZ.value as Vector2).set(t.z0, t.z1);
-    this.tunnel = t; this.bgEnergy = energy;
+    (this.bg.material.uniforms.uZ.value as Vector2).set(t.zNear, t.zFar);
+    this.arch = t; this.bgEnergy = energy;
     this.bgChain = new ChainField(t, VFX.chain.background);
+    this.projectBackground();
   }
 
   private addSurface(el: HTMLElement, opt: SurfaceOptions): Surface {
@@ -373,6 +379,7 @@ export class VfxEngine {
       uImg: { value: null }, uHasImg: { value: 0 }, uImgBox: { value: new Vector4(0, 0, 1, 1) }, uImgFit: { value: new Vector4(0, 0, 1, 1) }, uImgStyle: { value: [1, 0, 0] },
       uHover: { value: 0 }, uGain: { value: 1 }, uBins: { value: new Float32Array(VFX.border.bins) },
       uGray: { value: new Vector2(...gradientRange()) }, uHalo: { value: 3 }, uMicro: { value: 12 },
+      uSolid: { value: opt.solid ? 1 : 0 }, uPointer: { value: new Vector3(-1e4, -1e4, opt.panel ? 0 : 1) },
     };
     const index = this.nextIndex++;
     const content = new Mesh(unbounded(new BufferGeometry()), this.material(SURFACE_VERT, SURFACE_FRAG, u));
@@ -400,7 +407,7 @@ export class VfxEngine {
     s.fontSize = found.fontSize || 16;
     const title = s.opt.kind === 'title';
     const id = hashString(el.id || el.className || el.tagName) + s.index;
-    const cell = (title ? clamp(s.fontSize * 0.2, 14, 46) : VFX.cells.card) * q.cellScale;
+    const cell = (title ? clamp(s.fontSize * VFX.cells.titleEm, 9, 26) : VFX.cells.card) * q.cellScale;
     u.uPush.value = title ? clamp(s.fontSize * 0.16, 14, 34) : 30;
     u.uHalo.value = clamp(s.fontSize * 0.016, 1.6, 4.5);
     u.uMicro.value = clamp(s.fontSize * VFX.chain.title.microEm, 6, 18);
@@ -409,12 +416,17 @@ export class VfxEngine {
     const key = `${Math.round(s.w)}x${Math.round(s.h)}@${cell.toFixed(1)}`;
     if (key !== s.cellKey) {
       s.cellKey = key;
-      const m = buildCells(s.w, s.h, cell, id);
+      // an irregular network without margin: the silhouette stays exact, the cells differ in size
+      const m = buildNetwork(s.w, s.h, cell, 0, 200, id ^ 0x51ed);
+      const centre = new Float32Array(m.faces * 6), seed = new Float32Array(m.faces * 3);
+      for (let f = 0; f < m.faces; f++) for (let k = 0; k < 3; k++) {
+        centre[(f * 3 + k) * 2] = m.cx[f]; centre[(f * 3 + k) * 2 + 1] = m.cy[f]; seed[f * 3 + k] = m.seed[f];
+      }
       const g = unbounded(new BufferGeometry());
       g.setAttribute('position', new BufferAttribute(m.position, 2));
-      g.setAttribute('cellCenter', new BufferAttribute(m.centroid, 2));
-      g.setAttribute('seed', new BufferAttribute(m.seed, 1));
-      g.setAttribute('bary', new BufferAttribute(barycentric(m.triangles), 3));
+      g.setAttribute('cellCenter', new BufferAttribute(centre, 2));
+      g.setAttribute('seed', new BufferAttribute(seed, 1));
+      g.setAttribute('bary', new BufferAttribute(barycentric(m.faces), 3));
       s.content.geometry.dispose();
       s.content.geometry = g;
     }
@@ -581,9 +593,10 @@ export class VfxEngine {
       const lx = px - s.x, ly = py - s.y;
       if (inside) {
         if (!s.inside) for (let i = 0; i < P.enterBurst; i++) ch.igniteAt(lx, ly, R * 0.45, rand(0.85, 1));
-        const rate = (this.reduced ? 1.5 : (still ? P.stillRate : P.hoverRate) + input.speed * P.moveRate) * ((s.opt.kind === 'title' ? VFX.chain.title.rate : 1));
+        const title = s.opt.kind === 'title';
+        const rate = (this.reduced ? 1.5 : (still ? P.stillRate : P.hoverRate) + input.speed * P.moveRate) * (title ? VFX.chain.title.rate : VFX.chain.card.rate);
         s.debt += rate * dt;
-        const spread = R * P.jitter * (s.opt.kind === 'title' ? 1.35 : 1);
+        const spread = R * P.jitter * (title ? 1.7 : 1);
         while (s.debt >= 1) { s.debt -= 1; ch.igniteAt(lx, ly, spread, rand(0.75, 1)); }
       } else if (prox > 0) {
         // a neighbour in range: the stretch nearest the pointer answers, at a fraction of the primary
@@ -603,11 +616,13 @@ export class VfxEngine {
       const active = ch.active;
       if (active) { ch.step(dt); ch.write(s.energy!.array as Float32Array); s.energy!.needsUpdate = true; s.hot = true; }
       else if (s.hot) { (s.energy!.array as Float32Array).fill(0); s.energy!.needsUpdate = true; s.hot = false; }
-      // hover state of the surface: quick in, eased out
-      s.hover += ((inside ? 1 : 0) - s.hover) * (inside ? attack : ease);
+      // hover state of the surface: quick in, eased out (type breathes in and out more slowly)
+      const slow = s.opt.kind === 'title';
+      s.hover += ((inside ? 1 : 0) - s.hover) * (inside ? (slow ? 1 - Math.exp(-dt / 0.35) : attack) : (slow ? 1 - Math.exp(-dt * 1.6) : ease));
       if (s.hover < 0.002) s.hover = 0;
       s.u.uHover.value = this.reduced ? s.hover * 0.6 : s.hover;
       s.u.uGain.value = inside ? 1 : Math.max(P.neighbour, s.hover);
+      (s.u.uPointer.value as Vector3).set(lx, ly, s.opt.kind === 'title' ? Math.max(R * 1.25, s.fontSize * 1.7) : s.opt.panel ? 0 : 1);
       // the outline
       let glow = 0;
       if (s.border) {
@@ -642,14 +657,12 @@ export class VfxEngine {
     this.partMesh.visible = this.parts.count > 0;
     this.partBuf.needsUpdate = true;
 
-    // camera: travels a little down the tunnel and rolls with the page, leans toward the pointer
-    const B = VFX.background;
-    if (present && !this.reduced) this.look.set((input.x / this.viewW - 0.5) * 2, (input.y / this.viewH - 0.5) * 2);
-    else this.look.multiplyScalar(Math.exp(-dt * 1.5));
-    this.camera.rotation.y += (-this.look.x * B.parallax - this.camera.rotation.y) * (1 - Math.exp(-dt * 2.2));
-    this.camera.rotation.x += (-this.look.y * B.parallax * 0.7 - this.camera.rotation.x) * (1 - Math.exp(-dt * 2.2));
-    this.bg.rotation.z = this.reduced ? 0 : sc.y * B.roll;
-    this.camera.position.z = this.reduced || !this.tunnel ? 0 : -sc.progress * B.dolly * this.tunnel.z0;
+    // after the page stops, cells on their way out drift away; moving again brings the structure back at once
+    const drift = g.uDrift.value as Vector3;
+    if (sc.y !== this.lastScroll || this.reduced) { drift.x *= Math.exp(-dt * 10); this.still = 0; }
+    else { this.still += dt; if (this.still > 0.12) drift.x = Math.min(VFX.scroll.fade * 2.5, drift.x + dt); }
+    if (drift.x > 0.001 && drift.x < VFX.scroll.fade * 2.5) busy = true;
+    this.lastScroll = sc.y;
 
     g.uTime.value = this.clock;
     g.uScroll.value = sc.y; (g.uBandK.value as Vector2).set(sc.top, sc.bottom);
@@ -667,29 +680,40 @@ export class VfxEngine {
     if (busy || (!this.reduced && this.frame % 2 === 0)) this.render(busy);
   };
 
-  /** The background answers where it is visible: margins and around the type, not behind an opaque card. */
+  /**
+   * The background answers where it is visible: margins and around the type, not behind an opaque card.
+   * A moving pointer leaves a trail; when it stops, one impulse travels outward and dies, a lighter echo follows
+   * after a while, then nothing until it moves again.
+   */
   private driveBackground(dt: number, hovered: Surface | null, present: boolean, clientX: number, clientY: number) {
-    const t = this.tunnel, ch = this.bgChain, P = VFX.pointer;
-    if (!t || !ch || !this.bgEnergy) return;
+    const ch = this.bgChain, input = this.input, P = VFX.pointer;
+    if (!this.arch || !ch || !this.bgEnergy) return;
     ch.propagate = !this.reduced;
     const over = hovered?.opt.kind === 'card' ? 0 : hovered ? 0.45 : 1;
     if (present && over > 0 && this.live) {
-      this.projectBackground();
-      const rate = ((this.input.still > 0.6 ? P.stillRate : P.hoverRate) + this.input.speed * P.moveRate) * 1.3;
-      this.bgDebt += rate * dt;
-      while (this.bgDebt >= 1) { this.bgDebt -= 1; ch.igniteAt(clientX, clientY, this.input.radius * 0.28, rand(0.7, 1) * over); }
-    } else this.bgDebt = 0;
+      if (input.still < 0.05) {
+        this.bgStage = 0;
+        this.bgDebt += input.speed * P.moveRate * 1.2 * dt;
+        while (this.bgDebt >= 1) { this.bgDebt -= 1; ch.igniteAt(clientX, clientY, input.radius * 0.22, rand(0.7, 1) * over); }
+      } else if (this.bgStage === 0 && input.still > 0.25) {
+        this.bgStage = 1;
+        for (let i = 0; i < 4; i++) ch.igniteAt(clientX, clientY, input.radius * 0.18, rand(0.85, 1) * over);
+      } else if (this.bgStage === 1 && input.still > 2.6) {
+        this.bgStage = 2;
+        for (let i = 0; i < 2; i++) ch.igniteAt(clientX, clientY, input.radius * 0.15, rand(0.4, 0.55) * over);
+      }
+    } else { this.bgDebt = 0; if (!present) this.bgStage = 0; }
     if (ch.active) { ch.step(dt); ch.write(this.bgEnergy.array as Float32Array); this.bgEnergy.needsUpdate = true; this.bgHot = true; }
     else if (this.bgHot) { (this.bgEnergy.array as Float32Array).fill(0); this.bgEnergy.needsUpdate = true; this.bgHot = false; }
   }
 
-  /** Face centroids → client px, with the current roll, travel and lean. */
+  /** Face centroids → client px. The sheet and the camera are still: done once per layout. */
   private projectBackground() {
-    const t = this.tunnel!;
-    this.bg.updateMatrixWorld(); this.camera.updateMatrixWorld();
-    const m = this.bg.matrixWorld, W = this.viewW, H = this.viewH;
+    const t = this.arch!;
+    this.camera.updateMatrixWorld();
+    const W = root().clientWidth, H = innerHeight;
     for (let f = 0; f < t.faces; f++) {
-      tmp.set(t.centroid[f * 3], t.centroid[f * 3 + 1], t.centroid[f * 3 + 2]).applyMatrix4(m).project(this.camera);
+      tmp.set(t.centroid[f * 3], t.centroid[f * 3 + 1], t.centroid[f * 3 + 2]).project(this.camera);
       t.cx[f] = (tmp.x * 0.5 + 0.5) * W; t.cy[f] = (-tmp.y * 0.5 + 0.5) * H;
       if (tmp.z > 1) t.cx[f] = -1e6;
     }
