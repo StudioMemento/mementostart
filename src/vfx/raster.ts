@@ -5,7 +5,7 @@ import { VFX } from './config';
  * This is a preparation step, cached per surface and redone only when content, fonts or layout change.
  */
 type Op =
-  | { type: 'text'; ch: string; x: number; y: number; font: string; color: string; clip: DOMRect | null }
+  | { type: 'text'; ch: string; x: number; y: number; font: string; color: string; clip: { top: number; bottom: number } | null }
   | { type: 'icon'; url: string; cx: number; cy: number; w: number; h: number; color: string; m: [number, number, number, number] }
   | { type: 'line'; x: number; y: number; w: number };
 
@@ -89,8 +89,8 @@ export function collect(root: HTMLElement): Collected {
     let ascent = ascents.get(font);
     if (ascent === undefined) { measure!.font = font; ascent = measure!.measureText('H').fontBoundingBoxAscent; ascents.set(font, ascent); }
     const clipEl = clipOf(parent);
-    // large clipped titles take the block gradient; small clipped labels are plain ink
-    const clip = clipEl && size >= 40 ? clipEl.getBoundingClientRect() : null;
+    // clipped display type takes the line gradient (cap line → baseline); small clipped labels are plain ink
+    const clip = clipEl && size >= 24 ? { top: -size * 0.74, bottom: size * 0.03 } : null;
     const color = clipEl ? '#f3f0ea' : neutral(s.color);
     const upper = s.textTransform === 'uppercase';
     fontSize = Math.max(fontSize, size);
@@ -117,19 +117,19 @@ export async function paint(canvas: HTMLCanvasElement, { ops, box }: Collected, 
   const ctx = canvas.getContext('2d')!;
   ctx.setTransform(scale, 0, 0, scale, -box.left * scale, -box.top * scale);
   ctx.textBaseline = 'alphabetic';
-  const gradients = new Map<DOMRect, CanvasGradient>();
+  const gradients = new Map<string, CanvasGradient>();
   let scratch: HTMLCanvasElement | null = null;
   for (const op of ops) {
     if (op.type === 'text') {
       ctx.font = op.font;
       if (op.clip) {
-        let g = gradients.get(op.clip);
+        // light from above, shade at the base: one vertical gradient per line of type
+        const key = `${op.y + op.clip.top}|${op.y + op.clip.bottom}`;
+        let g = gradients.get(key);
         if (!g) {
-          // CSS 135deg gradient line of the whole block: one gradient, never restarted per line or letter
-          const c = op.clip, len = (c.width + c.height) / Math.SQRT2 / 2, cx = c.left + c.width / 2, cy = c.top + c.height / 2;
-          g = ctx.createLinearGradient(cx - len * Math.SQRT1_2, cy - len * Math.SQRT1_2, cx + len * Math.SQRT1_2, cy + len * Math.SQRT1_2);
+          g = ctx.createLinearGradient(0, op.y + op.clip.top, 0, op.y + op.clip.bottom);
           for (const [stop, color] of VFX.color.titleGradient) g.addColorStop(stop, color);
-          gradients.set(op.clip, g);
+          gradients.set(key, g);
         }
         ctx.fillStyle = g;
       } else ctx.fillStyle = op.color;

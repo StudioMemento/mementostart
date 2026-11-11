@@ -1,6 +1,6 @@
 {
   "name": "memento-start",
-  "version": "15.0.0",
+  "version": "16.0.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -11,12 +11,14 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "delaunator": "^5.1.0",
     "gsap": "^3.15.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "three": "^0.187.0"
   },
   "devDependencies": {
+    "@types/delaunator": "^5.0.3",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@types/three": "^0.187.0",

@@ -8,6 +8,7 @@ export const smoothstep = (a: number, b: number, x: number) => {
   const t = clamp01((x - a) / (b - a));
   return t * t * (3 - 2 * t);
 };
+const fract = (x: number) => x - Math.floor(x);
 
 /** How strongly each band acts: 0 at the very start / end of the document, so first and last content can be read whole. */
 export function bandEnable(scrollY: number, maxScroll: number, bandPx: number) {
@@ -34,12 +35,25 @@ export function loadingAbsence(load: number, delay: number) {
   return 1 - smoothstep(delay - 0.09, delay + 0.09, load * 1.3 - 0.15);
 }
 
-/** Transformation heat: peaks while a cell is between present and absent, zero at both ends. */
-export const transformHeat = (s: number) => 4 * s * (1 - s);
+/** Same hash and value noise as the GLSL `h21` / `vnoise`, so CPU timing agrees with what the GPU shows. */
+export function h21(x: number, y: number) {
+  let a = fract(x * 0.1031), b = fract(y * 0.1031), c = fract(x * 0.1031);
+  const d = a * (b + 33.33) + b * (c + 33.33) + c * (a + 33.33);
+  a += d; b += d; c += d;
+  return fract((a + b) * c);
+}
+export function vnoise(x: number, y: number) {
+  const ix = Math.floor(x), iy = Math.floor(y);
+  let fx = x - ix, fy = y - iy;
+  fx = fx * fx * (3 - 2 * fx); fy = fy * fy * (3 - 2 * fy);
+  const a = h21(ix, iy), b = h21(ix + 1, iy), c = h21(ix, iy + 1), d = h21(ix + 1, iy + 1);
+  return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy;
+}
 
-/** Energy left by a pointer sample: gaussian in space, exponential in time, per-cell rate. */
-export function sampleEnergy(strength: number, distance: number, radius: number, age: number, rate: number) {
-  return strength * Math.exp(-(distance * distance) / (radius * radius)) * Math.exp(-age * rate);
+/** Loading delay 0..1 of a point in document px (seed 0..1 is the cell's own share). */
+export function loadingDelay(x: number, y: number, seed: number) {
+  const n = vnoise(x / 250 + 3.7, y / 250 + 3.7);
+  return clamp01((seed + (n - seed) * 0.64) * 1.16 - 0.08);
 }
 
 /** Decay rate (1/s) so that a cell falls below 2% after `seconds`. */

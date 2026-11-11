@@ -39,11 +39,22 @@ html.vfx-live [data-vfx] ::selection { background: rgba(255, 255, 255, 0.22); }
 /* A focused control is never left inside a transition band. */
 main :focus-visible { scroll-margin-block: 20vh; }
 
-/* Rest state is monochrome in the DOM fallback too: amber only ever comes from energy. */
+/*
+ * Rest state is monochrome in the DOM fallback too: light from above, shade at the base of every line.
+ * Amber only ever comes from energy.
+ */
 :root {
-  --title-gradient: linear-gradient(135deg, #f7f6f3 0%, #f7f6f3 40%, #d9d8d5 68%, #a8a7a4 88%, #868583 100%);
-  --category-gradient: linear-gradient(135deg, #f7f6f3 0%, #f7f6f3 40%, #d9d8d5 68%, #a8a7a4 88%, #868583 100%);
+  --title-gradient: linear-gradient(0deg, #77767a 0%, #c3c2bf 34%, #f4f3f0 66%, #f8f7f4 100%);
+  --category-gradient: linear-gradient(0deg, #77767a 0%, #c3c2bf 34%, #f4f3f0 66%, #f8f7f4 100%);
   --frame-gradient: linear-gradient(135deg, #d6d5d2c7 0%, #a3a29f66 27%, #6b6a6857 62%, #7b7a7875 83%, #b9b8b5cc 100%);
+}
+.hero-title > .hero-line,
+.explore-words > .explore-line,
+.faq-title > span {
+  background-image: var(--category-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 @media print { .vfx-canvas { display: none; } }

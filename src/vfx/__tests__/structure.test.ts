@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bandEnable, cellAbsence, fragmentation, loadingAbsence, rateFor, sampleEnergy, transformHeat } from '../structure';
+import { bandEnable, cellAbsence, fragmentation, h21, loadingAbsence, loadingDelay, vnoise } from '../structure';
 
 const H = 900, BAND = H * 0.15;
 
@@ -44,11 +44,6 @@ describe('structural progress', () => {
     expect(fragmentation(10, H, BAND, 0, 1)).toBe(0);
   });
 
-  it('marks only cells in transition as hot', () => {
-    expect(transformHeat(0)).toBe(0);
-    expect(transformHeat(1)).toBe(0);
-    expect(transformHeat(0.5)).toBe(1);
-  });
 });
 
 describe('loading', () => {
@@ -63,12 +58,12 @@ describe('loading', () => {
   });
 });
 
-describe('energy tails', () => {
-  it('ends a released cell within the configured release time', () => {
-    for (const seconds of [0.35, 0.8]) {
-      const rate = rateFor(seconds);
-      expect(sampleEnergy(1, 0, 200, seconds, rate)).toBeLessThanOrEqual(0.0201);
-      expect(sampleEnergy(1, 0, 200, seconds * 0.3, rate)).toBeGreaterThan(0.2);
-    }
+describe('CPU noise mirrors the shader', () => {
+  it('is deterministic, bounded and continuous', () => {
+    expect(h21(3, 7)).toBe(h21(3, 7));
+    for (let i = 0; i < 50; i++) { const v = vnoise(i * 0.37, i * 0.21); expect(v).toBeGreaterThanOrEqual(0); expect(v).toBeLessThanOrEqual(1); }
+    expect(Math.abs(vnoise(1.5, 2.5) - vnoise(1.501, 2.5))).toBeLessThan(0.01);
+    const d = loadingDelay(400, 300, 0.5);
+    expect(d).toBeGreaterThanOrEqual(0); expect(d).toBeLessThanOrEqual(1);
   });
 });

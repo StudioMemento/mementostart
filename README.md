@@ -1,4 +1,4 @@
-# Memento Start — V15 (React + Three.js VFX)
+# Memento Start — V16 (React + Three.js VFX)
 
 Pagina START su React + Vite + TypeScript, con il sistema VFX del brief tecnico: un solo contesto WebGL (Three.js, shader GLSL propri), regia GSAP + ScrollTrigger, scroll nativo.
 Markup, testi, layout CSS, immagini e navigazione condivisa restano quelli dello skeleton V13.
@@ -17,36 +17,34 @@ Vercel: `vercel.json` è già impostato (framework Vite, output `dist`). `?vfx=h
 
 ## Come funziona
 
-Il DOM resta la fonte di verità per layout, semantica, focus e click. Un canvas fisso dietro al contenuto disegna il background e una rappresentazione sincronizzata di ogni superficie registrata (titoli e card con immagine, label, icone, divisori).
-Quando texture, font e misure sono pronti l'engine aggiunge `html.vfx-live`: da quel momento il DOM smette di dipingere quelle superfici (niente doppio rendering). Qualsiasi errore, o la perdita del contesto, toglie la classe e torna la pagina DOM.
+Un solo materiale, una sola energia.
+
+- **Background**: una superficie 3D unica (tunnel chiuso, nessun foro né giunzione) vista in prospettiva. Lame lunghe e oblique al bordo, celle sempre più piccole e scure verso il punto di fuga. Picchi e valli sono vertici spinti dentro e fuori; le creste vicine coprono ciò che sta dietro, quindi gli spigoli che non combaciano risultano "coperti". Luci puntiformi radenti dentro il tunnel, spigoli che catturano la luce secondo la loro curvatura reale. Respira lentamente, ruota appena e avanza con lo scroll, si inclina verso il puntatore.
+- **Energia = reazione a catena** (`chain.ts`): ogni superficie ha una rete di celle triangolari irregolari. Una cella accesa può accendere le vicine poco dopo, con probabilità data dalla sua zona (zone che conducono, zone dove si spegne); poi riposa e decade col suo tempo. Le generazioni sono limitate: ogni reazione ha una fine. Il puntatore, il tocco, il focus e il loading accendono celle sparse vicino al punto, mai un disco.
+- **Card**: l'immagine viene illuminata dall'interno (grading caldo della sua luminanza, leggibile), faccette rade e traslucide, contorni incompleti, il bordo si accende per segmenti (cellule vicine al bordo, frammenti che escono dal frame, puntatore in avvicinamento). Le label restano bianche.
+- **Titoli**: in quiete sfumatura grigia dal basso verso l'alto per ogni riga (ombra). In energia il grigio diventa ambra dalla base verso l'alto, con micro-sfaccettature dentro i glifi e un leggero edge glow; la catena viaggia sulle lettere.
+- **Scroll**: tassellazione monocromatica legata alla posizione, nessuna accensione.
+
+Il DOM resta la fonte di verità per layout, semantica, focus e click. Quando texture, font e misure sono pronti l'engine aggiunge `html.vfx-live` e il DOM smette di dipingere le superfici registrate (niente doppio rendering). Qualsiasi errore o la perdita del contesto tolgono la classe e torna la pagina DOM.
 
 | Modulo (`src/vfx/`) | Responsabilità |
 | --- | --- |
-| `config.ts` | Colori, raggi, durate, densità, profili di qualità |
+| `config.ts` | Colori, luci, densità, catena, raggi, durate, profili di qualità |
+| `chain.ts` | Reazione a catena sulle celle (funzioni pure, testate) |
+| `geometry.ts` | Rete irregolare delle superfici (Delaunay), tunnel 3D, celle strutturali |
+| `border.ts` | Luce del bordo per segmenti |
 | `registry.ts`, `react.tsx` | Registro superfici, `useSurface('title' \| 'card')`, `useVfxSignals()` |
-| `input.ts` | Pointer, touch, focus, uscita dal viewport, impulsi → campioni di energia |
-| `scroll.ts` | Posizione, velocità filtrata, fasce (ScrollTrigger osserva lo scroll nativo) |
-| `structure.ts` | Funzioni pure della composizione strutturale (le stesse formule degli shader) |
-| `geometry.ts` | Triangolazioni stabili per seed: celle delle superfici, lamelle del background |
+| `input.ts`, `scroll.ts` | Puntatore (posizione, velocità, quiete), scroll nativo e fasce |
+| `structure.ts` | Composizione strutturale (stesse formule degli shader) |
 | `raster.ts` | Maschere dai glifi reali, icone, divisori; `object-fit` / `object-position` |
-| `particles.ts` | Pool, emissione, curl noise, riciclo |
+| `particles.ts` | Scintille dai glifi, frammenti che escono dalle card |
 | `shaders.ts`, `engine.ts` | Risorse GPU, pass, bloom selettivo, loop unico (ticker GSAP) |
-
-Canali separati: **struttura** (celle presenti/assenti: dipende solo da loading e posizione di scroll, calcolata nel vertex shader dalla posizione di riposo), **energia** (ambra: prossimità, hover, touch, focus), **emissioni** (particelle con vita propria).
-
-Registrare una superficie:
-
-```tsx
-const ref = useSurface<HTMLAnchorElement>('card');            // pannello con angoli tagliati + contenuto
-const ref = useSurface<HTMLHeadingElement>('title');          // tipografia grande, linguaggio completo nei glifi
-const { invalidate, impulse } = useVfxSignals();              // contenuto cambiato / impulso locale
-```
 
 ## Controlli eseguiti
 
-- `tsc`, build di produzione con prerender, idratazione senza errori in console.
-- 17 test: fascia centrale integra, progresso continuo e reversibile, soglie stabili per cella, inizio/fine documento, durata delle code (rilascio, scroll), fine delle particelle, triangolazione deterministica, cleanup dei listener.
-- Screenshot in Chrome headless: quiete, prossimità sul background, titolo, hover card, FAQ (apertura e re-misura), chiusura, scroll in movimento / coda / stop, loading, reduced motion.
+- `tsc`, build di produzione con prerender, idratazione senza errori in console, accordion, reduced motion.
+- 21 test: fascia centrale integra, progresso reversibile, la reazione a catena si propaga e si estingue sempre, muore nelle zone non conduttive, riposo delle celle, annullamento del gesto, superficie del background chiusa su tre aspect ratio, celle più piccole verso il centro, luce del bordo che decade a zero, particelle, cleanup.
+- Screenshot in Chrome headless: quiete (desktop e mobile), sfondo con e senza puntatore, titolo, hover e rilascio card, FAQ, scroll, chiusura, quattro fasi del loading.
 
 ## Non verificato o limite noto
 

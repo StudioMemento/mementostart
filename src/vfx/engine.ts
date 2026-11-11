@@ -1,34 +1,44 @@
 import gsap from 'gsap';
 import {
-  BufferAttribute, BufferGeometry, Camera, CanvasTexture, DoubleSide, GLSL3, InstancedBufferGeometry, InstancedInterleavedBuffer,
-  InterleavedBufferAttribute, LinearFilter, Mesh, Sphere, NoColorSpace, RawShaderMaterial, Scene, Texture, Vector2, Vector4,
-  WebGLRenderer, WebGLRenderTarget, type IUniform,
+  BufferAttribute, BufferGeometry, CanvasTexture, DoubleSide, DynamicDrawUsage, GLSL3, InstancedBufferGeometry,
+  InstancedInterleavedBuffer, InterleavedBufferAttribute, LinearFilter, Mesh, NoColorSpace, PerspectiveCamera,
+  RawShaderMaterial, Scene, Sphere, Texture, Vector2, Vector3, Vector4, WebGLRenderer, WebGLRenderTarget, type IUniform,
 } from 'three';
-import { VFX, hexToRgb, type QualityName } from './config';
-import { buildCells, buildShards, hashString } from './geometry';
+import { BorderLight, outline } from './border';
+import { ChainField } from './chain';
+import { VFX, gradientRange, hexToRgb, type ChainProfile, type QualityName } from './config';
+import { buildCells, buildNetwork, buildTunnel, hashString, type SurfaceNetwork, type Tunnel } from './geometry';
 import { PointerField } from './input';
-import { Particles } from './particles';
+import { GPU_STRIDE, Particles } from './particles';
 import { collect, imageFit, paint } from './raster';
 import type { SurfaceOptions, SurfaceRegistry } from './registry';
 import { ScrollState } from './scroll';
-import { BG_FRAG, BG_VERT, BLUR_FRAG, COMPOSITE_FRAG, FS_VERT, PART_FRAG, PART_VERT, SURFACE_FRAG, SURFACE_VERT } from './shaders';
-import { rateFor } from './structure';
+import {
+  BG_FRAG, BG_VERT, BLUR_FRAG, COMPOSITE_FRAG, FS_VERT, OVERLAY_CARD_FRAG, OVERLAY_TITLE_FRAG, OVERLAY_VERT,
+  PART_FRAG, PART_VERT, SURFACE_FRAG, SURFACE_VERT,
+} from './shaders';
+import { loadingDelay } from './structure';
 
 type Uniforms = Record<string, IUniform>;
 
 interface Surface {
   el: HTMLElement;
   opt: SurfaceOptions;
-  mesh: Mesh<BufferGeometry, RawShaderMaterial>;
+  index: number;
   u: Uniforms;
+  content: Mesh<BufferGeometry, RawShaderMaterial>;
+  overlay: Mesh<BufferGeometry, RawShaderMaterial>;
   x: number; y: number; w: number; h: number;        // document px
-  cellKey: string;
+  cellKey: string; netKey: string;
+  net: SurfaceNetwork | null; chain: ChainField | null; energy: BufferAttribute | null;
+  border: BorderLight | null; edgeCells: { cell: number; s: number; w: number }[];
+  born: Uint8Array | null; delays: Float32Array | null;
   canvas: HTMLCanvasElement;
   ink: CanvasTexture | null;
   img: Texture | null; imgSrc: string;
   alpha: { alpha: Uint8Array; aw: number; ah: number; ascale: number } | null;
   fontSize: number;
-  hover: number; gain: number; pulse: number;
+  hover: number; inside: boolean; debt: number; budget: number; hot: boolean;
   version: number;
   ready: boolean;
 }
@@ -36,20 +46,26 @@ interface Surface {
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 const root = () => document.documentElement;
-/** Positions are 2D px resolved in the shaders: a fixed sphere keeps three from deriving bounds it cannot use. */
-const unbounded = <T extends BufferGeometry>(g: T) => { g.boundingSphere = new Sphere(); return g; };
+/** Positions are resolved in the shaders: a fixed sphere keeps three from deriving bounds it cannot use. */
+const unbounded = <T extends BufferGeometry>(g: T) => { g.boundingSphere = new Sphere(new Vector3(), 1e6); return g; };
 const BARY = [1, 0, 0, 0, 1, 0, 0, 0, 1];
 const barycentric = (triangles: number) => {
   const a = new Float32Array(triangles * 9);
   for (let i = 0; i < a.length; i++) a[i] = BARY[i % 9];
   return a;
 };
+const tmp = new Vector3();
 
 /**
  * VFX engine: one persistent WebGL context, one update loop (the GSAP ticker).
- * The DOM stays the source of truth for layout, semantics and input; the canvas sits behind it and draws
- * the background plus a synchronised representation of every registered surface. While that representation
- * is live (`html.vfx-live`) the DOM paint of those surfaces is switched off, so nothing is drawn twice.
+ *
+ * One material, one energy. The background is a 3D graphite surface seen in perspective; every surface of the page
+ * (titles, cards with their photographs and labels) has a monochrome representation for structure and an overlay for
+ * energy. Energy is the same thing everywhere: amber light carried by a chain reaction across a network of cells,
+ * started by pointer, touch, focus and loading, ending on its own. Scroll moves the structure, never the light.
+ *
+ * The DOM stays the source of truth for layout, semantics and input. While the GPU representation is live
+ * (`html.vfx-live`) the DOM paint of registered surfaces is switched off, so nothing is drawn twice.
  */
 export class VfxEngine {
   static create(canvas: HTMLCanvasElement, registry: SurfaceRegistry): VfxEngine | null {
@@ -66,10 +82,13 @@ export class VfxEngine {
   private renderer: WebGLRenderer;
   private scene = new Scene();
   private post = new Scene();
-  private camera = new Camera();
+  private camera = new PerspectiveCamera(VFX.background.fov, 1, 0.02, 400);
   private globals: Uniforms;
   private bg: Mesh<BufferGeometry, RawShaderMaterial>;
-  private bgKey = '';
+  private tunnel: Tunnel | null = null;
+  private bgChain: ChainField | null = null;
+  private bgEnergy: BufferAttribute | null = null;
+  private bgAspect = 0; private bgDebt = 0; private bgHot = false;
   private parts = new Particles();
   private partGeo = new InstancedBufferGeometry();
   private partBuf: InstancedInterleavedBuffer;
@@ -78,25 +97,26 @@ export class VfxEngine {
   private blur: RawShaderMaterial; private composite: RawShaderMaterial; private fsMesh: Mesh<BufferGeometry, RawShaderMaterial>;
 
   private surfaces = new Map<HTMLElement, Surface>();
+  private byIndex: Surface[] = [];
   private input = new PointerField();
   private scroll: ScrollState;
   private hovered: Surface | null = null;
-  private col: [number, number] = [0, 0];
-  private viewH = 1;
+  private viewW = 1; private viewH = 1;
+  private look = new Vector2();
   private clock = 0; private frame = 0;
   private load = { value: 0 };
   private loadTween: gsap.core.Tween | null = null;
   private live = false; private loaded = false; private lost = false; private destroyed = false;
   private layoutDirty = true; private renderDirty = true;
-  private quality: QualityName = 'high';
-  private slow = 0; private frames = 0; private pinned = false;
-  private spawnDebt = 0; private scrollDebt = 0;
+  private quality: QualityName = 'high'; private pinned = false;
+  private slow = 0; private frames = 0;
   private readonly reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   private readonly abort = new AbortController();
   private cleanups: (() => void)[] = [];
+  private nextIndex = 0;
 
   private constructor(private canvas: HTMLCanvasElement, private registry: SurfaceRegistry) {
-    const renderer = new WebGLRenderer({ canvas, alpha: true, antialias: true, premultipliedAlpha: true, depth: false, stencil: false, powerPreference: 'high-performance' });
+    const renderer = new WebGLRenderer({ canvas, alpha: true, antialias: true, premultipliedAlpha: true, depth: true, stencil: false, powerPreference: 'high-performance' });
     if (!renderer.capabilities.isWebGL2) { renderer.dispose(); throw new Error('WebGL2 unavailable'); }
     this.renderer = renderer;
     renderer.autoClear = false;
@@ -107,43 +127,46 @@ export class VfxEngine {
     if (/swiftshader|llvmpipe|software|basic render/i.test(gpu)) this.quality = 'low';
     else if (matchMedia('(pointer: coarse)').matches) this.quality = 'medium';
     // ?vfx=high|medium|low pins a quality profile (useful when comparing devices)
-    const pinned = new URLSearchParams(location.search).get('vfx');
-    if (pinned && pinned in VFX.quality) { this.quality = pinned as QualityName; this.pinned = true; }
+    const pin = new URLSearchParams(location.search).get('vfx');
+    if (pin && pin in VFX.quality) { this.quality = pin as QualityName; this.pinned = true; }
 
     const A = VFX.color.amber;
-    const slowest = rateFor(VFX.pointer.release[1]), fastest = rateFor(VFX.pointer.release[0]);
     this.globals = {
       uTime: { value: 0 }, uMotion: { value: this.reduced ? 0 : 1 },
-      uS: { value: this.input.data }, uN: { value: 0 },
       uAmb: { value: [...hexToRgb(A.deep), ...hexToRgb(A.mid), ...hexToRgb(A.hot), ...hexToRgb(A.core)] },
-      uAmbBase: { value: hexToRgb(A.base) }, uEmissive: { value: 0 },
+      uEmissive: { value: 0 },
       uView: { value: new Vector2(1, 1) }, uScroll: { value: 0 },
-      uBand: { value: 120 }, uBandK: { value: new Vector2(0, 0) }, uLoad: { value: 0 }, uScrollE: { value: 0 },
-      uRate: { value: new Vector2(slowest, fastest) },
+      uBand: { value: 120 }, uBandK: { value: new Vector2(0, 0) }, uLoad: { value: 0 },
     };
 
-    // background
-    this.bg = new Mesh(unbounded(new BufferGeometry()), this.material(BG_VERT, BG_FRAG, {
-      uCol: { value: new Vector2(0, 1) }, uBase: { value: [...VFX.color.base] }, uAlpha: { value: 0 },
-      uBgGain: { value: 1 }, uBgRadius: { value: VFX.pointer.radius },
+    // background: a real 3D surface with depth, drawn first
+    this.bg = new Mesh(unbounded(new BufferGeometry()), new RawShaderMaterial({
+      glslVersion: GLSL3, vertexShader: BG_VERT, fragmentShader: BG_FRAG, side: DoubleSide,
+      depthTest: true, depthWrite: true, transparent: false,
+      uniforms: {
+        ...this.globals, uBase: { value: [...VFX.color.base] }, uZ: { value: new Vector2(1, 10) }, uFog: { value: VFX.background.fog }, uAlpha: { value: 0 },
+        uLight: { value: new Float32Array(VFX.background.lights.flat()) }, uShade: { value: new Vector4(...VFX.background.shade) },
+      },
     }));
-    this.bg.material.transparent = false;
-    this.bg.renderOrder = 0; this.bg.frustumCulled = false;
+    this.bg.frustumCulled = false; this.bg.renderOrder = 0;
     this.scene.add(this.bg);
 
     // particles
-    this.partGeo.setAttribute('corner', new BufferAttribute(new Float32Array([0, -1, 0.9, 0.62, -0.9, 0.62]), 2));
-    this.partBuf = new InstancedInterleavedBuffer(this.parts.gpu, 6);
+    const corner = new Float32Array([0, -1, 0.9, 0.62, -0.9, 0.62]);
+    this.partGeo.setAttribute('corner', new BufferAttribute(corner, 2));
+    this.partGeo.setAttribute('cbary', new BufferAttribute(new Float32Array(BARY), 3));
+    this.partBuf = new InstancedInterleavedBuffer(this.parts.gpu, GPU_STRIDE);
+    this.partBuf.setUsage(DynamicDrawUsage);
     this.partGeo.setAttribute('aP', new InterleavedBufferAttribute(this.partBuf, 4, 0));
-    this.partGeo.setAttribute('aL', new InterleavedBufferAttribute(this.partBuf, 2, 4));
+    this.partGeo.setAttribute('aL', new InterleavedBufferAttribute(this.partBuf, 3, 4));
     this.partGeo.instanceCount = 0; unbounded(this.partGeo);
     this.partMesh = new Mesh(this.partGeo, this.material(PART_VERT, PART_FRAG, {}));
-    this.partMesh.renderOrder = 100; this.partMesh.frustumCulled = false;
+    this.partMesh.renderOrder = 1000; this.partMesh.frustumCulled = false;
     this.scene.add(this.partMesh);
 
     // selective bloom: only the emission pass is blurred and added back
-    const rt = () => new WebGLRenderTarget(4, 4, { depthBuffer: false, minFilter: LinearFilter, magFilter: LinearFilter });
-    this.rtE = rt(); this.rtA = rt(); this.rtB = rt();
+    const rt = (depth: boolean) => new WebGLRenderTarget(4, 4, { depthBuffer: depth, minFilter: LinearFilter, magFilter: LinearFilter });
+    this.rtE = rt(true); this.rtA = rt(false); this.rtB = rt(false);
     const fs = unbounded(new BufferGeometry());
     fs.setAttribute('position', new BufferAttribute(new Float32Array([-1, -1, 3, -1, -1, 3]), 2));
     const raw = (frag: string, uniforms: Uniforms) => new RawShaderMaterial({ glslVersion: GLSL3, vertexShader: FS_VERT, fragmentShader: frag, uniforms, depthTest: false, depthWrite: false });
@@ -196,10 +219,7 @@ export class VfxEngine {
     this.layout();
     const first = [...this.surfaces.values()].filter(s => s.y < scrollY + this.viewH * 1.2 && s.y + s.h > scrollY - 100);
     const images = first.map(s => s.el.querySelector<HTMLImageElement>('img.is-active, img')).filter((i): i is HTMLImageElement => !!i && !i.complete);
-    await Promise.race([
-      Promise.all([...images.map(i => i.decode().catch(() => {})), this.whenPainted(first)]),
-      wait(1400),
-    ]);
+    await Promise.race([Promise.all([...images.map(i => i.decode().catch(() => {})), this.whenPainted(first)]), wait(1400)]);
     if (this.destroyed) return;
     this.layout();
     await Promise.race([this.whenPainted(first), wait(400)]);
@@ -230,10 +250,13 @@ export class VfxEngine {
     const signal = this.abort.signal, passive = { passive: true, signal } as const;
     const input = this.input;
     addEventListener('pointermove', e => input.move(e.clientX, e.clientY, e.pointerType === 'touch'), passive);
-    addEventListener('pointerdown', e => input.move(e.clientX, e.clientY, e.pointerType === 'touch'), passive);
-    // a lifted finger leaves one local impulse (PointerField deposits it); a cancelled gesture leaves none
-    addEventListener('pointerup', e => { if (e.pointerType !== 'mouse') { input.leave(); this.burst(e.clientX, e.clientY + scrollY, 7); } }, passive);
-    addEventListener('pointercancel', () => input.cancel(), passive);
+    addEventListener('pointerdown', e => {
+      input.move(e.clientX, e.clientY, e.pointerType === 'touch');
+      if (e.pointerType !== 'mouse') this.pulseAt(e.clientX, e.clientY + scrollY, 0.9, 4);
+    }, passive);
+    // a lifted finger leaves one local impulse that travels and decays; a cancelled gesture leaves none
+    addEventListener('pointerup', e => { if (e.pointerType !== 'mouse') { this.pulseAt(e.clientX, e.clientY + scrollY, 1, 5); input.leave(); } }, passive);
+    addEventListener('pointercancel', () => { input.cancel(); this.surfaces.forEach(s => s.chain?.quench()); this.bgChain?.quench(); }, passive);
     addEventListener('blur', () => input.leave(), passive);
     root().addEventListener('mouseleave', () => input.leave(), passive);
     document.addEventListener('pointerover', e => { if ((e.target as Element)?.tagName === 'IFRAME') input.leave(); }, passive);
@@ -242,7 +265,7 @@ export class VfxEngine {
       const el = e.target as Element;
       if (!el.matches?.(':focus-visible')) return;
       const r = el.getBoundingClientRect();
-      input.impulse(r.left + r.width / 2, r.top + r.height / 2 + scrollY, 0.6, this.clock);
+      this.pulseAt(r.left + r.width / 2, r.top + r.height / 2 + scrollY, 0.7, 3);
     }, passive);
     addEventListener('resize', () => { this.layoutDirty = true; }, passive);
     document.fonts.addEventListener?.('loadingdone', () => { this.layoutDirty = true; }, { signal });
@@ -263,11 +286,20 @@ export class VfxEngine {
       this.layoutDirty = true;
       if (target && strength) {
         const r = target.getBoundingClientRect();
-        input.impulse(r.left + r.width * 0.3, r.top + r.height * 0.45 + scrollY, strength, this.clock);
+        this.pulseAt(r.left + r.width * 0.3, r.top + r.height * 0.45 + scrollY, strength, 6, Math.min(r.width, r.height) * 0.3);
       }
     }));
     // lazy images arrive later: their texture is created when they do
     document.addEventListener('load', e => { if ((e.target as Element)?.tagName === 'IMG') this.layoutDirty = true; }, { capture: true, signal });
+  }
+
+  /** One local impulse (touch, focus, accordion): lights cells under a document point; the chain does the rest. */
+  private pulseAt(x: number, y: number, strength: number, count: number, spread = 40) {
+    for (const s of this.surfaces.values()) {
+      if (!s.chain || x < s.x || x > s.x + s.w || y < s.y || y > s.y + s.h) continue;
+      for (let i = 0; i < count; i++) s.chain.igniteAt(x - s.x, y - s.y, spread, strength * rand(0.8, 1));
+      return;
+    }
   }
 
   /* ------------------------------------------------------------------ layout and surfaces */
@@ -277,7 +309,7 @@ export class VfxEngine {
   private layout() {
     this.layoutDirty = false; this.renderDirty = true;
     const w = root().clientWidth, h = innerHeight;
-    this.viewH = h;
+    this.viewW = w; this.viewH = h;
     const q = this.profile();
     this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, q.dpr));
     this.renderer.setSize(w, h, false);
@@ -287,66 +319,77 @@ export class VfxEngine {
     this.scroll.measure(h);
     (this.globals.uView.value as Vector2).set(w, h);
     this.globals.uBand.value = this.scroll.bandPx;
+    this.camera.aspect = w / h;
+    this.camera.updateProjectionMatrix();
+    if (Math.abs(this.camera.aspect - this.bgAspect) / this.camera.aspect > 0.02) this.buildBackground(this.camera.aspect);
 
     // DOM colours and opacities are read in their normal state, then the GPU representation takes over again
     const live = this.live;
     if (live) root().classList.remove('vfx-live');
     const sx = scrollX, sy = scrollY;
     const seen = new Set<HTMLElement>();
-    let column: [number, number] | null = null;
     this.registry.surfaces.forEach((opt, el) => {
       seen.add(el);
       const r = el.getBoundingClientRect();
-      if (el.dataset.vfxColumn !== undefined || !column) column = [r.left + sx, r.right + sx];
       let s = this.surfaces.get(el);
       if (!s) { s = this.addSurface(el, opt); this.surfaces.set(el, s); }
       s.opt = opt;
       s.x = r.left + sx; s.y = r.top + sy; s.w = r.width; s.h = r.height;
-      if (r.width < 2 || r.height < 2) { s.mesh.visible = false; return; }
+      if (r.width < 2 || r.height < 2) { s.content.visible = false; return; }
       this.measureSurface(s);
     });
-    const hero = document.querySelector<HTMLElement>('.content-width');
-    if (hero) { const r = hero.getBoundingClientRect(); column = [r.left + sx, r.right + sx]; }
-    this.col = column ?? [w * 0.1, w * 0.9];
     if (live) root().classList.add('vfx-live');
     this.surfaces.forEach((s, el) => { if (!seen.has(el)) { this.dropSurface(s); this.surfaces.delete(el); } });
-
-    // background: same seed, recomposed for the new frame
-    const key = `${Math.round(w / 8)}x${Math.round(h / 8)}`;
-    if (key !== this.bgKey) {
-      this.bgKey = key;
-      const f = buildShards(w, h);
-      const g = unbounded(new BufferGeometry());
-      g.setAttribute('position', new BufferAttribute(f.position, 2));
-      g.setAttribute('data', new BufferAttribute(f.data, 4));
-      g.setAttribute('grad', new BufferAttribute(f.grad, 1));
-      g.setAttribute('bary', new BufferAttribute(barycentric(f.triangles), 3));
-      this.bg.geometry.dispose();
-      this.bg.geometry = g;
-    }
-    (this.bg.material.uniforms.uCol.value as Vector2).set(this.col[0], this.col[1]);
+    this.byIndex = [];
+    this.surfaces.forEach(s => { this.byIndex[s.index] = s; });
     this.bg.material.uniforms.uAlpha.value = root().dataset.mementoSurface === 'transparent' ? 1 : 0;
   }
 
+  private buildBackground(aspect: number) {
+    this.bgAspect = aspect;
+    const t = buildTunnel(aspect);
+    const g = unbounded(new BufferGeometry());
+    g.setAttribute('position', new BufferAttribute(t.position, 3));
+    g.setAttribute('bary', new BufferAttribute(barycentric(t.faces), 3));
+    g.setAttribute('face', new BufferAttribute(t.face, 4));
+    g.setAttribute('edge', new BufferAttribute(t.edge, 3));
+    g.setAttribute('wave', new BufferAttribute(t.wave, 3));
+    const energy = new BufferAttribute(new Float32Array(t.faces * 6), 2);
+    energy.setUsage(DynamicDrawUsage);
+    g.setAttribute('energy', energy);
+    this.bg.geometry.dispose();
+    this.bg.geometry = g;
+    (this.bg.material.uniforms.uZ.value as Vector2).set(t.z0, t.z1);
+    this.tunnel = t; this.bgEnergy = energy;
+    this.bgChain = new ChainField(t, VFX.chain.background);
+  }
+
   private addSurface(el: HTMLElement, opt: SurfaceOptions): Surface {
+    const title = opt.kind === 'title';
     const u: Uniforms = {
       uOrigin: { value: new Vector2() }, uSize: { value: new Vector2(1, 1) }, uPush: { value: 30 },
-      uPanel: { value: opt.kind === 'card' ? 1 : 0 }, uCut: { value: new Vector2() }, uPanelCol: { value: new Vector4(...VFX.color.panel) },
+      uPanel: { value: title ? 0 : 1 }, uCut: { value: new Vector2() }, uPanelCol: { value: new Vector4(...VFX.color.panel) },
       uInk: { value: null }, uHasInk: { value: 0 },
       uImg: { value: null }, uHasImg: { value: 0 }, uImgBox: { value: new Vector4(0, 0, 1, 1) }, uImgFit: { value: new Vector4(0, 0, 1, 1) }, uImgStyle: { value: [1, 0, 0] },
-      uTitle: { value: opt.kind === 'title' ? 1 : 0 }, uGain: { value: 0 }, uHover: { value: 0 }, uPulse: { value: 0 },
-      uRadius: { value: VFX.pointer.radius }, uMicro: { value: VFX.cells.microCard },
+      uHover: { value: 0 }, uGain: { value: 1 }, uBins: { value: new Float32Array(VFX.border.bins) },
+      uGray: { value: new Vector2(...gradientRange()) }, uHalo: { value: 3 }, uMicro: { value: 12 },
     };
-    const mesh = new Mesh(unbounded(new BufferGeometry()), this.material(SURFACE_VERT, SURFACE_FRAG, u));
-    mesh.frustumCulled = false; mesh.renderOrder = 10; mesh.visible = false;
-    this.scene.add(mesh);
-    return { el, opt, mesh, u: mesh.material.uniforms, x: 0, y: 0, w: 0, h: 0, cellKey: '', canvas: document.createElement('canvas'), ink: null, img: null, imgSrc: '',
-      alpha: null, fontSize: 16, hover: 0, gain: 0, pulse: 0, version: 0, ready: false };
+    const index = this.nextIndex++;
+    const content = new Mesh(unbounded(new BufferGeometry()), this.material(SURFACE_VERT, SURFACE_FRAG, u));
+    content.frustumCulled = false; content.renderOrder = 10 + index * 2; content.visible = false;
+    const overlay = new Mesh(unbounded(new BufferGeometry()), this.material(OVERLAY_VERT, title ? OVERLAY_TITLE_FRAG : OVERLAY_CARD_FRAG, u));
+    overlay.frustumCulled = false; overlay.renderOrder = 11 + index * 2; overlay.visible = false;
+    this.scene.add(content, overlay);
+    return { el, opt, index, u, content, overlay, x: 0, y: 0, w: 0, h: 0, cellKey: '', netKey: '',
+      net: null, chain: null, energy: null, border: title ? null : new BorderLight(), edgeCells: [], born: null, delays: null,
+      canvas: document.createElement('canvas'), ink: null, img: null, imgSrc: '', alpha: null, fontSize: 16,
+      hover: 0, inside: false, debt: 0, budget: 0, hot: false, version: 0, ready: false };
   }
 
   private dropSurface(s: Surface) {
-    this.scene.remove(s.mesh);
-    s.mesh.geometry.dispose(); s.mesh.material.dispose();
+    this.scene.remove(s.content, s.overlay);
+    s.content.geometry.dispose(); s.content.material.dispose();
+    s.overlay.geometry.dispose(); s.overlay.material.dispose();
     s.ink?.dispose(); s.img?.dispose();
     s.version = -1;
   }
@@ -356,26 +399,29 @@ export class VfxEngine {
     const found = collect(el);
     s.fontSize = found.fontSize || 16;
     const title = s.opt.kind === 'title';
-    const cell = (title ? clamp(s.fontSize * VFX.cells.titleFactor, VFX.cells.titleRange[0], VFX.cells.titleRange[1]) : VFX.cells.card) * q.cellScale;
-    u.uMicro.value = title ? clamp(s.fontSize * VFX.cells.microTitleFactor, VFX.cells.microTitleRange[0], VFX.cells.microTitleRange[1]) * 1.35 : VFX.cells.microCard * 2;
+    const id = hashString(el.id || el.className || el.tagName) + s.index;
+    const cell = (title ? clamp(s.fontSize * 0.2, 14, 46) : VFX.cells.card) * q.cellScale;
     u.uPush.value = title ? clamp(s.fontSize * 0.16, 14, 34) : 30;
+    u.uHalo.value = clamp(s.fontSize * 0.016, 1.6, 4.5);
+    u.uMicro.value = clamp(s.fontSize * VFX.chain.title.microEm, 6, 18);
 
-    // triangulation is stable: rebuilt only when the surface changes size
+    // structural cells: stable, rebuilt only when the surface changes size
     const key = `${Math.round(s.w)}x${Math.round(s.h)}@${cell.toFixed(1)}`;
     if (key !== s.cellKey) {
       s.cellKey = key;
-      const m = buildCells(s.w, s.h, cell, hashString(el.id || el.className || el.tagName) + this.indexOf(el));
+      const m = buildCells(s.w, s.h, cell, id);
       const g = unbounded(new BufferGeometry());
       g.setAttribute('position', new BufferAttribute(m.position, 2));
       g.setAttribute('cellCenter', new BufferAttribute(m.centroid, 2));
       g.setAttribute('seed', new BufferAttribute(m.seed, 1));
       g.setAttribute('bary', new BufferAttribute(barycentric(m.triangles), 3));
-      s.mesh.geometry.dispose();
-      s.mesh.geometry = g;
+      s.content.geometry.dispose();
+      s.content.geometry = g;
     }
+    this.ensureNetwork(s, id);
     (u.uOrigin.value as Vector2).set(s.x, s.y);
     (u.uSize.value as Vector2).set(s.w, s.h);
-    if (s.opt.kind === 'card') {
+    if (!title) {
       const cut = s.opt.cut === 'none' ? 0 : parseFloat(getComputedStyle(el).getPropertyValue('--cut')) || 16;
       (u.uCut.value as Vector2).set(cut, s.opt.cut === 'tl' ? 0 : cut);
     }
@@ -407,63 +453,97 @@ export class VfxEngine {
       const t = new CanvasTexture(s.canvas);
       t.colorSpace = NoColorSpace; t.premultiplyAlpha = true; t.flipY = false; t.generateMipmaps = false; t.minFilter = LinearFilter; t.magFilter = LinearFilter;
       this.renderer.initTexture(t);
-      s.ink = t; s.alpha = title ? alpha : null;
+      s.ink = t; s.alpha = alpha;
       u.uInk.value = t; u.uHasInk.value = 1;
-      s.mesh.visible = true; s.ready = true;
+      if (title) this.weightByInk(s);
+      s.content.visible = true; s.ready = true;
       this.renderDirty = true;
     }).catch(() => { s.ready = true; });
   }
 
-  private indexOf(el: HTMLElement) { let i = 0; for (const k of this.registry.surfaces.keys()) { if (k === el) return i; i++; } return 0; }
-
-  /* ------------------------------------------------------------------ emissions */
-
-  private burst(x: number, y: number, n: number) {
-    if (this.reduced) return;
-    for (let i = 0; i < n; i++) { const a = rand(0, 6.283), v = rand(40, 130); this.parts.spawn(x + Math.cos(a) * 8, y + Math.sin(a) * 8, Math.cos(a) * v, Math.sin(a) * v); }
+  /** Energy cells: an irregular network over the surface and a margin, with its chain reaction. */
+  private ensureNetwork(s: Surface, id: number) {
+    const title = s.opt.kind === 'title', C = VFX.chain;
+    const spacing = title ? clamp(s.fontSize * C.title.spacingEm, 14, 52) : C.card.spacing;
+    const margin = title ? clamp(s.fontSize * C.title.marginEm, 8, 22) : C.card.margin;
+    const zone = title ? s.fontSize * C.title.zoneEm : C.card.zone;
+    const key = `${Math.round(s.w)}x${Math.round(s.h)}@${spacing.toFixed(1)}`;
+    if (key === s.netKey) return;
+    s.netKey = key;
+    const net = buildNetwork(s.w, s.h, spacing, margin, zone, id);
+    for (let f = 0; f < net.faces; f++) if (!net.weight[f]) net.cond[f] = 0;   // the reaction stays on the surface
+    const g = unbounded(new BufferGeometry());
+    g.setAttribute('position', new BufferAttribute(net.position, 2));
+    g.setAttribute('bary', new BufferAttribute(barycentric(net.faces), 3));
+    g.setAttribute('cell', new BufferAttribute(net.cell, 4));
+    const energy = new BufferAttribute(new Float32Array(net.faces * 6), 2);
+    energy.setUsage(DynamicDrawUsage);
+    g.setAttribute('energy', energy);
+    s.overlay.geometry.dispose();
+    s.overlay.geometry = g;
+    const profile: ChainProfile = title ? C.title : C.card;
+    const chain = new ChainField(net, profile);
+    chain.onIgnite = (cell, strength) => this.emitFrom(s, cell, strength);
+    s.net = net; s.chain = chain; s.energy = energy;
+    s.delays = new Float32Array(net.faces); s.born = new Uint8Array(net.faces);
+    for (let f = 0; f < net.faces; f++) s.delays[f] = loadingDelay(s.x + net.cx[f], s.y + net.cy[f], net.seed[f]);
+    // cells near the outline feed its light
+    s.edgeCells = [];
+    if (!title) for (let f = 0; f < net.faces; f++) {
+      if (!net.weight[f]) continue;
+      const [o, d] = outline(net.cx[f], net.cy[f], s.w, s.h);
+      if (d < VFX.border.reach) s.edgeCells.push({ cell: f, s: o, w: 1 - d / VFX.border.reach });
+    }
+    if (title && s.alpha) this.weightByInk(s);
   }
 
-  /** Emission follows pointer travel near cells that are actually lit. A still pointer emits nothing. */
-  private emit(dt: number) {
-    const input = this.input, s = this.hovered;
-    if (!s || !input.present || input.live.w < 0.3) return;
-    const k = clamp(input.speed / VFX.particles.speedRef, 0, 1);
-    if (k < 0.04) { this.spawnDebt = 0; return; }
-    this.spawnDebt += dt * VFX.particles.rate * k * (s.opt.kind === 'title' ? 1 : 0.4);
-    const px = input.x, py = input.y + this.scroll.y;
-    while (this.spawnDebt >= 1) {
-      this.spawnDebt -= 1;
-      for (let tries = 0; tries < 5; tries++) {
-        const a = rand(0, 6.283), r = Math.sqrt(Math.random()) * 64;
-        const x = px + Math.cos(a) * r, y = py + Math.sin(a) * r;
-        if (s.alpha) {
-          const m = s.alpha, mx = Math.floor((x - s.x) * m.ascale), my = Math.floor((y - s.y) * m.ascale);
-          if (mx < 0 || my < 0 || mx >= m.aw || my >= m.ah || m.alpha[my * m.aw + mx] < 110) continue;
-        } else if (x < s.x || x > s.x + s.w || y < s.y || y > s.y + s.h) continue;
-        // repulsion from the pointer plus a share of the gesture's own direction
-        const v = rand(26, 110);
-        this.parts.spawn(x, y, Math.cos(a) * v + input.dirX * input.speed * 0.07, Math.sin(a) * v + input.dirY * input.speed * 0.07 - 10);
-        break;
+  /** On type the reaction follows the letters: ink-covered cells conduct and take ignitions, gaps carry it weakly. */
+  private weightByInk(s: Surface) {
+    const net = s.net, m = s.alpha;
+    if (!net || !m) return;
+    const at = (x: number, y: number) => {
+      const i = Math.floor(x * m.ascale), j = Math.floor(y * m.ascale);
+      return i >= 0 && j >= 0 && i < m.aw && j < m.ah ? m.alpha[j * m.aw + i] / 255 : 0;
+    };
+    for (let f = 0; f < net.faces; f++) {
+      if (net.cx[f] < 0 || net.cy[f] < 0 || net.cx[f] > s.w || net.cy[f] > s.h) continue;
+      // strokes are thin: a cell counts as ink if its centre or any corner touches a glyph
+      let ink = at(net.cx[f], net.cy[f]);
+      for (let k = 0; k < 3; k++) {
+        const o = (f * 3 + k) * 2;
+        ink = Math.max(ink, at((net.position[o] + net.cx[f]) / 2, (net.position[o + 1] + net.cy[f]) / 2) * 0.85);
       }
+      net.weight[f] = 0.04 + 0.96 * ink;
+      net.cond[f] = (0.4 + 0.6 * net.zone[f]) * (0.35 + 0.65 * ink);
     }
   }
 
-  /** Scroll fronts shed a few triangles while the page moves; they stop being born when it stops. */
-  private emitScroll(dt: number) {
-    const sc = this.scroll;
-    if (sc.energy < 0.12) { this.scrollDebt = 0; return; }
-    this.scrollDebt += dt * 54 * sc.energy;
-    const list = [...this.surfaces.values()].filter(s => s.mesh.visible);
-    while (this.scrollDebt >= 1 && list.length) {
-      this.scrollDebt -= 1;
-      const top = Math.random() < 0.5;
-      if ((top ? sc.top : sc.bottom) < 0.5) continue;
-      const depth = sc.bandPx * rand(0.25, 0.95);
-      const y = sc.y + (top ? depth : this.viewH - depth);
-      const hit = list.filter(s => y > s.y && y < s.y + s.h);
-      if (!hit.length) continue;
-      const s = hit[Math.floor(Math.random() * hit.length)];
-      this.parts.spawn(rand(s.x, s.x + s.w), y, rand(-26, 26), sc.direction * rand(30, 120) * (top ? 1 : -1) * -1);
+  /* ------------------------------------------------------------------ emissions */
+
+  /** A few triangles leave the cells the reaction lights, only while the pointer moves: a still pointer emits nothing. */
+  private emitFrom(s: Surface, cell: number, strength: number) {
+    if (this.reduced || !s.net || s.budget < 1) return;
+    const moving = this.input.present && this.input.speed > 40 && (s.inside || s === this.hovered);
+    const loading = !this.loaded && this.load.value > 0;
+    if (!moving && !loading) return;
+    const title = s.opt.kind === 'title';
+    if (Math.random() > (title ? 0.24 : 0.3) * strength) return;
+    const x = s.x + s.net.cx[cell], y = s.y + s.net.cy[cell];
+    if (title && s.alpha) {
+      const m = s.alpha, mx = Math.floor(s.net.cx[cell] * m.ascale), my = Math.floor(s.net.cy[cell] * m.ascale);
+      if (mx < 0 || my < 0 || mx >= m.aw || my >= m.ah || m.alpha[my * m.aw + mx] < 90) return;
+    }
+    s.budget -= 1;
+    const input = this.input;
+    if (title) {
+      // repulsion from the pointer plus a share of the gesture's direction
+      const px = input.x, py = input.y + this.scroll.y;
+      const dx = x - px, dy = y - py, d = Math.hypot(dx, dy) || 1, v = rand(...VFX.particles.spark.speed);
+      this.parts.spawn('spark', x, y, (dx / d) * v + input.dirX * input.speed * 0.06, (dy / d) * v + input.dirY * input.speed * 0.06 - 12, s.index);
+    } else {
+      // shards drift outward from the card's centre and leave the frame
+      const dx = x - (s.x + s.w / 2), dy = y - (s.y + s.h / 2), d = Math.hypot(dx, dy) || 1, v = rand(...VFX.particles.shard.speed);
+      this.parts.spawn('shard', x, y, (dx / d) * v + rand(-18, 18), (dy / d) * v + rand(-18, 18), s.index);
     }
   }
 
@@ -475,45 +555,105 @@ export class VfxEngine {
     const dt = Math.min(0.05, deltaMs / 1000);       // a long frame slows the motion instead of skipping it
     this.clock += dt; this.frame++;
     if (this.layoutDirty) this.layout();
-    const g = this.globals, sc = this.scroll, input = this.input;
+    const g = this.globals, sc = this.scroll, input = this.input, P = VFX.pointer;
+    sc.update(this.reduced);
+    input.update(dt);
 
-    sc.update(dt, this.reduced);
-    input.update(dt, this.clock, sc.y);
-
-    // primary surface = the one under the pointer; others in range answer as neighbours
-    const px = input.x, py = input.y + sc.y;
+    const R = input.radius, px = input.x, py = input.y + sc.y, present = input.present;
     let hovered: Surface | null = null;
-    if (input.present) for (const s of this.surfaces.values()) {
-      if (s.mesh.visible && px >= s.x && px <= s.x + s.w && py >= s.y && py <= s.y + s.h) { hovered = s; break; }
+    if (present) for (const s of this.surfaces.values()) {
+      if (s.content.visible && px >= s.x && px <= s.x + s.w && py >= s.y && py <= s.y + s.h && (!hovered || s.opt.kind === 'card')) hovered = s;
     }
-    if (hovered && hovered !== this.hovered) hovered.pulse = VFX.pointer.enterImpulse;
     this.hovered = hovered;
-    let anim = false;
-    const attack = 1 - Math.exp(-dt / VFX.pointer.attack), ease = 1 - Math.exp(-dt * 4);
-    const radius = input.radius;
-    this.surfaces.forEach(s => {
-      const primary = s === hovered;
-      const goal = (primary ? 1 : hovered ? VFX.pointer.neighbour : VFX.pointer.neighbour * 1.3) * (s.opt.gain ?? 1) * (this.reduced ? 0.6 : 1);
-      s.gain += (goal - s.gain) * (primary ? attack : ease);
-      s.hover += ((primary ? 1 : 0) - s.hover) * (primary ? attack : ease);
-      s.pulse *= Math.exp(-dt * 5);
-      if (s.hover > 0.004 && s.hover < 0.996) anim = true;
-      s.u.uGain.value = s.gain; s.u.uHover.value = s.hover; s.u.uPulse.value = s.pulse;
-      s.u.uRadius.value = s.opt.kind === 'card' ? radius * 0.78 : clamp(s.fontSize * 1.05, radius * 0.55, radius);
-    });
-    const bu = this.bg.material.uniforms;
-    bu.uBgGain.value += ((hovered ? 0.4 : 1) - bu.uBgGain.value) * ease;
-    bu.uBgRadius.value = radius;
+    const loadingNow = !this.loaded && this.load.value > 0;
+    let busy = false;
+    const attack = 1 - Math.exp(-dt / P.attack), ease = 1 - Math.exp(-dt * 3.5);
+    const still = input.still > 0.6;
 
-    if (!this.reduced && this.loaded) { this.emit(dt); this.emitScroll(dt); }
+    for (const s of this.surfaces.values()) {
+      const ch = s.chain, net = s.net;
+      if (!ch || !net || !s.ready) continue;
+      s.budget = Math.min(4, s.budget + dt * VFX.particles.perSecond);
+      ch.propagate = !this.reduced;
+      const inside = s === hovered;
+      const dx = Math.max(s.x - px, 0, px - s.x - s.w), dy = Math.max(s.y - py, 0, py - s.y - s.h);
+      const prox = present && !inside ? clamp(1 - Math.hypot(dx, dy) / R, 0, 1) : 0;
+      const lx = px - s.x, ly = py - s.y;
+      if (inside) {
+        if (!s.inside) for (let i = 0; i < P.enterBurst; i++) ch.igniteAt(lx, ly, R * 0.45, rand(0.85, 1));
+        const rate = (this.reduced ? 1.5 : (still ? P.stillRate : P.hoverRate) + input.speed * P.moveRate) * ((s.opt.kind === 'title' ? VFX.chain.title.rate : 1));
+        s.debt += rate * dt;
+        const spread = R * P.jitter * (s.opt.kind === 'title' ? 1.35 : 1);
+        while (s.debt >= 1) { s.debt -= 1; ch.igniteAt(lx, ly, spread, rand(0.75, 1)); }
+      } else if (prox > 0) {
+        // a neighbour in range: the stretch nearest the pointer answers, at a fraction of the primary
+        s.debt += P.proximityRate * prox * dt;
+        while (s.debt >= 1) { s.debt -= 1; ch.igniteAt(clamp(lx, 0, s.w), clamp(ly, 0, s.h), R * 0.12, (0.2 + 0.2 * prox) * (s.opt.gain ?? 1)); }
+      } else s.debt = 0;
+      s.inside = inside;
+      // loading: cells light up as they join, sparsely
+      if (loadingNow && s.delays && s.born) {
+        const L = this.load.value * 1.3 - 0.15;
+        for (let f = 0; f < net.faces; f++) {
+          if (s.born[f] || s.delays[f] > L) continue;
+          s.born[f] = 1;
+          if (net.weight[f] > 0.4 && Math.random() < VFX.loading.ignite) ch.ignite(f, rand(0.45, 0.8), 3);
+        }
+      }
+      const active = ch.active;
+      if (active) { ch.step(dt); ch.write(s.energy!.array as Float32Array); s.energy!.needsUpdate = true; s.hot = true; }
+      else if (s.hot) { (s.energy!.array as Float32Array).fill(0); s.energy!.needsUpdate = true; s.hot = false; }
+      // hover state of the surface: quick in, eased out
+      s.hover += ((inside ? 1 : 0) - s.hover) * (inside ? attack : ease);
+      if (s.hover < 0.002) s.hover = 0;
+      s.u.uHover.value = this.reduced ? s.hover * 0.6 : s.hover;
+      s.u.uGain.value = inside ? 1 : Math.max(P.neighbour, s.hover);
+      // the outline
+      let glow = 0;
+      if (s.border) {
+        const b = s.border;
+        b.decay(dt);
+        for (const e of s.edgeCells) { const v = ch.shown[e.cell] * e.w; if (v > 0.02) b.add(e.s, v * 1.15, 1.6); }
+        if (present && (inside || prox > 0)) {
+          const [o, d] = outline(lx, ly, s.w, s.h);
+          b.add(o, Math.pow(clamp(1 - d / R, 0, 1), 1.3) * (inside ? 0.75 : 0.9) * (s.opt.gain ?? 1), 6);
+        }
+        b.settle();
+        glow = b.level;
+        (s.u.uBins.value as Float32Array).set(b.bins);
+      }
+      s.overlay.visible = ch.active || s.hover > 0.003 || glow > 0.004;
+      if (s.overlay.visible || s.hover > 0.003) busy = true;
+    }
+
+    // shards crossing an outline light it where they cross
+    if (this.parts.count) this.parts.each((x, y, life, opacity, owner) => {
+      const s = this.byIndex[owner];
+      if (!s?.border) return;
+      const [o, d] = outline(x - s.x, y - s.y, s.w, s.h);
+      if (d < 14) s.border.add(o, opacity * Math.min(1, life * 2) * (1 - d / 14) * 0.9, 1.4);
+    });
+
+    this.driveBackground(dt, hovered, present, px, input.y);
+    if (this.bgChain?.active || this.bgHot) busy = true;
+
     this.parts.step(dt);
     this.partGeo.instanceCount = this.parts.count;
     this.partMesh.visible = this.parts.count > 0;
     this.partBuf.needsUpdate = true;
 
-    g.uTime.value = this.clock; g.uN.value = input.count;
+    // camera: travels a little down the tunnel and rolls with the page, leans toward the pointer
+    const B = VFX.background;
+    if (present && !this.reduced) this.look.set((input.x / this.viewW - 0.5) * 2, (input.y / this.viewH - 0.5) * 2);
+    else this.look.multiplyScalar(Math.exp(-dt * 1.5));
+    this.camera.rotation.y += (-this.look.x * B.parallax - this.camera.rotation.y) * (1 - Math.exp(-dt * 2.2));
+    this.camera.rotation.x += (-this.look.y * B.parallax * 0.7 - this.camera.rotation.x) * (1 - Math.exp(-dt * 2.2));
+    this.bg.rotation.z = this.reduced ? 0 : sc.y * B.roll;
+    this.camera.position.z = this.reduced || !this.tunnel ? 0 : -sc.progress * B.dolly * this.tunnel.z0;
+
+    g.uTime.value = this.clock;
     g.uScroll.value = sc.y; (g.uBandK.value as Vector2).set(sc.top, sc.bottom);
-    g.uLoad.value = this.load.value; g.uScrollE.value = sc.energy;
+    g.uLoad.value = this.load.value;
 
     // adaptive quality: sustained long frames step the profile down
     this.frames++; if (deltaMs > VFX.slowFrame) this.slow++;
@@ -522,22 +662,56 @@ export class VfxEngine {
       this.frames = 0; this.slow = 0;
     }
 
-    const busy = input.active || anim || this.parts.count > 0 || sc.energy > 0 || !this.loaded || this.renderDirty;
+    busy = busy || this.parts.count > 0 || !this.loaded || this.renderDirty || present;
     // at rest only the slow wave moves: every other frame is enough, and none at all with reduced motion
-    if (busy || (!this.reduced && this.frame % 2 === 0)) this.render(busy && (input.active || sc.energy > 0 || !this.loaded || this.parts.count > 0));
+    if (busy || (!this.reduced && this.frame % 2 === 0)) this.render(busy);
   };
+
+  /** The background answers where it is visible: margins and around the type, not behind an opaque card. */
+  private driveBackground(dt: number, hovered: Surface | null, present: boolean, clientX: number, clientY: number) {
+    const t = this.tunnel, ch = this.bgChain, P = VFX.pointer;
+    if (!t || !ch || !this.bgEnergy) return;
+    ch.propagate = !this.reduced;
+    const over = hovered?.opt.kind === 'card' ? 0 : hovered ? 0.45 : 1;
+    if (present && over > 0 && this.live) {
+      this.projectBackground();
+      const rate = ((this.input.still > 0.6 ? P.stillRate : P.hoverRate) + this.input.speed * P.moveRate) * 1.3;
+      this.bgDebt += rate * dt;
+      while (this.bgDebt >= 1) { this.bgDebt -= 1; ch.igniteAt(clientX, clientY, this.input.radius * 0.28, rand(0.7, 1) * over); }
+    } else this.bgDebt = 0;
+    if (ch.active) { ch.step(dt); ch.write(this.bgEnergy.array as Float32Array); this.bgEnergy.needsUpdate = true; this.bgHot = true; }
+    else if (this.bgHot) { (this.bgEnergy.array as Float32Array).fill(0); this.bgEnergy.needsUpdate = true; this.bgHot = false; }
+  }
+
+  /** Face centroids → client px, with the current roll, travel and lean. */
+  private projectBackground() {
+    const t = this.tunnel!;
+    this.bg.updateMatrixWorld(); this.camera.updateMatrixWorld();
+    const m = this.bg.matrixWorld, W = this.viewW, H = this.viewH;
+    for (let f = 0; f < t.faces; f++) {
+      tmp.set(t.centroid[f * 3], t.centroid[f * 3 + 1], t.centroid[f * 3 + 2]).applyMatrix4(m).project(this.camera);
+      t.cx[f] = (tmp.x * 0.5 + 0.5) * W; t.cy[f] = (-tmp.y * 0.5 + 0.5) * H;
+      if (tmp.z > 1) t.cx[f] = -1e6;
+    }
+  }
 
   private render(emissive: boolean) {
     const r = this.renderer, g = this.globals;
     this.renderDirty = false;
     // off-screen surfaces are skipped entirely
     const top = this.scroll.y - 80, bottom = this.scroll.y + this.viewH + 80;
-    this.surfaces.forEach(s => { s.mesh.visible = s.ready && s.w > 2 && s.y < bottom && s.y + s.h > top; });
+    let energy = this.parts.count > 0 || !!this.bgChain?.active || this.bgHot;
+    this.surfaces.forEach(s => {
+      const on = s.ready && s.w > 2 && s.y < bottom && s.y + s.h > top;
+      s.content.visible = on;
+      s.overlay.visible = on && s.overlay.visible;
+      if (s.overlay.visible) energy = true;
+    });
     g.uEmissive.value = 0;
     r.setRenderTarget(null);
     r.clear();
     r.render(this.scene, this.camera);
-    if (!emissive || !this.profile().bloom) return;
+    if (!emissive || !energy || !this.profile().bloom) return;
     g.uEmissive.value = 1;
     r.setRenderTarget(this.rtE); r.clear(); r.render(this.scene, this.camera);
     g.uEmissive.value = 0;
