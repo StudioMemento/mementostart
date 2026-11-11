@@ -86,7 +86,7 @@ export class ChainField {
 
   step(dt: number) {
     this.time += dt;
-    const { nbStart, nb, cond } = this.net, c = VFX.chain, p = this.profile, rnd = this.rnd, delay = p.delay ?? c.delay;
+    const { nbStart, nb, cond } = this.net, c = VFX.chain, p = this.profile, rnd = this.rnd;
     if (this.queue.length) {
       const due: Spark[] = [];
       this.queue = this.queue.filter(s => (s.at <= this.time ? (due.push(s), false) : true));
@@ -104,11 +104,11 @@ export class ChainField {
         for (let k = nbStart[i]; k < nbStart[i + 1]; k++) {
           const j = nb[k];
           if (this.refract[j] > 0 || this.pending[j]) continue;
-          if (rnd() < p.spread * cond[j] * (0.55 + 0.45 * e)) this.ignite(j, e * p.carry, s.gen + 1, lerp(delay[0], delay[1], rnd()));
+          if (rnd() < p.spread * cond[j] * (0.55 + 0.45 * e)) this.ignite(j, e * p.carry, s.gen + 1, lerp(c.delay[0], c.delay[1], rnd()));
         }
       }
     }
-    const k = 1 - Math.exp(-dt / (p.attack ?? c.attack));
+    const k = 1 - Math.exp(-dt / c.attack);
     let level = 0;
     for (let i = 0; i < this.raw.length; i++) {
       let r = this.raw[i];

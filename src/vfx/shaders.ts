@@ -109,9 +109,7 @@ vec3 photo(vec2 p, float inside){
   vec2 q=(p-uImgBox.xy)/uImgBox.zw;
   vec2 uv=q*uImgFit.zw+uImgFit.xy;
   vec4 t=texture(uImg,clamp(uv,0.,1.));
-  // the photographs sit on black: their box fades out over a few percent, so no edge of the image ever shows
-  float inBox=smoothstep(0.,.05,q.x)*smoothstep(1.,.95,q.x)*smoothstep(0.,.06,q.y)*smoothstep(1.,.94,q.y)
-             *step(0.,uv.x)*step(uv.x,1.)*step(0.,uv.y)*step(uv.y,1.);
+  float inBox=step(0.,q.x)*step(q.x,1.)*step(0.,q.y)*step(q.y,1.)*step(0.,uv.x)*step(uv.x,1.)*step(0.,uv.y)*step(uv.y,1.);
   r.x=dot(t.rgb,vec3(.299,.587,.114));
   r.y=t.a*uImgStyle.x*inside*inBox*mix(1.,smoothstep(0.,.36,q.x),uImgStyle.y);
   if(uImgStyle.z>.5){
@@ -130,12 +128,16 @@ in vec3 position;
 in vec3 bary;
 in vec4 face;                 // seed, gloss, sheen edge, depth
 in vec3 edge;                 // ridge light of the three edges
+in vec3 wave;                 // radial direction, phase
 in vec2 energy;               // face, smoothed vertex
 uniform mat4 modelViewMatrix;
 uniform mat4 projectionMatrix;
 out vec3 vPos; out vec3 vBary; flat out vec4 vFace; flat out vec3 vEdge; flat out float vE; out float vEv;
 void main(){
-  vec4 mv=modelViewMatrix*vec4(position,1.);   // the sheet is still: only light moves on it
+  vec3 p=position;
+  // slow wave: the same surface breathing, a couple of percent of its radius, never a fold
+  p.xy+=wave.xy*sin(uTime*.21+wave.z*6.283+p.z*.42)*uMotion*.02*length(p.xy);
+  vec4 mv=modelViewMatrix*vec4(p,1.);
   vPos=mv.xyz; vBary=bary; vFace=face; vEdge=edge; vE=energy.x; vEv=energy.y;
   gl_Position=projectionMatrix*mv;
 }`;
@@ -150,7 +152,6 @@ uniform float uLoad;
 uniform float uAlpha;         // 1 on a transparent (hosted) surface
 uniform vec4 uLight[3];       // camera-space position, intensity
 uniform vec4 uShade;          // body, diffuse, specular, ridge lines
-uniform vec3 uBand;           // drawing-buffer width (px), layout column half-width (0..0.5 of the width), centre level
 in vec3 vPos; in vec3 vBary; flat in vec4 vFace; flat in vec3 vEdge; flat in float vE; in float vEv;
 out vec4 o;
 void main(){
@@ -174,11 +175,7 @@ void main(){
   float g=uShade.x*(.35+.65*h3*h3)+uShade.y*diff*(.4+.6*h2)+uShade.z*spec*gloss*(.18+.82*sweep);
   float l0=aa(vBary.x)*vEdge.x, l1=aa(vBary.y)*vEdge.y, l2=aa(vBary.z)*vEdge.z;
   g+=(l0+l1+l2)*(.04+uShade.w*hi*(.35+.65*gloss));          // ridges catch the light, valleys stay dark
-  float fog=exp(-pow(depth*uFog,1.6));                      // smaller and darker with depth
-  // vertical bands: darkest behind the layout column, opening toward the frame
-  float fx=abs(gl_FragCoord.x/uBand.x-.5);
-  float band=mix(uBand.z,1.,smoothstep(uBand.y*.35,.5,fx));
-  fog*=band;
+  float fog=exp(-pow(depth*uFog,1.6));                      // smaller and darker toward the vanishing point
   float d=mix(1.-vFace.w,h2,.45);
   float appear=smoothstep(d-.12,d+.12,uLoad*1.25-.1);
   vec3 col=vec3(g)*vec3(.96,.975,1.)*fog*appear;
@@ -192,7 +189,7 @@ void main(){
     em=ramp(x*(.5+.5*sw))*x*(.45+.75*sw)*2.;
     em+=ramp(.68+.32*vEv)*((l0+l1+l2)*1.5+lines*.45)*vEv*2.;
     em+=ramp(.3)*spec*gloss*vE*.5;
-    em*=mix(.55,1.,fog)*appear;
+    em*=mix(.4,1.,fog)*appear;
   }
   if(uEmissive>.5){ o=vec4(em,1.); return; }
   col+=uBase+em+(h21(gl_FragCoord.xy)-.5)/255.;
@@ -212,21 +209,14 @@ in float seed;
 in vec3 bary;
 uniform vec2 uOrigin;         // document px of the surface's top-left
 uniform float uPush;
-uniform float uSolid;         // 1: never taken apart by scroll (the map)
-uniform vec3 uDrift;          // s since the page stopped (0 while it moves), drift speed (px/s), fade time (s)
 out vec2 vLocal; out vec3 vBary; out float vGone; out float vTrans;
-vec2 curlAt(vec2 p){
-  float e=.35, a=vnoise(p+vec2(0.,e)), b=vnoise(p-vec2(0.,e)), c=vnoise(p+vec2(e,0.)), d=vnoise(p-vec2(e,0.));
-  vec2 v=vec2(a-b,-(c-d));
-  return v/(length(v)+1e-4);
-}
 void main(){
   vec2 cd=uOrigin+cellCenter;
   float cy=cd.y-uScroll;
   // structure = f(rest position): a stop keeps the phase reached, reversing replays it
   float F=fragAt(cy);
   float th=.14+.7*seed;
-  float aS=smoothstep(th-.13,th+.13,F)*(1.-uSolid);
+  float aS=smoothstep(th-.13,th+.13,F);
   float aL=loadAbs(delayAt(cd,seed));
   float a=max(aS,aL);
   float eT=clamp(1.-cy/uBand,0.,1.)*uBandK.x, eB=clamp(1.-(uView.y-cy)/uBand,0.,1.)*uBandK.y;
@@ -234,17 +224,10 @@ void main(){
   // dispersal: the cell shrinks, turns and drifts outward carrying its own piece of content
   vec2 off=vec2((h11(seed*91.)-.5)*1.5,dir*(.45+h11(seed*37.)))*uPush*aS*aS
           +(vec2(h11(seed*53.),h11(seed*71.))-.5)*uPush*.9*aL*aL;
-  // a light curl swirl on cells in transition; once the page stops, the cells on their way out become particles:
-  // they leave along the curl field and fade, while the cells that stay keep the place scroll gave them
-  vec2 flow=curlAt(cd*.006+vec2(uTime*.04,0.))*.85+vec2(0.,dir)*.5;
-  float leaving=smoothstep(.05,.3,aS);
-  float tau=uDrift.x*leaving;
-  off+=flow*(tau*uDrift.y*(.6+.8*h11(seed*13.))+aS*7.*uMotion);
-  float gone=max(a,leaving*smoothstep(.1,uDrift.z,uDrift.x));
-  float rot=(h11(seed*17.)-.5)*(1.3*a+tau*.9);
+  float rot=(h11(seed*17.)-.5)*1.3*a;
   vec2 dv=position-cellCenter;
-  dv=mat2(cos(rot),sin(rot),-sin(rot),cos(rot))*dv*(1.-.72*a)*(1.-.65*leaving*smoothstep(0.,uDrift.z,uDrift.x));
-  vLocal=position; vBary=bary; vGone=gone; vTrans=4.*a*(1.-a);
+  dv=mat2(cos(rot),sin(rot),-sin(rot),cos(rot))*dv*(1.-.72*a);
+  vLocal=position; vBary=bary; vGone=a; vTrans=4.*a*(1.-a);
   gl_Position=clipOf(cd+dv+off);
 }`;
 
@@ -294,12 +277,11 @@ in vec3 bary;
 in vec4 cell;                 // seed, zone, sheen edge, -
 in vec2 energy;               // face, smoothed vertex
 uniform vec2 uOrigin;
-uniform float uSolid;
 out vec2 vLocal; out vec3 vBary; flat out vec4 vCell; flat out float vE; out float vEv; out float vFade;
 void main(){
   vec2 d=uOrigin+position;
   // light belongs to content that is present: it fades where scroll or loading take the structure apart
-  vFade=(1.-smoothstep(.02,.3,fragAt(d.y-uScroll)*(1.-uSolid)))*(1.-loadAbs(delayAt(d,.5)));
+  vFade=(1.-smoothstep(.02,.3,fragAt(d.y-uScroll)))*(1.-loadAbs(delayAt(d,.5)));
   vLocal=position; vBary=bary; vCell=cell; vE=energy.x; vEv=energy.y;
   gl_Position=clipOf(d);
 }`;
@@ -314,8 +296,6 @@ uniform float uHasInk;
 uniform float uHover;         // 0..1, eased
 uniform float uGain;          // 1 primary, lower for neighbours in range
 uniform vec4 uBins[24];       // light along the outline, 96 segments
-uniform vec2 uGray;           // luminance of the idle gradient at the base and at the top
-uniform vec3 uPointer;        // local px, 1 = the whole card's type turns amber on hover, 0 = only near the pointer (panels)
 in vec2 vLocal; in vec3 vBary; flat in vec4 vCell; flat in float vE; in float vEv; in float vFade;
 out vec4 o;
 float binAt(int i){ i=i<0?i+96:(i>95?i-96:i); return uBins[i/4][i-(i/4)*4]; }
@@ -336,9 +316,9 @@ void main(){
 
   // 1 · the photograph lit from within: a warm grade of its own luminance, never a flat tint over it
   float lift=clamp(uHover*.72+Ev*.8,0.,1.)*uGain;
-  float gA=ia*lift*(1.-ph.z*.5)*smoothstep(.015,.12,lum);   // black stays black: no visible image box
+  float gA=ia*lift*(1.-ph.z*.5);
   float l=pow(lum,.9);
-  vec3 graded=ramp(clamp(l*1.45+.14,0.,1.))*(l*2.5);
+  vec3 graded=ramp(clamp(l*1.45+.14,0.,1.))*(l*2.5+.03);
   graded*=1.+E*(.24*sweep-.08+.18*(h-.5));                 // each lit cell grades a little differently
 
   // 2 · sparse translucent facets with a soft ramp from one edge; incomplete outlines
@@ -351,18 +331,14 @@ void main(){
   float Eb=bins(outlineAt(p));
   float core=1.-smoothstep(0.,1.25,abs(sd+.6));
   float halo=sd>0.?exp(-sd/7.5):exp(sd/16.)*.35;
-  vec3 glow=ramp(.5+.36*Eb)*(core*Eb*1.7+halo*Eb*.9)*vFade;   // same saturation as the background's edges
+  vec3 glow=ramp(.52+.48*Eb)*(core*Eb*3.4+halo*Eb*1.15)*vFade;
 
   vec4 c=vec4(graded*gA,gA);
   c=vec4(facet*fA+c.rgb*(1.-fA),fA+c.a*(1.-fA));
   c.rgb+=wire;
-  // type and icons: white with a grey base at rest, the same gradient in amber on hover; never covered
-  float il=ink.a>.003?dot(ink.rgb/ink.a,vec3(.3333)):1.;
-  float ti=clamp((il-uGray.x)/(uGray.y-uGray.x),0.,1.);
-  float near=exp(-dot(p-uPointer.xy,p-uPointer.xy)/(170.*170.));
-  float ik=clamp(uHover*mix(near,1.,uPointer.z)+Ev*.5,0.,1.)*uGain;
-  vec3 iw=mix(ramp(.32),mix(ramp(.86),vec3(1.,.95,.86),.35),pow(ti,.8));
-  c=c*(1.-ink.a)+vec4(iw*ink.a*ik,ink.a*ik);
+  // labels stay readable: the overlay never covers them, a contained warm accent passes through
+  float acc=ink.a*clamp(Ev*.7,0.,.55);
+  c=c*(1.-ink.a)+vec4(ramp(.84)*acc,acc);
   c*=vFade;
   if(uEmissive>.5){ o=vec4((graded*gA*smoothstep(.3,.85,lum)*.85+facet*fA*.7+wire)*vFade+glow,0.); return; }
   o=vec4(c.rgb+glow,c.a);
@@ -374,11 +350,9 @@ ${AA}
 ${LATTICE}
 uniform vec2 uSize;
 uniform sampler2D uInk;
-uniform vec2 uGray;           // luminance of the idle gradient at the base and at the top of the block
+uniform vec2 uGray;           // luminance of the idle gradient at the base and at the top of a line
 uniform float uHalo;          // px
 uniform float uGain;
-uniform float uHover;         // 0..1, eased
-uniform vec3 uPointer;        // local px, range of the pointer (px)
 uniform float uMicro;         // px, micro-lattice inside the glyphs
 in vec2 vLocal; in vec3 vBary; flat in vec4 vCell; flat in float vE; in float vEv; in float vFade;
 out vec4 o;
@@ -388,12 +362,8 @@ float inkA(vec2 p){
 }
 void main(){
   vec2 p=vLocal;
-  vec2 dp=p-uPointer.xy;
-  float near=uHover*exp(-dot(dp,dp)/(uPointer.z*uPointer.z));
-  // breathing: on hover the amber wraps nearly the whole title and its edge rises and falls slowly
-  float breath=uHover*(.74+.14*sin(uTime*1.05+p.x*.0035)*uMotion);
-  float local=clamp(vEv*1.2+vE*.3+near*.75,0.,1.2);       // chain reaction and pointer range
-  float level=clamp(max(breath,local*.95)*uGain,0.,1.25);
+  // energy of the chain: a smooth field over the cells, with each cell's own flash on top
+  float level=clamp(vEv*1.45+vE*.35,0.,1.25)*uGain;
   if(level<.01) discard;
   vec2 uv=p/uSize;
   vec4 ink=texture(uInk,clamp(uv,0.,1.))*step(0.,uv.x)*step(uv.x,1.)*step(0.,uv.y)*step(uv.y,1.);
@@ -402,31 +372,29 @@ void main(){
   for(int k=0;k<8;k++){
     float an=float(k)*.7854;
     vec2 d=vec2(cos(an),sin(an));
-    hal=max(hal,max(inkA(p+d*uHalo)*.95,max(inkA(p+d*uHalo*2.2)*.6,inkA(p+d*uHalo*3.8)*.28)));
+    hal=max(hal,max(inkA(p+d*uHalo)*.9,inkA(p+d*uHalo*2.3)*.42));
   }
   hal*=1.-a;
   if(a<.003&&hal<.003) discard;
   float lum=a>.003?dot(ink.rgb/a,vec3(.3333)):1.;
-  float t=clamp((lum-uGray.x)/(uGray.y-uGray.x),0.,1.);   // 0 at the shaded base of the block, 1 at its lit top
+  float t=clamp((lum-uGray.x)/(uGray.y-uGray.x),0.,1.);   // 0 at the shaded base of the line, 1 at the lit top
   // the grey turns amber from the base upward: the more energy, the higher it climbs
-  float fill=smoothstep(t-.24,t+.05,level*1.05);
-  vec3 warm=mix(ramp(.16+.16*level),ramp(.5+.22*level),pow(t,.8));
-  warm=mix(warm,vec3(1.,.93,.82),smoothstep(.8,1.,t)*.5);
-  // micro-facets of mixed sizes, switched on and off slowly by the energy that reaches them
-  Tri m=tri(toL(p,uMicro),vec2(.62,.42));
+  float fill=smoothstep(t-.22,t+.04,level*1.05);
+  vec3 warm=mix(ramp(.16+.25*level),ramp(.6+.32*level),pow(t,.75));
+  warm=mix(warm,vec3(1.,.94,.82),smoothstep(.86,1.,t)*smoothstep(.9,1.2,level)*.55);
+  // micro-facets inside the glyph: switched on and off by the energy that reaches them, each at its own threshold
+  Tri m=tri(toL(p,uMicro),vec2(.5,.22));
   float mh=h11(m.id*5.1), mh2=h11(m.id*9.7);
-  float th=.16+.6*mh*mh+.05*sin(uTime*(.16+.4*mh2)+mh*40.)*uMotion;
-  float lit=smoothstep(th,th+.16,local)*step(.2,mh2);
-  vec3 facet=ramp(.45+.45*local*(.6+.4*mh))*(.72+.5*h11(m.id*2.7)-.2*m.b.y);
-  float wire=(1.-smoothstep(0.,1.,m.edge*uMicro*.8))*step(.45,h11(m.id*11.3));
+  float th=.14+.6*mh*mh+.06*sin(uTime*(.5+1.3*mh2)+mh*40.)*uMotion;
+  float lit=smoothstep(th,th+.12,level)*step(.18,mh2);
+  vec3 facet=ramp(.42+.5*level*(.6+.4*mh))*(.72+.5*h11(m.id*2.7)-.2*m.b.y);
+  float wire=(1.-smoothstep(0.,1.,m.edge*uMicro*.8))*step(.42,h11(m.id*11.3));
   vec3 col=mix(vec3(lum),warm,fill);
-  col=mix(col,facet,lit*.62);
-  col+=uAmb[3]*wire*lit*.35;
+  col=mix(col,facet,lit*.7);
+  col+=uAmb[3]*wire*lit*.45;
   float k=max(fill,lit*.85);
-  // characters in range glow along their outline, as strongly as the cards' edges
-  float g=clamp(local*1.1+breath*.18,0.,1.);
-  vec3 glow=ramp(.48+.3*g)*hal*g*1.1*vFade;
-  if(uEmissive>.5){ o=vec4(col*a*k*(.1+.3*lit)*vFade+glow,0.); return; }
+  vec3 glow=ramp(.42+.35*level)*hal*min(level,1.)*.75*vFade;
+  if(uEmissive>.5){ o=vec4(col*a*k*(.18+.38*lit)*vFade+glow,0.); return; }
   o=vec4(col*a*k*vFade+glow,a*k*vFade);
 }`;
 

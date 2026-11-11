@@ -8,7 +8,7 @@ export function Location({ mapEnabled, onLoadMap }: { mapEnabled: boolean; onLoa
   // Keep hover feedback stable when the pointer crosses into Google's document.
   const [interacting, setInteracting] = useState(false);
   const heading = useSurface<HTMLDivElement>('title');
-  const map = useSurface<HTMLDivElement>('card', { cut: 'tl', gain: 0.7, solid: true });
+  const map = useSurface<HTMLDivElement>('card', { cut: 'tl', gain: 0.7 });
   const address = useSurface<HTMLAnchorElement>('card');
   const hours = useSurface<HTMLDivElement>('card');
   return (

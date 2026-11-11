@@ -20,7 +20,7 @@ const EXTERNAL: Record<PolicyKind, string> = {
 };
 
 export function Legal({ onPolicy }: { onPolicy: (kind: PolicyKind) => void }) {
-  const card = useSurface<HTMLDivElement>('card', { gain: 0.7, panel: true });
+  const card = useSurface<HTMLDivElement>('card', { gain: 0.7 });
   // Empty optional URLs open the local information panel instead.
   const open = (kind: PolicyKind) => {
     if (EXTERNAL[kind]) window.open(EXTERNAL[kind], '_blank', 'noopener,noreferrer');
