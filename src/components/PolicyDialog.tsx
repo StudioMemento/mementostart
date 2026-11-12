@@ -7,9 +7,9 @@ function ContactAction({ subject }: { subject: string }) {
   return <a className="action cut-frame" href={`mailto:${config.email}?subject=${encodeURIComponent(subject)}`}>{config.email}</a>;
 }
 
-type Props = { kind: PolicyKind | null; onClose: () => void; mapEnabled: boolean; onMapChange: (enabled: boolean) => void };
+type Props = { kind: PolicyKind | null; onClose: () => void };
 
-export function PolicyDialog({ kind, onClose, mapEnabled, onMapChange }: Props) {
+export function PolicyDialog({ kind, onClose }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const title = useRef<HTMLHeadingElement>(null);
   const opener = useRef<Element | null>(null);
@@ -39,7 +39,7 @@ export function PolicyDialog({ kind, onClose, mapEnabled, onMapChange }: Props) 
       body: (<>
         <p>Questa pagina permette di contattare Memento Design Studio tramite email, telefono e servizi esterni. Non contiene un modulo per inviare messaggi.</p>
         <p>I collegamenti email aprono la tua app di posta; i collegamenti WhatsApp, Instagram e Fiverr aprono i rispettivi servizi. Nessun messaggio viene inviato automaticamente.</p>
-        <p>Google Maps è incorporato nella pagina e può essere disattivato dalle preferenze cookie per questa visita.</p>
+        <p>La mappa è un’illustrazione dello studio: non carica Google Maps. Il collegamento apre Google Maps in una nuova scheda, solo se lo scegli.</p>
         <p>Per ricevere l’informativa privacy completa di Memento Design Studio, scrivici:</p>
         <ContactAction subject="Richiesta informativa privacy" />
       </>),
@@ -48,7 +48,7 @@ export function PolicyDialog({ kind, onClose, mapEnabled, onMapChange }: Props) 
       title: 'Cookie & contenuti',
       body: (<>
         <p>I collegamenti email aprono la tua app di posta. Questa pagina non raccoglie messaggi tramite un modulo.</p>
-        <p>Google Maps è un servizio esterno incorporato nella pagina e può usare cookie propri. Puoi disattivare la mappa dalle preferenze cookie; la scelta vale per questa visita.</p>
+        <p>La pagina non incorpora servizi esterni: la mappa è un’illustrazione e Google Maps si apre in una nuova scheda solo se scegli il collegamento.</p>
         <p>Per ricevere la cookie policy completa di Memento Design Studio, scrivici:</p>
         <ContactAction subject="Richiesta cookie policy completa" />
       </>),
@@ -56,11 +56,7 @@ export function PolicyDialog({ kind, onClose, mapEnabled, onMapChange }: Props) 
     preferences: {
       title: 'Le tue preferenze',
       body: (<>
-        <p>Scegli se caricare Google Maps in questa pagina. La scelta vale per questa visita.</p>
-        <label className="preference-row">
-          <span>Google Maps</span>
-          <input type="checkbox" checked={mapEnabled} onChange={event => onMapChange(event.target.checked)} />
-        </label>
+        <p>Questa pagina non carica contenuti di terze parti che richiedano un consenso: non ci sono preferenze da impostare.</p>
       </>),
     },
     studio: {

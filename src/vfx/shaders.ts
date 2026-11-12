@@ -175,9 +175,12 @@ void main(){
   float be=vFace.z<.5?vBary.x:(vFace.z<1.5?vBary.y:vBary.z);
   float sweep=exp(-be*mix(2.2,6.5,h3));                    // light raking off the brightest ridge into the face
   // graphite: a dull body, a broad sheen that shapes every facet, a sharp gloss on some of them
-  float g=uShade.x*(.35+.65*h3*h3)+uShade.y*diff*(.4+.6*h2)+uShade.z*(spec*gloss+broad*uGloss.x*(.5+.5*h1))*(.18+.82*sweep);
+  // deep in the centre the sheet is seen edge-on: its facets turn to thin slivers, so gloss and ridge lines fade out
+  // there and only the graphite remains; behind the content the field is calm
+  float calm=1.-smoothstep(.3,.8,depth);
+  float g=uShade.x*(.35+.65*h3*h3)+uShade.y*diff*(.4+.6*h2)+uShade.z*(spec*gloss+broad*uGloss.x*(.5+.5*h1))*(.18+.82*sweep)*mix(.2,1.,calm);
   float l0=aa(vBary.x)*vEdge.x, l1=aa(vBary.y)*vEdge.y, l2=aa(vBary.z)*vEdge.z;
-  g+=(l0+l1+l2)*(.04+uShade.w*(hi*(.35+.65*gloss)+broad*uGloss.z));   // ridges catch the light, valleys stay dark
+  g+=(l0+l1+l2)*(.04*mix(.3,1.,calm)+uShade.w*(hi*(.35+.65*gloss)+broad*uGloss.z)*calm);   // ridges catch the light, valleys stay dark
   float fog=exp(-pow(depth*uFog,1.6));                      // smaller and darker with depth
   // vertical bands: the gradient runs across the side padding, from the frame (full) to the layout column (dark)
   float fx=abs(gl_FragCoord.x/uBand.x-.5);
@@ -193,10 +196,12 @@ void main(){
     float sw=exp(-be*3.);
     float lines=(aa(vBary.x)+aa(vBary.y)+aa(vBary.z));
     float x=clamp(.5*vE+.8*vEv,0.,1.);
-    em=ramp(x*(.5+.5*sw))*x*(.45+.75*sw)*2.;
+    // a large near face never fills with amber: the energy runs along its edges and only warms the face (amber is an event)
+    em=ramp(x*(.5+.5*sw))*x*(.45+.75*sw)*2.*mix(.4,1.,smoothstep(.05,.45,depth));
     em+=ramp(.68+.32*vEv)*((l0+l1+l2)*1.5+lines*.45)*vEv*2.;
     em+=ramp(.3)*spec*gloss*vE*.5;
     em*=mix(.55,1.,fog)*appear;
+    em*=mix(.18,1.,smoothstep(uBand.y*.7,uBand.y,fx));      // behind the layout column the reaction stays low: content first
   }
   if(uEmissive>.5){ o=vec4(em,1.); return; }
   col+=uBase+em+(h21(gl_FragCoord.xy)-.5)/255.;
@@ -317,6 +322,7 @@ uniform sampler2D uInk;
 uniform float uHasInk;
 uniform float uHover;         // 0..1, eased
 uniform float uGain;          // 1 primary, lower for neighbours in range
+uniform float uTopo;          // density of the hover topology: 1 on a card, lower on a large panel (amber is an event)
 uniform vec4 uBins[24];       // light along the outline, 96 segments
 uniform vec2 uGray;           // luminance of the idle gradient at the base and at the top
 uniform vec3 uPointer;        // local px, 1 = the whole card's type turns amber on hover, 0 = only near the pointer (panels)
@@ -350,7 +356,7 @@ void main(){
   float edgeK=vCell.w;
   float pres=step(h3,mix(.14,.8,edgeK*edgeK))*smoothstep(-.15,.55,vCell.y+edgeK*.55);
   float beat=.55+.45*sin(uTime*(.22+.3*h)+h2*6.283)*uMotion;
-  float topo=uHover*uGain*pres*beat;
+  float topo=uHover*uGain*pres*beat*uTopo;
   float fA=inside*(E*(.1+.32*h)*(.3+.7*sweep)+topo*(.07+.2*h)*(.35+.65*sweep))*(1.-ia*.4);
   vec3 facet=ramp(.28+.4*E*sweep+.14*topo*sweep)*(.45+.9*sweep);
   float edges=aa(vBary.x)*step(.5,h2)+aa(vBary.y)*step(.5,h3)+aa(vBary.z)*step(.5,h);
@@ -400,12 +406,11 @@ float sdAt(vec2 p){
 }
 void main(){
   vec2 p=vLocal;
-  vec2 dp=p-uPointer.xy;
-  float near=uHover*exp(-dot(dp,dp)/(uPointer.z*uPointer.z));
-  // breathing: on hover the amber wraps nearly the whole title and its edge rises and falls slowly
-  float breath=uHover*(.74+.14*sin(uTime*1.05+p.x*.0035)*uMotion);
-  float local=clamp(vEv*1.2+vE*.3+near*.75,0.,1.2);       // chain reaction and pointer range
-  float level=clamp(max(breath,local*.95)*uGain,0.,1.25);
+  // two levels, as in the boards: on hover the whole block warms (base, ~80%); the cells the range reaches and the
+  // reaction they start go to full amber (100%). The range is a cluster of cells eased in time (drive): never a disc.
+  float base=uHover*uGain*(.8+.06*sin(uTime*.8+p.x*.0025)*uMotion);
+  float local=clamp(vEv*1.12+vE*.32,0.,1.15);
+  float level=max(base*.55,local);
   if(level<.01) discard;
   float sd=sdAt(p);
   if(sd>uRange) discard;
@@ -414,29 +419,33 @@ void main(){
   float a=ink.a;
   float lum=a>.003?dot(ink.rgb/a,vec3(.3333)):1.;
   float t=clamp((lum-uGray.x)/(uGray.y-uGray.x),0.,1.);   // 0 at the shaded base of the block, 1 at its lit top
-  // the grey turns amber from the base upward: the more energy, the higher it climbs
-  float fill=smoothstep(t-.24,t+.05,level*1.05);
-  vec3 warm=mix(ramp(.16+.16*level),ramp(.5+.22*level),pow(t,.8));
-  warm=mix(warm,vec3(1.,.93,.82),smoothstep(.8,1.,t)*.5);
-  // micro-facets of mixed sizes, switched on and off slowly by the energy that reaches them
+  // base: the grey gradient becomes a warm one over the whole block, warm white on top, soft amber-gold at the base
+  vec3 warmTop=vec3(1.,.955,.89), warmLow=mix(ramp(.62),vec3(.9,.66,.42),.3);
+  vec3 warm=mix(warmLow,warmTop,smoothstep(.02,.9,t));
+  // in range: full amber climbing from the base, the top stays pale and luminous
+  float fill=smoothstep(t-.3,t+.06,local*1.05);
+  vec3 hot=mix(ramp(.2+.18*local),ramp(.45+.17*local),pow(t,.8));
+  hot=mix(hot,vec3(1.,.93,.82),smoothstep(.6,1.,t)*.6);
+  // micro-facets of mixed sizes inside the reached letters, switched on and off slowly
   Tri m=tri(toL(p,uMicro),vec2(.62,.42));
   float mh=h11(m.id*5.1), mh2=h11(m.id*9.7);
-  float th=.16+.6*mh*mh+.05*sin(uTime*(.16+.4*mh2)+mh*40.)*uMotion;
+  float th=.18+.6*mh*mh+.05*sin(uTime*(.16+.4*mh2)+mh*40.)*uMotion;
   float lit=smoothstep(th,th+.16,local)*step(.2,mh2);
-  vec3 facet=ramp(.45+.45*local*(.6+.4*mh))*(.72+.5*h11(m.id*2.7)-.2*m.b.y);
+  vec3 facet=ramp(.4+.28*local*(.6+.4*mh))*(.72+.5*h11(m.id*2.7)-.2*m.b.y);
   float wire=(1.-smoothstep(0.,1.,m.edge*uMicro*.8))*step(.45,h11(m.id*11.3));
-  vec3 col=mix(vec3(lum),warm,fill);
-  col=mix(col,facet,lit*.62);
-  col+=uAmb[3]*wire*lit*.35;
-  float k=max(fill,lit*.85);
-  // edge light that follows each letter: a bright rim just inside the outline, a soft light hugging it outside
-  float g=clamp(local*1.1+breath*.3,0.,1.)*vFade;
+  vec3 col=mix(vec3(lum),warm,clamp(base,0.,1.)*.92);
+  col=mix(col,hot,fill);
+  col=mix(col,facet,lit*.6);
+  col+=uAmb[3]*wire*lit*.22;
+  float k=max(clamp(base,0.,1.),max(fill,lit*.85));
+  // edge light that follows each letter: a rim just inside the outline where the energy is, a soft light outside
+  float g=clamp(local*1.1+base*.12,0.,1.)*vFade;
   float rim=a*exp(-max(-sd,0.)/(uEm*.02));
   float outer=(1.-a)*exp(-max(sd,0.)/(uEm*.042))*(1.-smoothstep(uRange*.5,uRange,sd));
-  vec3 rimC=ramp(.64+.3*g)*rim*g*.95;
-  vec3 glow=ramp(.38+.26*g)*outer*(.07+.3*g);
-  if(uEmissive>.5){ o=vec4(col*a*k*(.03+.2*lit)*vFade+rimC*.28,0.); return; }
-  o=vec4(col*a*k*vFade+rimC*k+glow,a*k*vFade+outer*(.06+.2*g));
+  vec3 rimC=ramp(.6+.22*g)*rim*local*vFade*.75;
+  vec3 glow=ramp(.38+.22*g)*outer*(.04+.2*g);
+  if(uEmissive>.5){ o=vec4(col*a*fill*(.03+.2*lit)*vFade+rimC*.28,0.); return; }
+  o=vec4(col*a*k*vFade+rimC*k+glow,a*k*vFade+outer*(.05+.18*g));
 }`;
 
 /* ------------------------------------------------------------------ particles */

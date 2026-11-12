@@ -35,6 +35,12 @@ export class ChainField {
   private vsum: Float32Array;
   private queue: Spark[] = [];
   private time = 0;
+  /**
+   * Presence of the pointer per cell (0..1), eased in time by the caller. It is not a reaction: it lights the cells the
+   * range reaches and fades when the range moves on. Written together with the reaction (the brighter of the two).
+   */
+  readonly drive: Float32Array;
+  driveLevel = 0;
   /** Highest shown energy after the last step. */
   level = 0;
   propagate = true;
@@ -42,7 +48,7 @@ export class ChainField {
 
   constructor(readonly net: CellNetwork, private profile: ChainProfile, private rnd: () => number = Math.random) {
     const n = net.faces, c = VFX.chain;
-    this.raw = new Float32Array(n); this.shown = new Float32Array(n);
+    this.raw = new Float32Array(n); this.shown = new Float32Array(n); this.drive = new Float32Array(n);
     this.refract = new Float32Array(n); this.pending = new Uint8Array(n);
     this.rate = new Float32Array(n);
     const rel = profile.release ?? c.release;
@@ -50,7 +56,7 @@ export class ChainField {
     this.vsum = new Float32Array(net.points);
   }
 
-  get active() { return this.queue.length > 0 || this.level > 0.003; }
+  get active() { return this.queue.length > 0 || this.level > 0.003 || this.driveLevel > 0.003; }
 
   /** Schedules a cell to light after `delay` seconds. */
   ignite(cell: number, strength: number, gen = 0, delay = 0) {
@@ -124,16 +130,17 @@ export class ChainField {
 
   /** Writes [face energy, smoothed vertex energy] for each rendered vertex (faces*3*2). */
   write(out: Float32Array) {
-    const { vertexOf, pfStart, pf, points, faces } = this.net, vs = this.vsum, sh = this.shown;
+    const { vertexOf, pfStart, pf, points, faces } = this.net, vs = this.vsum, sh = this.shown, dr = this.drive;
+    const val = (f: number) => (sh[f] > dr[f] ? sh[f] : dr[f]);
     for (let p = 0; p < points; p++) {
       let s = 0, m = 0;
-      for (let k = pfStart[p]; k < pfStart[p + 1]; k++) { const v = sh[pf[k]]; s += v; if (v > m) m = v; }
+      for (let k = pfStart[p]; k < pfStart[p + 1]; k++) { const v = val(pf[k]); s += v; if (v > m) m = v; }
       const n = pfStart[p + 1] - pfStart[p];
       vs[p] = n ? (s / n) * 0.6 + m * 0.4 : 0;     // between the mean and the brightest face: a soft, unbroken fade
     }
     for (let f = 0; f < faces; f++) for (let j = 0; j < 3; j++) {
       const o = (f * 3 + j) * 2;
-      out[o] = sh[f]; out[o + 1] = vs[vertexOf[f * 3 + j]];
+      out[o] = val(f); out[o + 1] = vs[vertexOf[f * 3 + j]];
     }
   }
 }

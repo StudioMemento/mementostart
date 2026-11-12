@@ -50,7 +50,7 @@ export const VFX = {
     cellMin: 9,           // px: smallest cell on screen, deep in the centre
     cellGrowth: 0.1,      // cells open slightly with depth (on screen they still shrink ~depth^0.9)
     relief: 0.9,          // peaks and valleys, × local cell size, along the sheet's normal
-    fog: 0.3,             // darkness with depth, on top of the light's own falloff
+    fog: 0.45,            // darkness with depth, on top of the light's own falloff
     falloff: 0.05,        // light intensity / (1 + falloff·d²): near is bright, deep is dark
     /** Point lights, camera space (x, y, z, intensity): one close to the viewer lifts the foreground, two inside rake along the walls. */
     lights: [[0, 0.5, -0.5, 0.85], [0, -0.2, -3, 2.1], [0, 0, -10, 1.8]] as [number, number, number, number][],
@@ -63,7 +63,7 @@ export const VFX = {
   },
   chain: {
     /** Cards: irregular cells of mixed sizes, fine along the outline and large in the middle; a slow, controlled reaction. */
-    card: { spacing: 62, edgeSpacing: 15, edgeReach: 120, margin: 30, zone: 170, maxGen: 6, spread: 0.74, carry: 0.86, rate: 0.5,
+    card: { spacing: 62, edgeSpacing: 15, edgeReach: 120, topoArea: 230000, margin: 30, zone: 170, maxGen: 6, spread: 0.74, carry: 0.86, rate: 0.5,
       delay: [0.12, 0.28] as const, release: [0.9, 1.7] as const, refractory: [0.9, 1.5] as const, attack: 0.2 },
     /** Large type: medium cells carry the reaction, a finer lattice of mixed sizes lights inside the glyphs. */
     title: { spacingEm: 0.2, marginEm: 0.16, zoneEm: 1.1, maxGen: 9, spread: 0.82, carry: 0.9, microEm: 0.095, rate: 0.9,
@@ -75,6 +75,8 @@ export const VFX = {
     release: [0.35, 0.8] as [number, number],      // s, energy of a cell falls below 2%
     attack: 0.07,                                   // s, rise of a cell
   },
+  /** Type: the hover range along the phrase (x: × pointer radius, × font size; y: the same) and its easing (s). */
+  type: { range: [1.6, 2.4, 0.65, 0.75] as [number, number, number, number], rise: 0.45, fall: 1.1 },
   pointer: {
     radius: 230,          // px CSS, desktop
     touchRadius: 110,     // px CSS, touch
@@ -85,7 +87,7 @@ export const VFX = {
     moveRate: 1 / 85,     // extra ignitions per px of travel
     jitter: 0.32,         // spread of ignitions around the pointer, × radius
     enterBurst: 5,
-    proximityRate: 3,     // per second at the edge of the range
+    proximityRate: 3, sourceEvery: 1.6,     // per second at the edge of the range
   },
   border: { bins: 96, decay: 3.2, reach: 46 },
   scroll: {

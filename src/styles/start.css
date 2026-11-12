@@ -164,3 +164,22 @@ html{scrollbar-width:none}html::-webkit-scrollbar{display:none}
 }
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.hero-title,.hero-line,.faq-answer{animation:none!important}}
 @media(forced-colors:active){.title-gradient,.category-gradient,.contact-title{background:none;color:CanvasText}.cut-frame{clip-path:none;border:1px solid CanvasText}.cut-frame::before{display:none}.icon{forced-color-adjust:none;background:ButtonText}.faq-visual,.email-photo,.channel img,.location-photo,.card-legibility{display:none}html{scrollbar-width:auto}}
+/* Stylised map (scripts/location-map.mjs): image and labels share one frame that reproduces object-fit: cover for a
+   3:2 image, so every label stays on its point at any card size. Labels are type, drawn by the engine like the rest. */
+.location-map{display:block;container-type:size;color:var(--ink);text-decoration:none}
+.map-art{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 50%;pointer-events:none}
+.map-labels{position:absolute;inset:0;pointer-events:none;z-index:1}
+.map-source,.map-label{position:absolute;left:calc(50% + (var(--x) - .5) * max(100cqw,150cqh));top:calc(50% + (var(--y) - .5) * max(66.667cqw,100cqh))}
+.map-source{width:2px;height:2px;margin:-1px 0 0 -1px}
+.map-label{font-size:clamp(11px,1.45cqw,15px);font-weight:400;letter-spacing:-.01em;line-height:1.2;white-space:nowrap;color:#ece9e3}
+.map-label span{display:block;margin-top:3px;font-size:.84em;color:#a29e97}
+.map-label--left{transform:translate(calc(-100% - 22px),-50%);text-align:right}
+.map-label--right{transform:translate(22px,-50%)}
+.map-label--below{transform:translate(-50%,24px);text-align:center}
+.map-label--above{transform:translate(-50%,calc(-100% - 24px));text-align:center}
+.map-label--studio{transform:translate(clamp(30px,4.6cqw,52px),calc(-100% - 6px));font-size:clamp(14px,2.1cqw,24px);font-weight:380;letter-spacing:-.03em}
+.map-label--north{transform:translate(-50%,-100%);font-size:clamp(10px,1.1cqw,13px);letter-spacing:.2em;color:#a29e97}
+.map-label--scale{transform:translate(-50%,0);font-size:clamp(10px,1.1cqw,13px);color:#a29e97}
+.map-cta{position:absolute;left:clamp(18px,3cqw,32px);bottom:clamp(16px,3cqw,28px);z-index:1;display:inline-flex;align-items:center;gap:8px;font-size:clamp(13px,1.6cqw,16px);letter-spacing:-.01em;color:#ece9e3}
+.map-cta .icon{width:18px;height:18px}
+@container (max-width:560px){.map-label:not(.map-label--studio):not(.map-label--north){display:none}.map-label--scale{display:none}}

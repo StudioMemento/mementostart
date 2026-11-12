@@ -218,3 +218,20 @@ describe('type glow and card topology', () => {
     expect(median(mid)).toBeGreaterThan(median(edge) * 4);
   });
 });
+
+describe('type range', () => {
+  it('the pointer presence is written with the reaction and keeps the field active until it fades', () => {
+    const net = buildNetwork(400, 200, 30, 10, 120, 3);
+    const ch = new ChainField(net, VFX.chain.title);
+    const out = new Float32Array(net.faces * 6);
+    expect(ch.active).toBe(false);
+    const f = net.faces >> 1;
+    ch.drive[f] = 0.8; ch.driveLevel = 0.8;
+    expect(ch.active).toBe(true);
+    ch.write(out);
+    expect(out[f * 6]).toBeCloseTo(0.8, 5);                    // the face shows the presence
+    expect(Math.max(...Array.from(out))).toBeLessThanOrEqual(0.8 + 1e-6);
+    ch.drive.fill(0); ch.driveLevel = 0;
+    expect(ch.active).toBe(false);
+  });
+});

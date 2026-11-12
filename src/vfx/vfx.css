@@ -54,3 +54,29 @@ main :focus-visible { scroll-margin-block: 20vh; }
 
 @media print { .vfx-canvas { display: none; } }
 @media (forced-colors: active) { .vfx-canvas { display: none; } }
+
+/*
+ * Vertical rhythm tied to the scroll bands (VFX.scroll.band: 15% of the viewport at the top and at the bottom).
+ * First screen: the title sits in the middle of the reading band; the next section arrives in the entry band, already
+ * fragmenting, with its text still below the fold. Last screen: the closing call to action sits in the reading band
+ * while what came before leaves through the exit band. Every section opens with at least a band of air.
+ */
+:root { --vfx-band: 15vh; }
+@supports (height: 100svh) { :root { --vfx-band: 15svh; } }
+.hero {
+  min-height: calc(100vh - var(--vfx-band));
+  min-height: calc(100svh - var(--vfx-band));
+  display: flex; flex-direction: column; justify-content: center;
+  padding-top: var(--vfx-band); padding-bottom: 0;
+}
+.explore-section {
+  min-height: calc(100vh - var(--vfx-band));
+  min-height: calc(100svh - var(--vfx-band));
+  display: flex; flex-direction: column; justify-content: center;
+  padding-top: 0; padding-bottom: var(--vfx-band);
+}
+.explore-chevron { width: min(40cqw, 440px, 18vh); width: min(40cqw, 440px, 18svh); }
+.location-section, .faq-section { padding-top: max(64px, var(--vfx-band)); }
+/* a phone number is one word: it never breaks, it gets a touch smaller on the narrowest cards instead */
+#mm-phone-link .channel-title { white-space: nowrap; letter-spacing: -.02em; }
+@media (max-width: 420px) { #mm-phone-link .channel-title { font-size: min(15px, 3.7vw); } }

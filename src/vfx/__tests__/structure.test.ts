@@ -37,9 +37,9 @@ describe('structural progress', () => {
     expect(new Set(a).size).toBeGreaterThan(2);
   });
 
-  it('lets first and last content be read whole at the ends of the document', () => {
+  it('fragments the arriving content from the first frame and the leaving content at the end', () => {
     expect(bandEnable(0, 3000, BAND)).toEqual({ top: 0, bottom: 1 });
-    expect(bandEnable(3000, 3000, BAND)).toEqual({ top: 0, bottom: 0 });
+    expect(bandEnable(3000, 3000, BAND)).toEqual({ top: 1, bottom: 0 });
     expect(bandEnable(1500, 3000, BAND)).toEqual({ top: 1, bottom: 1 });
     expect(fragmentation(10, H, BAND, 0, 1)).toBe(0);
   });

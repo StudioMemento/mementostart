@@ -17,7 +17,7 @@ import {
   BG_FRAG, BG_VERT, BLUR_FRAG, COMPOSITE_FRAG, FS_VERT, OVERLAY_CARD_FRAG, OVERLAY_TITLE_FRAG, OVERLAY_VERT,
   PART_FRAG, PART_VERT, SURFACE_FRAG, SURFACE_VERT,
 } from './shaders';
-import { loadingDelay } from './structure';
+import { loadingDelay, smoothstep } from './structure';
 
 type Uniforms = Record<string, IUniform>;
 
@@ -35,6 +35,7 @@ interface Surface {
   born: Uint8Array | null; delays: Float32Array | null;
   canvas: HTMLCanvasElement;
   ink: CanvasTexture | null;
+  sourceDebt: number;
   dist: DataTexture | null;
   img: Texture | null; imgSrc: string;
   alpha: { alpha: Uint8Array; aw: number; ah: number; ascale: number } | null;
@@ -381,7 +382,7 @@ export class VfxEngine {
       uHover: { value: 0 }, uGain: { value: 1 }, uBins: { value: new Float32Array(VFX.border.bins) },
       uGray: { value: new Vector2(...gradientRange()) }, uMicro: { value: 12 },
       uDist: { value: null }, uRange: { value: 24 }, uEm: { value: 16 },
-      uSolid: { value: opt.solid ? 1 : 0 }, uPointer: { value: new Vector3(-1e4, -1e4, opt.panel ? 0 : 1) },
+      uSolid: { value: opt.solid ? 1 : 0 }, uTopo: { value: 1 }, uPointer: { value: new Vector3(-1e4, -1e4, opt.panel ? 0 : 1) },
     };
     const index = this.nextIndex++;
     const content = new Mesh(unbounded(new BufferGeometry()), this.material(SURFACE_VERT, SURFACE_FRAG, u));
@@ -391,7 +392,7 @@ export class VfxEngine {
     this.scene.add(content, overlay);
     return { el, opt, index, u, content, overlay, x: 0, y: 0, w: 0, h: 0, cellKey: '', netKey: '',
       net: null, chain: null, energy: null, border: title ? null : new BorderLight(), edgeCells: [], born: null, delays: null,
-      canvas: document.createElement('canvas'), ink: null, dist: null, img: null, imgSrc: '', alpha: null, fontSize: 16,
+      canvas: document.createElement('canvas'), ink: null, dist: null, sourceDebt: 0, img: null, imgSrc: '', alpha: null, fontSize: 16,
       hover: 0, inside: false, debt: 0, budget: 0, hot: false, version: 0, ready: false };
   }
 
@@ -411,6 +412,7 @@ export class VfxEngine {
     const id = hashString(el.id || el.className || el.tagName) + s.index;
     const cell = (title ? clamp(s.fontSize * VFX.cells.titleEm, 9, 26) : VFX.cells.card) * q.cellScale;
     u.uPush.value = title ? clamp(s.fontSize * 0.16, 14, 34) : 30;
+    u.uTopo.value = clamp(VFX.chain.card.topoArea / Math.max(1, s.w * s.h), 0.3, 1);
     u.uEm.value = s.fontSize;
     u.uRange.value = clamp(s.fontSize * VFX.chain.title.marginEm, 10, 46) * 0.95;
     u.uMicro.value = clamp(s.fontSize * VFX.chain.title.microEm, 6, 18);
@@ -521,6 +523,31 @@ export class VfxEngine {
   }
 
   /** On type the reaction follows the letters: ink-covered cells conduct and take ignitions, gaps carry it weakly. */
+  /**
+   * Type: the range lights the cells it reaches along the phrase (wide across the line, short in height), each cell
+   * with its own reach and eased in and out in time. The edge of the range is made of cells, so it reads as matter
+   * waking up, never as a disc that follows the pointer.
+   */
+  private driveRange(s: Surface, inside: boolean, lx: number, ly: number, R: number, dt: number) {
+    const ch = s.chain!, net = s.net!, D = ch.drive, T = VFX.type;
+    if (!inside && ch.driveLevel < 0.003) { if (ch.driveLevel) { D.fill(0); ch.driveLevel = 0; } return; }
+    const rx = Math.max(R * T.range[0], s.fontSize * T.range[1]), ry = Math.max(R * T.range[2], s.fontSize * T.range[3]);
+    const up = 1 - Math.exp(-dt / T.rise), down = 1 - Math.exp(-dt / T.fall);
+    let lvl = 0;
+    for (let f = 0; f < net.faces; f++) {
+      let t = 0;
+      if (inside && net.weight[f] > 0.05) {
+        const dx = (net.cx[f] - lx) / rx, dy = (net.cy[f] - ly) / ry;
+        const d = Math.sqrt(dx * dx + dy * dy) / (0.7 + 0.6 * net.seed[f]);
+        t = 1 - smoothstep(0.2, 1, d);
+      }
+      let v = D[f] + (t - D[f]) * (t > D[f] ? up : down);
+      if (v < 0.002) v = 0;
+      D[f] = v; if (v > lvl) lvl = v;
+    }
+    ch.driveLevel = lvl;
+  }
+
   private weightByInk(s: Surface) {
     const net = s.net, m = s.alpha;
     if (!net || !m) return;
@@ -604,6 +631,16 @@ export class VfxEngine {
       const lx = px - s.x, ly = py - s.y;
       if (inside) {
         if (!s.inside) for (let i = 0; i < P.enterBurst; i++) ch.igniteAt(lx, ly, R * 0.45, rand(0.85, 1));
+        // a surface with an energy source (the studio on the map): slow pulses start from it and travel through the cells
+        if (s.opt.source) {
+          if (!s.inside) s.sourceDebt = 1;
+          s.sourceDebt += dt / VFX.pointer.sourceEvery;
+          if (s.sourceDebt >= 1) {
+            s.sourceDebt -= 1;
+            const src = s.el.querySelector(s.opt.source)?.getBoundingClientRect();
+            if (src) for (let i = 0; i < 3; i++) ch.igniteAt(src.left + src.width / 2 + scrollX - s.x, src.top + src.height / 2 + sc.y - s.y, 18, rand(0.8, 1));
+          }
+        }
         const title = s.opt.kind === 'title';
         const rate = (this.reduced ? 1.5 : (still ? P.stillRate : P.hoverRate) + input.speed * P.moveRate) * (title ? VFX.chain.title.rate : VFX.chain.card.rate);
         s.debt += rate * dt;
@@ -615,6 +652,7 @@ export class VfxEngine {
         while (s.debt >= 1) { s.debt -= 1; ch.igniteAt(clamp(lx, 0, s.w), clamp(ly, 0, s.h), R * 0.12, (0.2 + 0.2 * prox) * (s.opt.gain ?? 1)); }
       } else s.debt = 0;
       s.inside = inside;
+      if (s.opt.kind === 'title') this.driveRange(s, inside, lx, ly, R, dt);
       // loading: cells light up as they join, sparsely
       if (loadingNow && s.delays && s.born) {
         const L = this.load.value * 1.3 - 0.15;
@@ -700,7 +738,10 @@ export class VfxEngine {
     const ch = this.bgChain, input = this.input, P = VFX.pointer;
     if (!this.arch || !ch || !this.bgEnergy) return;
     ch.propagate = !this.reduced;
-    const over = hovered?.opt.kind === 'card' ? 0 : hovered ? 0.45 : 1;
+    // the sheet answers in the side padding, where it is seen; over the layout column the content owns the pointer
+    const W = root().clientWidth, col = (this.bg.material.uniforms.uBand.value as Vector3).y;
+    const inColumn = Math.abs(clientX / W - 0.5) < col * 0.92;
+    const over = hovered?.opt.kind === 'card' || inColumn ? 0 : hovered ? 0.45 : 1;
     if (present && over > 0 && this.live) {
       if (input.still < 0.05) {
         this.bgStage = 0;

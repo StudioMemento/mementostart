@@ -10,20 +10,18 @@ import { VfxProvider } from './vfx/react';
 
 export function App() {
   const [policy, setPolicy] = useState<PolicyKind | null>(null);
-  // Map preference applies to this visit only.
-  const [mapEnabled, setMapEnabled] = useState(true);
   return (
     <VfxProvider>
       <a className="skip-link" href="#contatti">Vai ai contatti</a>
       <main id="memento-contact">
         <Hero />
         <Contact />
-        <Location mapEnabled={mapEnabled} onLoadMap={() => setMapEnabled(true)} />
+        <Location />
         <Faq />
         <Legal onPolicy={setPolicy} />
         <Explore />
       </main>
-      <PolicyDialog kind={policy} onClose={() => setPolicy(null)} mapEnabled={mapEnabled} onMapChange={setMapEnabled} />
+      <PolicyDialog kind={policy} onClose={() => setPolicy(null)} />
     </VfxProvider>
   );
 }

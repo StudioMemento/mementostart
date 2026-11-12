@@ -12,9 +12,10 @@ const fract = (x: number) => x - Math.floor(x);
 
 /** How strongly each band acts: 0 at the very start / end of the document, so first and last content can be read whole. */
 export function bandEnable(scrollY: number, maxScroll: number, bandPx: number) {
-  const end = clamp01((maxScroll - scrollY) / bandPx);
-  // at the very end nothing can scroll further: the closing call to action is released from the exit band too
-  return { top: clamp01(scrollY / bandPx) * end, bottom: end };
+  // the entry band is open from the first frame (the next content is already arriving) and closes at the very end,
+  // where nothing else can arrive; the exit band stays open at the end too: what came before is still leaving,
+  // and the layout keeps the closing call to action inside the reading band (see --vfx-band in vfx.css)
+  return { top: clamp01(scrollY / bandPx), bottom: clamp01((maxScroll - scrollY) / bandPx) };
 }
 
 /** Fragmentation 0..1 at a viewport y: 0 across the reading band, rising toward the top and bottom edges. */

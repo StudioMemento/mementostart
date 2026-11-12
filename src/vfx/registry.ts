@@ -10,6 +10,8 @@ export interface SurfaceOptions {
   solid?: boolean;
   /** A large panel: on hover only the type near the pointer turns amber, not all of it. */
   panel?: boolean;
+  /** Selector of an element inside the surface that is its energy source: on hover the reaction starts there too. */
+  source?: string;
 }
 
 type Listener = (reason: 'surfaces' | 'layout', target?: Element, strength?: number) => void;
