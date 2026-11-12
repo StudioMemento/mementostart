@@ -1,6 +1,6 @@
 # Memento — VFX DNA
 
-Il DNA visivo e di comportamento degli effetti di mementostudio.it: una sola materia, una sola energia, una sola luce, con regole precise su quando e quanto si mostrano. La pagina START (V19, `mementostart.vercel.app`) è l'implementazione di riferimento; navigation, servizi, Portfolio e levelup la seguiranno con le stesse regole e le stesse costanti.
+Il DNA visivo e di comportamento degli effetti di mementostudio.it: una sola materia, una sola energia, una sola luce, con regole precise su quando e quanto si mostrano. La pagina START (V20, `mementostart.vercel.app`) è l'implementazione di riferimento; navigation, servizi, Portfolio e levelup la seguiranno con le stesse regole e le stesse costanti.
 
 Questo sistema serve a tre lettori. Il designer ci trova principi, palette, stati e la tavola master. Lo sviluppatore ci trova le costanti e dove vivono nel codice (`codice.md`). Un agente che costruisce una nuova pagina parte da qui, poi legge le sezioni nell'ordine sotto.
 
@@ -13,7 +13,7 @@ Questo sistema serve a tre lettori. Il designer ci trova principi, palette, stat
 | Sostanza | Ruolo | Dove vive | Mai |
 | --- | --- | --- | --- |
 | **Nero** | il vuoto, il riposo, la pagina | sfondo, pannelli, il centro dello sfondo | grigio piatto, sfumature colorate |
-| **Grafite** | la materia: celle triangolari irregolari, lucide sugli spigoli | pareti dello sfondo, card, glifi, mappa, frammenti | texture fotografiche, rumore senza struttura |
+| **Grafite** | la materia: celle triangolari irregolari, lucide sugli spigoli | pareti dello sfondo, card, glifi, frammenti | texture fotografiche, rumore senza struttura |
 | **Ambra** | l'energia: reazione a catena, incandescenza | solo dove c'è un gesto, un caricamento, una sorgente | a riposo, come colore decorativo, su grandi superfici piene |
 
 Il bianco caldo (`testo-luce`) è l'informazione: i testi. Non è una sostanza degli effetti.
@@ -21,7 +21,7 @@ Il bianco caldo (`testo-luce`) è l'informazione: i testi. Non è una sostanza d
 ## Gli otto principi
 
 1. **Dal nero alla materia.** Il caricamento costruisce la rete (scia, reticolo, facce, contenuto). Nulla appare con una dissolvenza generica.
-2. **Una materia sola.** Sfondo, card, glifi, mappa e frammenti condividono la stessa topologia: triangoli di Delaunay irregolari, di misure miste. Cambia solo la scala.
+2. **Una materia sola.** Sfondo, card, glifi e frammenti condividono la stessa topologia: triangoli di Delaunay irregolari, di misure miste entro una banda stretta. Cambia solo la scala, in una gerarchia proporzionata.
 3. **La scala dice la distanza.** Nello sfondo una cella grande è vicina e una piccola è lontana. Non si mescolano scale a caso.
 4. **L'ambra è un evento.** Mai a riposo. Nasce da un gesto, si propaga per celle, si spegne con un suo tempo. Mai un disco che segue il puntatore.
 5. **Saturazione, non opacità.** Ci sono tre livelli: quiete (0%), base attiva (80%, tutta la superficie sotto il gesto si scalda) e range (100%, solo le celle raggiunte, con micro-faccette e luce sul bordo).
@@ -37,7 +37,7 @@ Due corollari dalle tavole: *fermo non significa assente* (a cursore fermo c'è 
 2. `energia.md`: la reazione a catena, i tre livelli, il range, le sorgenti, il budget d'ambra.
 3. `luce-e-incandescenza.md`: luce dei bordi, glow dei testi, bloom.
 4. `tipografia.md`: gradiente di quiete, base attiva, range, interlinea.
-5. `immagini-e-mappa.md`: grading delle foto, produzione delle immagini, la mappa nella materia.
+5. `immagini-e-mappa.md`: grading delle foto, produzione delle immagini, la mappa.
 6. `struttura-e-scroll.md`: le fasce, il caricamento, la deriva, prima e ultima schermata.
 7. `movimento.md`: tempi e curve, tutti in una tabella.
 8. `interazione-e-accessibilita.md`: puntatore, touch, tastiera, reduced motion, profili di qualità.
@@ -49,7 +49,7 @@ Due corollari dalle tavole: *fermo non significa assente* (a cursore fermo c'è 
 
 ![Master visual](memento-vfx-dna-master-visual.jpg)
 
-La tavola `memento-vfx-dna-master-visual.jpg` è il riferimento visivo unico. Mostra la START in hover, la materia, l'energia su una card, l'incandescenza del titolo, la struttura dello scroll, la mappa come sorgente e la chiusura. Le immagini sono render reali dell'engine V19, non illustrazioni.
+La tavola `memento-vfx-dna-master-visual.jpg` è il riferimento visivo unico. Mostra la START in hover, la materia, l'energia su una card, l'incandescenza del titolo, la struttura dello scroll, la mappa come sorgente e la chiusura. Le immagini sono render reali dell'engine V19, non illustrazioni: in V20 sfondo, titoli, card e mappa sono cambiati (più scuri, ambra più arancio, profondità di campo dietro la colonna), quindi la tavola va rifatta dopo il deploy.
 
 ## Da fare e da evitare
 
@@ -72,5 +72,5 @@ La tavola `memento-vfx-dna-master-visual.jpg` è il riferimento visivo unico. Mo
 ## Fonti
 
 - Tavole del concept: `x.zip`, 200 tavole, novembre 2026. La sezione `tavole.md` dice quali restano valide.
-- Implementazione: `memento-start` V19, `src/vfx/` (config, shader, engine).
+- Implementazione: `memento-start` V20, `src/vfx/` (config, shader, engine).
 - Font: Inter (licenza SIL OFL 1.1), file variabile in `fonts/`.

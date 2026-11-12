@@ -20,7 +20,7 @@ Implementazione di riferimento: progetto `memento-start` (React 18, Vite, TypeSc
 | Puntatore, fermo, sorgenti | `engine.ts`, `config.ts` | `driveBackground`, `VFX.pointer` |
 | Bloom | `engine.ts`, `config.ts` | `render`, `VFX.bloom` |
 | Profili di qualità | `config.ts` | `VFX.quality` |
-| Mappa | `scripts/location-map.mjs` | genera SVG, WebP e posizioni delle etichette |
+| Mappa | `src/components/locationMap.ts` | posizioni delle etichette sul render della città |
 
 ## Registrare una superficie
 
@@ -28,7 +28,7 @@ Implementazione di riferimento: progetto `memento-start` (React 18, Vite, TypeSc
 const title = useSurface<HTMLDivElement>('title');
 const card = useSurface<HTMLAnchorElement>('card');
 const panel = useSurface<HTMLDivElement>('card', { panel: true, gain: 0.7 });
-const map = useSurface<HTMLAnchorElement>('card', { cut: 'tl', gain: 0.45, source: '.map-source' });
+const map = useSurface<HTMLAnchorElement>('card', { cut: 'tl', gain: 0.45, source: '.map-source', ownColour: true });
 ```
 
 | Opzione | Significato |
@@ -38,6 +38,7 @@ const map = useSurface<HTMLAnchorElement>('card', { cut: 'tl', gain: 0.45, sourc
 | `panel` | in hover l'ambra solo vicino al cursore |
 | `source` | selettore di un elemento interno da cui l'energia parte in hover |
 | `solid` | non si frammenta mai con lo scroll; solo per contenuti che l'engine non può disegnare, come un iframe |
+| `ownColour` | in hover l'immagine mostra i suoi colori invece del grading d'ambra (la mappa notturna, già illuminata nella palette) |
 
 `useVfxSignals()` dà `invalidate()` (ricalcola dopo un cambio di layout) e `impulse(el)` (un impulso da un elemento).
 

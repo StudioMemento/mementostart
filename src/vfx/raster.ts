@@ -109,8 +109,11 @@ export function collect(root: HTMLElement): Collected {
   return { ops, box, fontSize };
 }
 
-/** Paints collected ops into `canvas` (premultiplied RGBA). Resolves once icons are decoded. */
-export async function paint(canvas: HTMLCanvasElement, { ops, box }: Collected, scale: number) {
+/**
+ * Paints collected ops into `canvas` (premultiplied RGBA). Resolves once icons are decoded.
+ * Titles get the idle gradient (light above, shade at the base); with `solid`, type and icons take one colour.
+ */
+export async function paint(canvas: HTMLCanvasElement, { ops, box }: Collected, scale: number, solid?: string) {
   const urls = [...new Set(ops.filter(o => o.type === 'icon').map(o => (o as Extract<Op, { type: 'icon' }>).url))];
   const loaded = new Map<string, HTMLImageElement | null>();
   await Promise.all(urls.map(async u => { loaded.set(u, await loadIcon(u)); }));
@@ -119,8 +122,9 @@ export async function paint(canvas: HTMLCanvasElement, { ops, box }: Collected, 
   const ctx = canvas.getContext('2d')!;
   ctx.setTransform(scale, 0, 0, scale, -box.left * scale, -box.top * scale);
   ctx.textBaseline = 'alphabetic';
-  const gradients = new Map<string, CanvasGradient>();
-  const gradient = (c: CanvasRenderingContext2D, top: number, bottom: number) => {
+  const gradients = new Map<string, CanvasGradient | string>();
+  const gradient = (c: CanvasRenderingContext2D, top: number, bottom: number): CanvasGradient | string => {
+    if (solid) return solid;
     const g = c.createLinearGradient(0, top, 0, bottom);
     for (const [stop, color] of VFX.color.titleGradient) g.addColorStop(stop, color);
     return g;

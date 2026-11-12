@@ -102,12 +102,13 @@ export function buildNetwork(width: number, height: number, spacing: number, mar
   const g = fine * 0.62;
   for (let y = y0 + g * 0.5; y < y0 + H - g * 0.4; y += g) for (let x = x0 + g * 0.5; x < x0 + W - g * 0.4; x += g) {
     const n = noise2(x / (spacing * 3.1), y / (spacing * 3.1), seed);
-    let keep = (0.14 + 0.86 * n) * 0.74;
+    // sizes vary between neighbours, within a narrow band: the scale of a layer stays readable (a hierarchy, not noise)
+    let keep = (0.4 + 0.6 * n) * 0.74;
     if (edge) {
       // local spacing between the outline's and the middle's, with noise: mixed sizes everywhere, fine at the edges
       const k = near(x, y);
-      const local = edge.spacing + (spacing - edge.spacing) * (1 - k) * (0.55 + 0.9 * noise2(x / 90 + 3.3, y / 90 - 1.7, seed ^ 0x9e37));
-      keep = Math.min(1, (g / local) ** 2 * (0.4 + 0.9 * n));
+      const local = edge.spacing + (spacing - edge.spacing) * (1 - k) * (0.75 + 0.5 * noise2(x / 90 + 3.3, y / 90 - 1.7, seed ^ 0x9e37));
+      keep = Math.min(1, (g / local) ** 2 * (0.6 + 0.6 * n));
     }
     if (rnd() < keep) pts.push(x + (rnd() - 0.5) * g * 0.9, y + (rnd() - 0.5) * g * 0.9);
   }
@@ -205,17 +206,23 @@ export function buildArch(aspect: number, viewH: number, seed = 20240611, scale 
     const F = (zAt(u) * T * aspect) / Math.max(1e-6, dsdu);
     return 1 / Math.sqrt(Math.min(1, Math.max(0.3, F)));
   };
+  // size follows distance with small deltas between neighbours, so the sheet reads as a wireframe in perspective;
+  // near the frame the cells are drawn out along the vertical into tall shards, deeper they even out
+  const I = B.irregular, span0 = Math.log(zF / zN);
+  const vary = () => 1 - I + 2 * I * rnd();
   for (let s = -smax; s <= smax; ) {
     const u = uOf(Math.abs(s)), z = zAt(u);
-    const n = 0.78 + 0.5 * noise2(s * 3.1, 0.5, seed);
-    const c = cellAt(z) * n, cs = c * open(s);
+    const n = 1 + I * (2 * noise2(s * 3.1, 0.5, seed) - 1);
+    const near = 1 - Math.min(1, Math.log(z / zN) / span0 * 2.4);
+    const el = Math.sqrt(1 + (B.stretch - 1) * near * near);
+    const c = cellAt(z) * n, cs = (c * open(s)) / el, cv = c * el;
     const ym = Math.max(ymAt(s), reach(z));
     pts.push(s, -ym);
-    for (let y = -ym + c * (0.5 + 0.5 * rnd()); y < ym - c * 0.4; y += c * (0.82 + 0.3 * rnd())) {
-      pts.push(s + (rnd() - 0.5) * cs * 0.7, y + (rnd() - 0.5) * c * 0.6);
+    for (let y = -ym + cv * (0.5 + 0.5 * rnd()); y < ym - cv * 0.4; y += cv * vary()) {
+      pts.push(s + (rnd() - 0.5) * cs * (0.3 + 1.8 * I), y + (rnd() - 0.5) * cv * (0.25 + 1.4 * I));
     }
     pts.push(s, ym);
-    s += cs * (0.8 + 0.3 * rnd());
+    s += cs * vary();
   }
   const d = new Delaunator(Float64Array.from(pts));
   const tri = d.triangles, faces = tri.length / 3, points = pts.length / 2;
@@ -274,7 +281,7 @@ export function buildArch(aspect: number, viewH: number, seed = 20240611, scale 
     const dn = Math.min(1, Math.max(0, Math.log(Math.max(zN, -cen[f * 3 + 2]) / zN) / span));
     depth[f] = dn; seeds[f] = sd;
     cond[f] = 0.25 + 0.75 * smoothstep(0.3, 0.7, noise2(cen[f * 3] * 1.3 + 7, cen[f * 3 + 1] * 1.3, seed ^ 0x2c1b));
-    weight[f] = dn < 0.75 ? 1 - dn : 0;
+    weight[f] = 0.3 + 0.7 * (1 - dn);   // every face can answer, the near ones first
     for (let k = 0; k < 3; k++) {
       const v = tri[f * 3 + k], o = f * 3 + k;
       vertexOf[o] = v;

@@ -92,7 +92,7 @@ describe('geometry', () => {
     for (const [aspect, h] of [[16 / 9, 900], [1.5, 800], [0.46, 844], [2.39, 1440]] as const) {
       const t = buildArch(aspect, h);
       expect(t.open).toBe(t.border);
-      expect(t.faces).toBeGreaterThan(3000);                    // dense
+      expect(t.faces).toBeGreaterThan(900);                     // a readable wireframe
       expect(t.faces).toBeLessThan(40000);                      // and still light
       // no fill triangles: every face is about as large as its neighbours (none spans from the walls to the centre)
       let worst = 0;
@@ -127,7 +127,8 @@ describe('geometry', () => {
       depthAtX.get(key)!.push(t.depth[f]);
     }
     const mean = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length;
-    expect(mean(byBand[4])).toBeGreaterThan(mean(byBand[0]) * 6);   // perspective: the size tells the depth
+    expect(mean(byBand[4])).toBeGreaterThan(mean(byBand[0]) * 3);   // perspective: the size tells the depth
+    expect(mean(byBand[4])).toBeLessThan(mean(byBand[0]) * 12);     // over a measured range (a hierarchy, not dust)
     expect(mean(byBand[4]) / 2).toBeGreaterThan(0.1);                // foreground cells: over a tenth of the viewport height
     // within one column of the screen, depth barely changes from top to bottom
     for (const list of depthAtX.values()) if (list.length > 10) {

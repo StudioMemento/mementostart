@@ -102,7 +102,8 @@ uniform float uHasImg;
 uniform vec4 uImgBox;         // local px: x, y, w, h of the <img> box
 uniform vec4 uImgFit;         // uv = q * zw + xy
 uniform vec3 uImgStyle;       // opacity, left fade (faq), legibility gradient
-/* x: luminance, y: coverage, z: shade of the legibility gradient */
+/* x: luminance, y: coverage, z: shade of the legibility gradient; phRGB keeps the colour */
+vec3 phRGB=vec3(0.);
 vec3 photo(vec2 p, float inside){
   vec3 r=vec3(0.);
   if(uHasImg<.5) return r;
@@ -112,7 +113,7 @@ vec3 photo(vec2 p, float inside){
   // the photographs sit on black: their box fades out over a few percent, so no edge of the image ever shows
   float inBox=smoothstep(0.,.05,q.x)*smoothstep(1.,.95,q.x)*smoothstep(0.,.06,q.y)*smoothstep(1.,.94,q.y)
              *step(0.,uv.x)*step(uv.x,1.)*step(0.,uv.y)*step(uv.y,1.);
-  r.x=dot(t.rgb,vec3(.299,.587,.114));
+  r.x=dot(t.rgb,vec3(.299,.587,.114)); phRGB=t.rgb;
   r.y=t.a*uImgStyle.x*inside*inBox*mix(1.,smoothstep(0.,.36,q.x),uImgStyle.y);
   if(uImgStyle.z>.5){
     float y=clamp((p.y-uSize.y*.34)/(uSize.y*.66),0.,1.);
@@ -151,8 +152,9 @@ uniform float uAlpha;         // 1 on a transparent (hosted) surface
 uniform vec4 uLight[3];       // camera-space position, intensity
 uniform vec4 uShade;          // body, diffuse, specular, ridge lines
 uniform float uFall;          // light falloff with distance
-uniform vec3 uGloss;          // broad sheen: strength, exponent, share on the ridge lines
-uniform vec3 uBand;           // drawing-buffer width (px), layout column half-width (0..0.5 of the width), centre level
+uniform vec4 uGloss;          // broad sheen: strength, exponent, share on the ridge lines; faint level of every edge
+uniform vec4 uBand;           // drawing-buffer width (px), layout column half-width (0..0.5 of the width), level at the column edge, far cells behind it
+uniform vec3 uRim;            // foreground ridge highlights: strength, depth reach, selectivity
 in vec3 vPos; in vec3 vBary; flat in vec4 vFace; flat in vec3 vEdge; flat in float vE; in float vEv;
 out vec4 o;
 void main(){
@@ -178,17 +180,28 @@ void main(){
   // deep in the centre the sheet is seen edge-on: its facets turn to thin slivers, so gloss and ridge lines fade out
   // there and only the graphite remains; behind the content the field is calm
   float calm=1.-smoothstep(.3,.8,depth);
-  float g=uShade.x*(.35+.65*h3*h3)+uShade.y*diff*(.4+.6*h2)+uShade.z*(spec*gloss+broad*uGloss.x*(.5+.5*h1))*(.18+.82*sweep)*mix(.2,1.,calm);
+  // graphite, dark: a dull body, a strong sheen on the few glossy facets (raking off their brightest ridge),
+  // a faint broad sheen that shapes the others. Deep in the centre the facets turn edge-on: gloss and lines fade out
+  float g=uShade.x*(.35+.65*h3*h3)+uShade.y*diff*(.4+.6*h2)
+         +(uShade.z*spec*gloss*gloss+uGloss.x*broad*(.5+.5*h1))*(.12+.88*sweep)*mix(.2,1.,calm);
   float l0=aa(vBary.x)*vEdge.x, l1=aa(vBary.y)*vEdge.y, l2=aa(vBary.z)*vEdge.z;
-  g+=(l0+l1+l2)*(.04*mix(.3,1.,calm)+uShade.w*(hi*(.35+.65*gloss)+broad*uGloss.z)*calm);   // ridges catch the light, valleys stay dark
+  g+=(l0+l1+l2)*(uGloss.w*mix(.3,1.,calm)+uShade.w*(hi*(.35+.65*gloss)+broad*uGloss.z)*calm);   // ridges catch the light, valleys stay dark
+  // foreground: only the sharpest ridges of the nearest faces light up, a thin cold line on a dark body
+  float near=1.-smoothstep(0.,uRim.y,depth);
+  float r0=aa(vBary.x)*pow(vEdge.x,uRim.z), r1=aa(vBary.y)*pow(vEdge.y,uRim.z), r2=aa(vBary.z)*pow(vEdge.z,uRim.z);
+  g+=(r0+r1+r2)*uRim.x*near*(.45+.55*sweep);
+  g=1.-exp(-g);                                             // highlights roll off instead of clipping to flat white
   float fog=exp(-pow(depth*uFog,1.6));                      // smaller and darker with depth
-  // vertical bands: the gradient runs across the side padding, from the frame (full) to the layout column (dark)
-  float fx=abs(gl_FragCoord.x/uBand.x-.5);
-  float band=mix(uBand.z,1.,pow(smoothstep(uBand.y*.82,.5,fx),.8));
-  fog*=band;
+  // vertical bands: bright at the frame, darkest at the edge of the layout column
+  float fx=abs(gl_FragCoord.x/uBand.x-.5), cb=uBand.y;
+  fog*=fx>cb ? mix(uBand.z,1.,pow(smoothstep(cb,.5,fx),.85)) : uBand.z;
   float d=mix(1.-vFace.w,h2,.45);
   float appear=smoothstep(d-.12,d+.12,uLoad*1.25-.1);
   vec3 col=vec3(g)*vec3(.96,.975,1.)*fog*appear;
+  // behind the column: the small far cells, drawn faintly by their edges and a hint of their facets (then out of focus)
+  float inner=fx<cb?smoothstep(cb,cb*.4,fx):0.;
+  float mesh=min(aa(vBary.x)+aa(vBary.y)+aa(vBary.z),1.);
+  col+=vec3(.95,.97,1.)*uBand.w*inner*appear*(mesh*(.3+.7*h1)+.22*h3);
 
   vec3 em=vec3(0.);
   if(vE+vEv>.004){
@@ -197,11 +210,11 @@ void main(){
     float lines=(aa(vBary.x)+aa(vBary.y)+aa(vBary.z));
     float x=clamp(.5*vE+.8*vEv,0.,1.);
     // a large near face never fills with amber: the energy runs along its edges and only warms the face (amber is an event)
-    em=ramp(x*(.5+.5*sw))*x*(.45+.75*sw)*2.*mix(.4,1.,smoothstep(.05,.45,depth));
+    em=ramp(x*(.5+.5*sw))*x*(.3+.62*sw)*1.6*mix(.35,1.,smoothstep(.05,.45,depth));
     em+=ramp(.68+.32*vEv)*((l0+l1+l2)*1.5+lines*.45)*vEv*2.;
     em+=ramp(.3)*spec*gloss*vE*.5;
     em*=mix(.55,1.,fog)*appear;
-    em*=mix(.18,1.,smoothstep(uBand.y*.7,uBand.y,fx));      // behind the layout column the reaction stays low: content first
+    em*=mix(.45,1.,smoothstep(cb*.7,cb,fx));                // behind the layout column the reaction carries on, softer (and blurred)
   }
   if(uEmissive>.5){ o=vec4(em,1.); return; }
   col+=uBase+em+(h21(gl_FragCoord.xy)-.5)/255.;
@@ -266,6 +279,10 @@ uniform float uPanel;         // 1 = cut-corner card with fill and border
 uniform vec4 uPanelCol;
 uniform sampler2D uInk;       // glyphs, icons, dividers: premultiplied colour
 uniform float uHasInk;
+uniform vec3 uPointer;        // local px of the pointer
+uniform float uHover;
+uniform float uNear;          // a neighbour in range: nearness of the pointer, 0..1
+uniform vec3 uInkWarm;        // type on a card near the pointer: warmth, reach (px), share when only in range
 in vec2 vLocal; in vec3 vBary; in float vGone; in float vTrans;
 out vec4 o;
 void main(){
@@ -283,6 +300,12 @@ void main(){
     col=mix(col,vec4(vec3(g),1.),frame*.62);
   }
   vec4 ink=uHasInk>.5?texture(uInk,p/uSize):vec4(0.);
+  if(uPanel>.5&&ink.a>.003){
+    // type keeps its weight and its single colour; near the pointer it takes a light, very diffuse amber
+    vec2 d=p-uPointer.xy;
+    float k=exp(-dot(d,d)/(uInkWarm.y*uInkWarm.y))*max(uHover,uNear*uInkWarm.z)*uInkWarm.x;
+    ink.rgb*=mix(vec3(1.),vec3(1.,.84,.68),k);
+  }
   col=ink+col*(1.-ink.a);
   // structure stays monochrome: a cell in transition shows its own seams in grey, nothing lights up
   float seam=aa(min(vBary.x,min(vBary.y,vBary.z)));
@@ -302,14 +325,15 @@ in vec2 position;             // local px (the network extends into a margin aro
 in vec3 bary;
 in vec4 cell;                 // seed, zone, sheen edge, -
 in vec2 energy;               // face, smoothed vertex
+in vec2 centre;               // the cell's centre, local px
 uniform vec2 uOrigin;
 uniform float uSolid;
-out vec2 vLocal; out vec3 vBary; flat out vec4 vCell; flat out float vE; out float vEv; out float vFade;
+out vec2 vLocal; out vec3 vBary; flat out vec4 vCell; flat out float vE; out float vEv; out float vFade; flat out vec2 vCentre;
 void main(){
   vec2 d=uOrigin+position;
   // light belongs to content that is present: it fades where scroll or loading take the structure apart
   vFade=(1.-smoothstep(.02,.3,fragAt(d.y-uScroll)*(1.-uSolid)))*(1.-loadAbs(delayAt(d,.5)));
-  vLocal=position; vBary=bary; vCell=cell; vE=energy.x; vEv=energy.y;
+  vLocal=position; vBary=bary; vCell=cell; vE=energy.x; vEv=energy.y; vCentre=centre;
   gl_Position=clipOf(d);
 }`;
 
@@ -322,11 +346,13 @@ uniform sampler2D uInk;
 uniform float uHasInk;
 uniform float uHover;         // 0..1, eased
 uniform float uGain;          // 1 primary, lower for neighbours in range
-uniform float uTopo;          // density of the hover topology: 1 on a card, lower on a large panel (amber is an event)
+uniform float uNear;          // a neighbour in range: nearness of the pointer, 0..1, eased
+uniform float uTopo;          // density of the topology: 1 on a card, lower on a large panel (amber is an event)
 uniform vec4 uBins[24];       // light along the outline, 96 segments
-uniform vec2 uGray;           // luminance of the idle gradient at the base and at the top
-uniform vec3 uPointer;        // local px, 1 = the whole card's type turns amber on hover, 0 = only near the pointer (panels)
-in vec2 vLocal; in vec3 vBary; flat in vec4 vCell; flat in float vE; in float vEv; in float vFade;
+uniform vec3 uPointer;        // local px
+uniform float uOwn;           // 1: on hover the photograph shows its own colours (already lit in the house palette)
+uniform vec4 uWake;           // reach of the pointer over the cells (px): under it, from outside; share lit across the card; strength from outside
+in vec2 vLocal; in vec3 vBary; flat in vec4 vCell; flat in float vE; in float vEv; in float vFade; flat in vec2 vCentre;
 out vec4 o;
 float binAt(int i){ i=i<0?i+96:(i>95?i-96:i); return uBins[i/4][i-(i/4)*4]; }
 float bins(float s){ float x=s*96.-.5, f=fract(x); int i=int(floor(x)); return mix(binAt(i),binAt(i+1),f); }
@@ -343,43 +369,47 @@ void main(){
   float lum=ph.x, ia=ph.y;
   float be=vCell.z<.5?vBary.x:(vCell.z<1.5?vBary.y:vBary.z);
   float sweep=exp(-be*3.4);
+  vec2 dp=p-uPointer.xy;
 
-  // 1 · the photograph lit from within: a warm grade of its own luminance, never a flat tint over it
-  float lift=clamp(uHover*.72+Ev*.8,0.,1.)*uGain;
-  float gA=ia*lift*(1.-ph.z*.5)*smoothstep(.015,.12,lum);   // black stays black: no visible image box
+  // 1 · the photograph lit from within: a warm grade of its own luminance, never a flat tint over it.
+  //     A neighbour in range warms a little, on the side facing the pointer
+  float lift=clamp(uHover*.72+Ev*.8,0.,1.)*uGain+uNear*.32*exp(-dot(dp,dp)/(uWake.x*uWake.x*2.6));
+  float gA=ia*min(lift*(1.+.35*uOwn),1.)*(1.-ph.z*.5)*smoothstep(.015,.12,lum);   // black stays black: no visible image box
   float l=pow(lum,.9);
   vec3 graded=ramp(clamp(l*1.45+.14,0.,1.))*(l*2.5);
   graded*=1.+E*(.24*sweep-.08+.18*(h-.5));                 // each lit cell grades a little differently
+  graded=mix(graded,phRGB*(.94+.3*E*sweep),uOwn);
 
-  // 2 · the topology: on hover a random set of facets of every size appears, gathered along the outline; each one
-  //     breathes on its own slow clock, and the chain reaction accents some zones and leaves others
+  // 2 · one set of cells, of every size, gathered along the outline. Each cell has its own visibility: strong, faint,
+  //     barely there, none. The pointer wakes them where it is (from outside too, on the side facing it) and the
+  //     reaction travels through the same cells: one material, lit more or less
   float edgeK=vCell.w;
-  float pres=step(h3,mix(.14,.8,edgeK*edgeK))*smoothstep(-.15,.55,vCell.y+edgeK*.55);
-  float beat=.55+.45*sin(uTime*(.22+.3*h)+h2*6.283)*uMotion;
-  float topo=uHover*uGain*pres*beat*uTopo;
-  float fA=inside*(E*(.1+.32*h)*(.3+.7*sweep)+topo*(.07+.2*h)*(.35+.65*sweep))*(1.-ia*.4);
-  vec3 facet=ramp(.28+.4*E*sweep+.14*topo*sweep)*(.45+.9*sweep);
-  float edges=aa(vBary.x)*step(.5,h2)+aa(vBary.y)*step(.5,h3)+aa(vBary.z)*step(.5,h);
-  vec3 wire=ramp(.75)*edges*(E*.6+topo*(.11+.24*edgeK))*inside;
+  float r=h11(seed*17.3+1.7), dens=mix(.32,1.,edgeK);
+  float vis=r<dens*.14?1.:(r<dens*.36?.46:(r<dens*.64?.16:0.));
+  vec2 dc=vCentre-uPointer.xy;
+  float wake=uHover*uGain*(uWake.z+(1.-uWake.z)*exp(-dot(dc,dc)/(uWake.x*uWake.x)))+uNear*uWake.w*exp(-dot(dc,dc)/(uWake.y*uWake.y));
+  float beat=.62+.38*sin(uTime*(.22+.3*h)+h2*6.283)*uMotion;
+  float L=clamp(vis*wake*beat*uTopo+E*(.3+.7*max(vis,.3)),0.,1.);
+  float sat=.3+.7*h2;                                        // some cells deep amber, others close to neutral
+  float fA=inside*L*(.05+.24*h)*(.3+.7*sweep)*(1.-ia*.4);
+  vec3 facet=ramp(.24+.44*L*sweep);
+  facet=mix(vec3(dot(facet,vec3(.3333))),facet,sat)*(.45+.9*sweep);
+  float edges=aa(vBary.x)*step(.45,h2)+aa(vBary.y)*step(.45,h3)+aa(vBary.z)*step(.45,h);
+  vec3 wc=ramp(.6+.32*L);
+  vec3 wire=mix(vec3(dot(wc,vec3(.3333))),wc,sat)*edges*L*(.12+.68*edgeK*edgeK)*inside;   // long seams of the large middle cells stay quiet
 
   // 3 · the outline lights by segment: a thin bright core and a soft local halo
   float Eb=bins(outlineAt(p));
   float core=1.-smoothstep(0.,1.25,abs(sd+.6));
   float halo=sd>0.?exp(-sd/7.5):exp(sd/16.)*.35;
-  vec3 glow=ramp(.5+.36*Eb)*(core*Eb*1.7+halo*Eb*.9)*vFade;   // same saturation as the background's edges
+  vec3 glow=ramp(.5+.36*Eb)*(core*Eb*1.7+halo*Eb*.9)*vFade;
 
   vec4 c=vec4(graded*gA,gA);
   c=vec4(facet*fA+c.rgb*(1.-fA),fA+c.a*(1.-fA));
   c.rgb+=wire;
-  // type and icons: white with a grey base at rest, the same gradient in amber on hover; never covered
-  float il=ink.a>.003?dot(ink.rgb/ink.a,vec3(.3333)):1.;
-  float ti=clamp((il-uGray.x)/(uGray.y-uGray.x),0.,1.);
-  float near=exp(-dot(p-uPointer.xy,p-uPointer.xy)/(170.*170.));
-  float ik=clamp(uHover*mix(near,1.,uPointer.z)+Ev*.5,0.,1.)*uGain;
-  vec3 iw=mix(ramp(.32),mix(ramp(.86),vec3(1.,.95,.86),.35),pow(ti,.8));
-  c=c*(1.-ink.a)+vec4(iw*ink.a*ik,ink.a*ik);
-  c*=vFade;
-  if(uEmissive>.5){ o=vec4((graded*gA*smoothstep(.3,.85,lum)*.85+facet*fA*.7+wire)*vFade+glow,0.); return; }
+  // type and icons are drawn once, by the content pass: light never covers them (and never thickens them)
+  c*=(1.-ink.a)*vFade;
+  if(uEmissive>.5){ o=vec4((graded*gA*smoothstep(.3,.85,lum)*.85+facet*fA*.7+wire)*(1.-ink.a)*vFade+glow,0.); return; }
   o=vec4(c.rgb+glow,c.a);
 }`;
 
@@ -393,6 +423,8 @@ uniform sampler2D uDist;      // signed distance to the letters (0.5 on the outl
 uniform float uRange;         // px
 uniform float uEm;            // px, font size
 uniform vec2 uGray;           // luminance of the idle gradient at the base and at the top of the block
+uniform vec4 uTitle[6];       // the amber gradient, top to base: colour, luminance of its desaturated (idle) version
+uniform vec3 uHot[3];         // where the range reaches: top, middle, base
 uniform float uGain;
 uniform float uHover;         // 0..1, eased
 uniform vec3 uPointer;        // local px, range of the pointer (px)
@@ -404,48 +436,56 @@ float sdAt(vec2 p){
   vec2 uv=p/uSize, q=clamp(uv,0.,1.);
   return (texture(uDist,q).r-.5)*2.*uRange+length((uv-q)*uSize);
 }
+/* The idle gradient is the amber one desaturated: its grey gives back the amber colour at the same height. */
+vec3 amberOf(float lum){
+  vec3 c=uTitle[0].rgb;
+  for(int i=1;i<6;i++){
+    float hi=uTitle[i-1].w, lo=uTitle[i].w;
+    if(lum<hi) c=mix(uTitle[i-1].rgb,uTitle[i].rgb,clamp((hi-lum)/max(hi-lo,1e-4),0.,1.));
+  }
+  return c;
+}
 void main(){
   vec2 p=vLocal;
-  // two levels, as in the boards: on hover the whole block warms (base, ~80%); the cells the range reaches and the
-  // reaction they start go to full amber (100%). The range is a cluster of cells eased in time (drive): never a disc.
-  float base=uHover*uGain*(.8+.06*sin(uTime*.8+p.x*.0025)*uMotion);
+  // two levels: on hover the whole block takes its amber gradient (base); the cells the range reaches and the
+  // reaction they start go warm yellow, with orange facets and a lattice inside the letters (local). Never a disc
+  float base=uHover*uGain*(.96+.04*sin(uTime*.8+p.x*.0025)*uMotion);
   float local=clamp(vEv*1.12+vE*.32,0.,1.15);
-  float level=max(base*.55,local);
+  float level=max(base,local);
   if(level<.01) discard;
   float sd=sdAt(p);
   if(sd>uRange) discard;
   vec2 uv=p/uSize;
   vec4 ink=texture(uInk,clamp(uv,0.,1.))*step(0.,uv.x)*step(uv.x,1.)*step(0.,uv.y)*step(uv.y,1.);
   float a=ink.a;
-  float lum=a>.003?dot(ink.rgb/a,vec3(.3333)):1.;
-  float t=clamp((lum-uGray.x)/(uGray.y-uGray.x),0.,1.);   // 0 at the shaded base of the block, 1 at its lit top
-  // base: the grey gradient becomes a warm one over the whole block, warm white on top, soft amber-gold at the base
-  vec3 warmTop=vec3(1.,.955,.89), warmLow=mix(ramp(.62),vec3(.9,.66,.42),.3);
-  vec3 warm=mix(warmLow,warmTop,smoothstep(.02,.9,t));
-  // in range: full amber climbing from the base, the top stays pale and luminous
+  float lum=a>.003?dot(ink.rgb/a,vec3(.299,.587,.114)):1.;
+  float t=clamp((lum-uGray.x)/(uGray.y-uGray.x),0.,1.);   // 0 at the base of the block, 1 at its top
+  vec3 idle=vec3(lum), amber=amberOf(lum);
+  // in range: warm yellow, paler at the top, deeper toward the base; it climbs from the base as the range grows
   float fill=smoothstep(t-.3,t+.06,local*1.05);
-  vec3 hot=mix(ramp(.2+.18*local),ramp(.45+.17*local),pow(t,.8));
-  hot=mix(hot,vec3(1.,.93,.82),smoothstep(.6,1.,t)*.6);
-  // micro-facets of mixed sizes inside the reached letters, switched on and off slowly
+  vec3 hot=t>.5?mix(uHot[1],uHot[0],(t-.5)*2.):mix(uHot[2],uHot[1],t*2.);
+  // micro-facets of mixed sizes inside the reached letters, switched on and off slowly: the orange accents
   Tri m=tri(toL(p,uMicro),vec2(.62,.42));
   float mh=h11(m.id*5.1), mh2=h11(m.id*9.7);
   float th=.18+.6*mh*mh+.05*sin(uTime*(.16+.4*mh2)+mh*40.)*uMotion;
   float lit=smoothstep(th,th+.16,local)*step(.2,mh2);
-  vec3 facet=ramp(.4+.28*local*(.6+.4*mh))*(.72+.5*h11(m.id*2.7)-.2*m.b.y);
+  vec3 facet=mix(ramp(.4+.22*local*mh),hot,.25+.3*h11(m.id*2.7))*(.8+.35*h11(m.id*4.3)-.15*m.b.y);
   float wire=(1.-smoothstep(0.,1.,m.edge*uMicro*.8))*step(.45,h11(m.id*11.3));
-  vec3 col=mix(vec3(lum),warm,clamp(base,0.,1.)*.92);
+  vec3 col=mix(idle,amber,clamp(base,0.,1.));
   col=mix(col,hot,fill);
-  col=mix(col,facet,lit*.6);
-  col+=uAmb[3]*wire*lit*.22;
-  float k=max(clamp(base,0.,1.),max(fill,lit*.85));
-  // edge light that follows each letter: a rim just inside the outline where the energy is, a soft light outside
-  float g=clamp(local*1.1+base*.12,0.,1.)*vFade;
+  col=mix(col,facet,lit*.55);
+  col=mix(col,vec3(1.,.9,.74),wire*lit*.3);
+  // the overlay replaces the base pass's type where it shows (never adds coverage: the weight stays the same)
+  float k=clamp(max(base,max(fill,lit*.85)),0.,1.)*vFade;
+  // warm light that follows each letter: a rim just inside the outline where the energy is, a soft glow outside
+  float g=clamp(local*1.1+base*.15,0.,1.)*vFade;
   float rim=a*exp(-max(-sd,0.)/(uEm*.02));
-  float outer=(1.-a)*exp(-max(sd,0.)/(uEm*.042))*(1.-smoothstep(uRange*.5,uRange,sd));
-  vec3 rimC=ramp(.6+.22*g)*rim*local*vFade*.75;
-  vec3 glow=ramp(.38+.22*g)*outer*(.04+.2*g);
-  if(uEmissive>.5){ o=vec4(col*a*fill*(.03+.2*lit)*vFade+rimC*.28,0.); return; }
-  o=vec4(col*a*k*vFade+rimC*k+glow,a*k*vFade+outer*(.05+.18*g));
+  float outer=(1.-a)*exp(-max(sd,0.)/(uEm*.045))*(1.-smoothstep(uRange*.5,uRange,sd));
+  vec3 rimC=ramp(.56+.2*g)*rim*local*vFade*.6;
+  vec3 glow=ramp(.42+.2*g)*outer*(.04+.17*g)*vFade;
+  // bloom: a touch of brilliance from the reached letters and their rim, held low
+  if(uEmissive>.5){ o=vec4((hot*a*fill*.09+facet*a*lit*.07)*vFade+rimC*.24+glow*.3,0.); return; }
+  o=vec4(col*a*k+rimC*k+glow,k*min(1.,a*8.)+outer*(.05+.18*g)*vFade);
 }`;
 
 /* ------------------------------------------------------------------ particles */
@@ -492,10 +532,10 @@ uniform sampler2D uTex;
 uniform vec2 uStep;
 in vec2 vUv; out vec4 o;
 void main(){
-  vec3 c=texture(uTex,vUv).rgb*.2270;
-  c+=(texture(uTex,vUv+uStep*1.385).rgb+texture(uTex,vUv-uStep*1.385).rgb)*.3162;
-  c+=(texture(uTex,vUv+uStep*3.231).rgb+texture(uTex,vUv-uStep*3.231).rgb)*.0703;
-  o=vec4(c,1.);
+  vec4 c=texture(uTex,vUv)*.2270;
+  c+=(texture(uTex,vUv+uStep*1.385)+texture(uTex,vUv-uStep*1.385))*.3162;
+  c+=(texture(uTex,vUv+uStep*3.231)+texture(uTex,vUv-uStep*3.231))*.0703;
+  o=c;
 }`;
 
 export const COMPOSITE_FRAG = /* glsl */ `
@@ -504,3 +544,23 @@ uniform sampler2D uTex;
 uniform float uStrength;
 in vec2 vUv; out vec4 o;
 void main(){ o=vec4(texture(uTex,vUv).rgb*uStrength,0.); }`;
+
+/**
+ * Depth of field behind the layout column: from the column edge inward the sheet goes out of focus, first a little
+ * then fully. Two passes over the sharp sheet already on screen: the first keeps the sharp share, the second adds
+ * the blurred shares (premultiplied, exact also on a transparent canvas).
+ */
+export const BG_SOFT_FRAG = /* glsl */ `
+precision highp float;
+uniform sampler2D uMed;
+uniform sampler2D uBig;
+uniform vec2 uCol;            // column half-width (0..0.5), blur reach inside it (share of the half-width)
+uniform float uPass;
+in vec2 vUv; out vec4 o;
+void main(){
+  float fx=abs(vUv.x-.5);
+  float w=smoothstep(uCol.x*1.04,uCol.x*(1.-uCol.y),fx);
+  float sharp=clamp(1.-2.*w,0.,1.), big=clamp(2.*w-1.,0.,1.), med=1.-sharp-big;
+  if(uPass<.5){ o=vec4(0.,0.,0.,1.-sharp); return; }
+  o=texture(uMed,vUv)*med+texture(uBig,vUv)*big;
+}`;

@@ -12,18 +12,13 @@
 
 Interni grafite e carbone illuminati da una sola fonte calda: lampada, portale, schermo. Low-poly dove serve. Sono le tavole "charcoal studio" (vedi `tavole.md`). Valgono per le pagine studio e servizi, non per la START.
 
-## La mappa nella materia
+## La mappa
 
-La mappa non è Google Maps: è un'immagine generata dal progetto (`scripts/location-map.mjs`), trattata dall'engine come ogni altra immagine di card. Così non servono chiavi API, non ci sono contenuti di terze parti incorporati e non serve un consenso cookie.
+La mappa non è Google Maps: è un **render notturno di Maniago** (`public/assets/images/location-map.webp`, 1672×941), low-poly, con lo studio illuminato e Piazza Italia con la fontana. Così non servono chiavi API, non ci sono contenuti di terze parti incorporati e non serve un consenso cookie.
 
-- **Contenuto:**
-  - la città come rete di celle, più fitta attorno allo studio;
-  - i riferimenti chiave come nodi sfaccettati: Piazza Italia, Duomo, Museo delle Coltellerie, Stazione, Castello;
-  - via Roma come linea piena;
-  - linee tratteggiate a piedi dallo studio;
-  - nord e scala da 100 m.
-- **Etichette:** sono testo vero, disegnato dall'engine come gli altri testi. A riposo sono bianche, in hover ambra.
+- **A riposo:** in grigio, come ogni immagine (lo studio resta il punto più chiaro).
+- **In hover:** la mappa mostra **i suoi colori**, già illuminati nella palette della casa, invece del grading d'ambra (`ownColour`). Le celle si accendono sopra, più rade perché il pannello è grande.
+- **Etichette:** Studio Memento (Piazzetta Trento) e Piazza Italia (4 min a piedi). Sono testo vero, disegnato dall'engine come gli altri testi, con un solo colore. Seguono l'immagine anche quando il riquadro la ritaglia (`object-fit: cover`).
 - **Comportamento:** lo studio è la **sorgente**. In hover gli impulsi partono da lì e attraversano la città.
 - **Link:** tutta la mappa apre Google Maps in una nuova scheda.
-- **Tempi a piedi:** sono indicativi (linea d'aria × 1,25, 80 m/min, +20% in salita) e così vanno presentati.
-- **Coordinate:** Wikivoyage (Maniago) e la scheda Google Maps dello studio. Per aggiungere un luogo si modifica lo script e si rigenera.
+- **Per cambiare immagine:** si sostituisce il file e si aggiornano proporzioni e posizioni in `src/components/locationMap.ts` (frazioni dell'immagine) e in `.map-label` (`start.css`).

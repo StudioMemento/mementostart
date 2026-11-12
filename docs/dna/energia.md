@@ -1,6 +1,6 @@
 # Energia
 
-L'energia è **ambra** e si comporta sempre allo stesso modo: una **reazione a catena** nelle celle. Nasce da un gesto, si propaga ai vicini con un ritardo, si spegne. Non è mai uno spot di luce.
+L'energia è **ambra intensa, tendente all'arancio** e si comporta sempre allo stesso modo: una **reazione a catena** nelle celle. Nasce da un gesto, si propaga ai vicini con un ritardo, si spegne. Non è mai uno spot di luce.
 
 ## La reazione a catena
 
@@ -14,8 +14,8 @@ L'energia è **ambra** e si comporta sempre allo stesso modo: una **reazione a c
 | Livello | Quando | Cosa si vede |
 | --- | --- | --- |
 | **Quiete, 0%** | a riposo | grafite e bianco caldo, nessuna ambra; le immagini sono in bianco e nero |
-| **Base attiva, 80%** | il puntatore è sulla superficie | tutta la superficie si scalda: i testi passano dal gradiente grigio a un gradiente caldo, le immagini si colorano |
-| **Range, 100%** | le celle che il range raggiunge e la reazione che parte da lì | ambra piena dalla base verso l'alto, micro-faccette accese, luce sul contorno |
+| **Base attiva** | il puntatore è sulla superficie | i titoli passano dal gradiente desaturato al loro gradiente ambra (bianco caldo in alto, arancio alla base); le immagini si colorano |
+| **Range** | le celle che il range raggiunge e la reazione che parte da lì | giallo caldo (mai acido) con accenti arancio delle micro-faccette, reticolato chiaro, glow caldo e un bloom leggero sul contorno |
 
 ## Il range non è un disco
 
@@ -32,7 +32,7 @@ Sullo sfondo, a cursore fermo:
 2. a 2,6 s arriva un'eco più leggera (2 celle);
 3. poi silenzio.
 
-Mentre il cursore si muove, lascia una scia proporzionale alla velocità. Lo sfondo reagisce **solo nel padding laterale**: sopra la colonna dei contenuti il puntatore appartiene ai contenuti.
+Mentre il cursore si muove, lascia una scia proporzionale alla velocità. La reazione non si ferma al bordo della colonna: dietro i contenuti continua con metà delle accensioni e meno luce, fuori fuoco come lo sfondo. Sopra una card il puntatore appartiene alla card.
 
 ## Sorgenti
 
@@ -43,11 +43,11 @@ Una superficie può avere una **sorgente**: un punto da cui l'energia parte da s
 - A riposo: **0%** dello schermo.
 - Durante un gesto: l'ambra piena (range) occupa al massimo una piccola parte dello schermo. La base attiva può scaldare tutta la superficie sotto il gesto, ma con saturazione contenuta.
 - Una faccia grande e vicina non si riempie mai d'ambra: l'energia corre sui suoi spigoli e la scalda appena.
-- Dietro la colonna dei contenuti l'energia dello sfondo è ridotta al 18%.
+- Dietro la colonna dei contenuti l'energia dello sfondo è ridotta al 45% ed è sfocata.
 - Le superfici grandi (oltre ~230.000 px²) hanno una topologia d'hover proporzionalmente più rada.
 
 ## Card e un campo condiviso
 
-- In hover compare la **topologia**: faccette ambra traslucide e spigoli parziali, di misure diverse, più dense verso il contorno, ognuna con un respiro lento suo.
-- Le card vicine al cursore rispondono al 25% (il **campo condiviso**): la luce del bordo si accende per segmenti dal lato più vicino.
-- Testi e icone delle card passano da bianco con gradiente grigio a gradiente ambra. Sui pannelli grandi cambiano solo vicino al cursore.
+- **Un solo insieme di celle**: ogni cella ha la sua visibilità (forte, debole, appena percettibile, invisibile) e una sua saturazione, più dense verso il contorno. Il puntatore le sveglia dove si trova; la reazione a catena passa per le stesse celle e le accende con lo stesso materiale. Mai uno strato fermo e uno che si muove.
+- Le card vicine al cursore (il **campo condiviso**) accendono la luce del bordo per segmenti dal lato più vicino, svegliano le celle interne sul lato rivolto al cursore e scaldano appena l'immagine.
+- Testi e icone delle card hanno **un solo colore** e lo stesso peso in ogni stato: vicino al cursore prendono una tinta ambra chiara e molto diffusa.

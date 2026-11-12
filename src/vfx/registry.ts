@@ -12,6 +12,11 @@ export interface SurfaceOptions {
   panel?: boolean;
   /** Selector of an element inside the surface that is its energy source: on hover the reaction starts there too. */
   source?: string;
+  /**
+   * On hover the photograph shows its own colours instead of the amber grade of its luminance: for an image that is
+   * already lit in the house palette (the night map). At rest it stays grey like every other photograph.
+   */
+  ownColour?: boolean;
 }
 
 type Listener = (reason: 'surfaces' | 'layout', target?: Element, strength?: number) => void;

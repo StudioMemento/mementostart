@@ -28,42 +28,79 @@ export interface ChainProfile {
   rate?: number;
 }
 
+export const hexToRgb = (hex: string): [number, number, number] => {
+  const n = parseInt(hex.slice(1), 16);
+  return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+};
+
+/** Same luminance, no hue. */
+export const desaturate = (hex: string) => {
+  const [r, g, b] = hexToRgb(hex);
+  const v = Math.round((0.299 * r + 0.587 * g + 0.114 * b) * 255).toString(16).padStart(2, '0');
+  return `#${v}${v}${v}`;
+};
+
+const TITLE_AMBER = [[0, '#fbefe8'], [0.4, '#f9e7dc'], [0.58, '#f0cbb4'], [0.76, '#e8a57c'], [0.88, '#e1844c'], [1, '#d9682f']] as const;
+
 export const VFX = {
   color: {
     /** Surface black behind everything (sRGB 0..1). */
-    base: [0.018, 0.018, 0.021] as const,
+    base: [0.008, 0.008, 0.009] as const,
     panel: [0.012, 0.012, 0.014, 0.94] as const,
     /** Amber scale: deep > mid > hot > core. `base` is the configurable reference tint. */
-    amber: { base: '#FF7950', deep: '#A8260A', mid: '#FF5A12', hot: '#FF9A1E', core: '#FFD878' },
+    amber: { base: '#FF7950', deep: '#9E2208', mid: '#FF5510', hot: '#FF8A1C', core: '#FFCB72' },
     /**
-     * Idle gradient of large type: light from above, shade at the base of every line.
-     * Light to dark from the cap line to the baseline; the energy turns it amber in the same direction.
+     * Large type, one gradient over the whole block (first cap line to last baseline): warm white above, orange at
+     * the base. It is the hover state; at rest the block shows the same gradient desaturated (`titleGradient`).
      */
-    titleGradient: [[0, '#f8f7f4'], [0.3, '#f4f3f0'], [0.64, '#c3c2bf'], [1, '#77767a']] as const,
+    titleAmber: TITLE_AMBER,
+    /** Where the range reaches: warm yellow above, deeper toward the base; orange comes from the facets inside. */
+    titleHot: ['#ffe6c4', '#ffda8c', '#ffb45c'] as const,
+    /** Idle gradient of large type: the amber gradient desaturated (same luminance, no hue). */
+    titleGradient: TITLE_AMBER.map(([t, c]) => [t, desaturate(c)] as const),
+    /** Type and icons on cards: one colour, no gradient. */
+    cardInk: '#f2f0ec',
   },
   background: {
     fov: 52,              // deg, vertical
     depth: 20,            // depth of the sheet at the centre, × its depth at the frame
     curve: 1.5,           // recession profile: the walls face the viewer at the frame, then turn away into depth
-    cell: 0.21,           // cell where the sheet meets the frame (the foreground), × viewport height
-    cellPx: [72, 320] as [number, number],
-    cellMin: 9,           // px: smallest cell on screen, deep in the centre
-    cellGrowth: 0.1,      // cells open slightly with depth (on screen they still shrink ~depth^0.9)
+    cell: 0.26,           // cell where the sheet meets the frame (the foreground), × viewport height
+    cellPx: [96, 470] as [number, number],
+    cellMin: 24,          // px: smallest cell on screen, deep in the centre
+    cellGrowth: 0.3,      // cells open with depth: on screen they shrink ~depth^0.7, a measured range from the frame to the centre
+    /** Foreground cells are drawn out along the vertical: tall shards at the frame, even cells in depth. */
+    stretch: 1.55,
+    /** Size variation between neighbouring cells (0 = even): small, so size reads as distance, as on a wireframe. */
+    irregular: 0.18,
     relief: 0.9,          // peaks and valleys, × local cell size, along the sheet's normal
-    fog: 0.45,            // darkness with depth, on top of the light's own falloff
+    fog: 0.55,            // darkness with depth, on top of the light's own falloff
     falloff: 0.05,        // light intensity / (1 + falloff·d²): near is bright, deep is dark
     /** Point lights, camera space (x, y, z, intensity): one close to the viewer lifts the foreground, two inside rake along the walls. */
     lights: [[0, 0.5, -0.5, 0.85], [0, -0.2, -3, 2.1], [0, 0, -10, 1.8]] as [number, number, number, number][],
-    /** Body, diffuse, specular, ridge-line strengths. */
-    shade: [0.018, 0.07, 1.25, 3.4] as [number, number, number, number],
-    /** Broad sheen: strength, exponent, share on the ridge lines. */
-    gloss: [0.1, 8, 0.12] as [number, number, number],
-    /** Brightness behind the layout column relative to the frame: the gradient runs across the side padding. */
-    centre: 0.16,
+    /** Body, diffuse, specular, ridge-line strengths: a dark graphite body, light only where it rakes. */
+    shade: [0.003, 0.008, 1.6, 1.4] as [number, number, number, number],
+    /** Broad sheen: strength, exponent, share on the ridge lines; faint level of every edge. */
+    gloss: [0.02, 10, 0.05, 0.012] as [number, number, number, number],
+    /** Foreground highlights: strength, depth they reach (0..1), selectivity (higher = only the sharpest ridges). */
+    rim: [0.8, 0.32, 3] as [number, number, number],
+    /** Brightness at the edge of the layout column (the darkest point, × the frame); level of the far cells behind it. */
+    levels: [0.035, 0.07] as [number, number],
+    /** Depth of field behind the column: share of the column half-width over which focus is lost. */
+    focus: 0.55,
+    /** Blur widths (half-size texels): a little out of focus, then fully. */
+    blur: { med: [1] as readonly number[], big: [2, 3] as readonly number[] },
+    /** Pointer ignitions on the sheet behind the column, × those in the side padding. */
+    columnRate: 0.5,
   },
   chain: {
     /** Cards: irregular cells of mixed sizes, fine along the outline and large in the middle; a slow, controlled reaction. */
     card: { spacing: 62, edgeSpacing: 15, edgeReach: 120, topoArea: 230000, margin: 30, zone: 170, maxGen: 6, spread: 0.74, carry: 0.86, rate: 0.5,
+      /** Reach of the pointer over the cells (px): under it, from outside (a neighbour in range); share lit across the card;
+       *  strength from outside. */
+      wake: [250, 190, 0.2, 1.35] as [number, number, number, number],
+      /** Type near the pointer: warmth, reach (px), share when the card is only in range. */
+      inkWarm: [0.75, 280, 0.45] as [number, number, number],
       delay: [0.12, 0.28] as const, release: [0.9, 1.7] as const, refractory: [0.9, 1.5] as const, attack: 0.2 },
     /** Large type: medium cells carry the reaction, a finer lattice of mixed sizes lights inside the glyphs. */
     title: { spacingEm: 0.2, marginEm: 0.16, zoneEm: 1.1, maxGen: 9, spread: 0.82, carry: 0.9, microEm: 0.095, rate: 0.9,
@@ -108,10 +145,9 @@ export const VFX = {
     spark: { size: [1.6, 4.4], life: [0.3, 0.65], speed: [40, 110] } as const,
     shard: { size: [3, 12], life: [0.9, 1.5], speed: [45, 125] } as const,
   },
-  /** Structural cells (loading and scroll tessellation). */
   /** Structural cells (loading and scroll tessellation): smaller and of mixed sizes. */
   cells: { card: 21, titleEm: 0.075 },
-  bloom: { scale: 0.5, strength: 1.1 },
+  bloom: { scale: 0.5, strength: 0.95 },
   quality: {
     high: { dpr: 2, bloom: true, particles: 1, cellScale: 1 },
     medium: { dpr: 1.5, bloom: true, particles: 0.6, cellScale: 1.25 },
@@ -123,10 +159,13 @@ export const VFX = {
 
 export type QualityName = keyof typeof VFX.quality;
 
-export const hexToRgb = (hex: string): [number, number, number] => {
-  const n = parseInt(hex.slice(1), 16);
-  return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
-};
+
+
+/** Amber gradient for the title shader: per stop, colour and the luminance of its idle (desaturated) version. */
+export const titleRamp = () => VFX.color.titleAmber.flatMap(([, c]) => {
+  const [r, g, b] = hexToRgb(c);
+  return [r, g, b, Math.round((0.299 * r + 0.587 * g + 0.114 * b) * 255) / 255];
+});
 
 /** Luminance (mean of rgb, 0..1) of the gradient's base and top: the overlay reads height within a line from it. */
 export const gradientRange = (): [number, number] => {

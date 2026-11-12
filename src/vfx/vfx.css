@@ -44,8 +44,9 @@ main :focus-visible { scroll-margin-block: 20vh; }
  * Amber only ever comes from energy.
  */
 :root {
-  --title-gradient: linear-gradient(0deg, #77767a 0%, #c3c2bf 34%, #f4f3f0 66%, #f8f7f4 100%);
-  --category-gradient: linear-gradient(0deg, #77767a 0%, #c3c2bf 34%, #f4f3f0 66%, #f8f7f4 100%);
+  /* the amber title gradient (VFX.color.titleAmber) desaturated: same luminance, no hue */
+  --title-gradient: linear-gradient(0deg, #838383 0%, #999999 12%, #b4b4b4 24%, #d3d3d3 42%, #ebebeb 60%, #f2f2f2 100%);
+  --category-gradient: linear-gradient(0deg, #838383 0%, #999999 12%, #b4b4b4 24%, #d3d3d3 42%, #ebebeb 60%, #f2f2f2 100%);
   --frame-gradient: linear-gradient(135deg, #d6d5d2c7 0%, #a3a29f66 27%, #6b6a6857 62%, #7b7a7875 83%, #b9b8b5cc 100%);
 }
 /* Titles: tighter lines, so one gradient runs over the whole block (light above, shade at the base). */

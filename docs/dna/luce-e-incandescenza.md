@@ -18,17 +18,23 @@ La luce segue tre regole:
 
 - Ogni titolo ha un **campo di distanza** dei suoi glifi, calcolato una volta per layout. Da lì nascono due luci che seguono la sagoma esatta di ogni lettera:
   - **bordo interno:** una linea luminosa appena dentro il contorno, larga circa 0,02 em, solo dove c'è energia (range);
-  - **bagliore esterno:** leggero, largo circa 0,04 em, che si spegne entro 0,16 em. In base attiva è appena percettibile, nel range sale.
+  - **bagliore esterno:** ambra caldo, largo circa 0,045 em, che si spegne entro 0,16 em. In base attiva è appena percettibile, nel range sale; un bloom leggero dà brillantezza alle lettere raggiunte, senza aloni larghi.
 - Mai copie sfalsate della lettera, mai aloni a gradini, mai glow che cambiano la sagoma.
 
 ## Bloom
 
 - Il bloom è **selettivo**: viene renderizzato solo ciò che emette energia.
-- È a metà risoluzione, con due passate di sfocatura separabile (la seconda larga il doppio), così non fa gradini.
+- È a metà risoluzione, con due passate di sfocatura separabile (la seconda larga il doppio), così non fa gradini. Intensità 0,95: regia cinematografica, la brillantezza si dosa.
 - Se non c'è energia nella scena, il bloom non viene calcolato.
 - Nel profilo `low` è spento.
 
+## Profondità di campo dello sfondo
+
+- Dal bordo della colonna dei contenuti verso il centro lo sfondo perde fuoco con gradualità: prima un po', poi del tutto.
+- È una copia dello sfondo a metà risoluzione, sfocata due volte e tenuta in memoria: si ricalcola solo quando lo sfondo cambia (energia, loading, misure).
+- Tocca solo la colonna e il suo bordo. Nel profilo `low` non c'è: le celle lontane dietro la colonna sono tenute più basse.
+
 ## Esposizione
 
-- Le pareti dello sfondo non superano mai il bianco dei titoli.
+- Le pareti dello sfondo non superano mai il bianco dei titoli. Il corpo della grafite resta quasi nero; i riflessi forti hanno una spalla morbida e non diventano mai bianco piatto.
 - I gradienti scuri sono sempre con dithering, per non avere bande sugli schermi a 8 bit.

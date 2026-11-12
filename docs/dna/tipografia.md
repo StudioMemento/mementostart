@@ -6,17 +6,17 @@ Un solo carattere, **Inter**. I titoli sono grandi e leggeri (peso 330–350), s
 
 | Stato | Aspetto |
 | --- | --- |
-| **Quiete** | gradiente grigio dal basso verso l'alto su tutto il blocco: `testo-ombra` alla base, `testo-medio` a un terzo, `testo-luce` in alto. Simula una luce dall'alto. |
-| **Base attiva** (cursore sul titolo) | tutto il blocco si scalda: in alto `caldo-luce`, alla base `caldo-base`, con un respiro lento di ±6% |
-| **Range** | nelle celle raggiunte l'ambra piena sale dalla base; la parte alta resta chiara e luminosa; micro-faccette accese dentro i glifi; bordo interno luminoso; bagliore esterno |
+| **Quiete** | il gradiente ambra **desaturato** (stessa luminanza, nessuna tinta) su tutto il blocco: bianco in alto, grigio medio alla base. Simula una luce dall'alto. |
+| **Base attiva** (cursore sul titolo) | lo stesso gradiente con la sua tinta: bianco caldo in alto, pesca a metà, arancio alla base (`VFX.color.titleAmber`), con un respiro lento di ±4% |
+| **Range** | nelle celle raggiunte sale dalla base un giallo caldo (mai acido), più chiaro in alto e più profondo in basso; micro-faccette arancio e un reticolato chiaro dentro i glifi; bordo interno caldo; glow ambra esterno e un bloom leggero |
 | **Ritorno** | le celle si spengono una a una in circa 1,1 s; la base attiva esce in circa 0,6 s |
 
 ## Regole
 
-- La sagoma non cambia mai: niente scale, distorsioni o tracciamenti animati.
+- La sagoma e il peso non cambiano mai: niente scale, distorsioni o tracciamenti animati, e la luce sostituisce il colore del testo invece di sommarsi (il font non diventa mai più spesso).
 - L'ambra sale **dal basso verso l'alto**, nella stessa direzione dell'ombra di quiete.
 - Il range segue la frase. Non è un cerchio attorno al cursore.
-- Testi piccoli (card, etichette, mappa): bianco con gradiente grigio per riga a riposo, gradiente ambra in hover. Niente micro-faccette sotto i 32 px.
+- Testi piccoli (card, etichette, mappa): **un solo colore**, mai sfumature di grigio. Vicino al cursore prendono una tinta ambra chiara e molto diffusa. Niente micro-faccette sotto i 32 px.
 - Un numero di telefono, un indirizzo email o un orario non vanno mai a capo.
 
 ## Scala
