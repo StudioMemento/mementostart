@@ -7,9 +7,10 @@ vi.mock('gsap/ScrollTrigger', () => ({ ScrollTrigger: {} }));
 import { BorderLight, outline } from '../border';
 import { ChainField } from '../chain';
 import { VFX } from '../config';
-import { buildCells, buildNetwork, buildTunnel, mulberry } from '../geometry';
+import { buildArch, buildNetwork, mulberry } from '../geometry';
 import { PointerField } from '../input';
 import { Particles } from '../particles';
+import { encodeDistance, signedDistance } from '../sdf';
 import { SurfaceRegistry } from '../registry';
 
 const DT = 1 / 60;
@@ -87,30 +88,56 @@ describe('geometry', () => {
     expect(areas[Math.floor(areas.length * 0.9)] / areas[Math.floor(areas.length * 0.1)]).toBeGreaterThan(3);   // mixed sizes
   });
 
-  it('the background is one closed surface: every edge is shared except the near rim, off screen', () => {
-    for (const aspect of [16 / 9, 1.5, 0.46]) {
-      const t = buildTunnel(aspect);
-      expect(t.open).toBe(VFX.background.around);
-      for (let f = 0; f < t.faces; f++) expect(t.nbStart[f + 1] - t.nbStart[f]).toBeGreaterThanOrEqual(2);
+  it('the background is one sheet without holes: the only open edges are its outer border', () => {
+    for (const [aspect, h] of [[16 / 9, 900], [1.5, 800], [0.46, 844], [2.39, 1440]] as const) {
+      const t = buildArch(aspect, h);
+      expect(t.open).toBe(t.border);
+      expect(t.faces).toBeGreaterThan(3000);                    // dense
+      expect(t.faces).toBeLessThan(40000);                      // and still light
+      // no fill triangles: every face is about as large as its neighbours (none spans from the walls to the centre)
+      let worst = 0;
+      const T = Math.tan((52 * Math.PI) / 360);
+      for (let f = 0; f < t.faces; f++) {
+        const o = f * 9, p = t.position, z = -(p[o + 2] + p[o + 5] + p[o + 8]) / 3;
+        // a face beyond the top or the bottom of the view, all three corners, is never seen
+        const side = [0, 3, 6].map(k => Math.sign(p[o + k + 1]) * (Math.abs(p[o + k + 1]) > -p[o + k + 2] * T ? 1 : 0));
+        if (side[0] !== 0 && side.every(v => v === side[0])) continue;
+        const lat = [0, 3, 6].map(k => Math.sign(p[o + k]) * (Math.abs(p[o + k]) > -p[o + k + 2] * T * aspect ? 1 : 0));
+        if (lat[0] !== 0 && lat.every(v => v === lat[0])) continue;
+        const e = Math.max(Math.hypot(p[o] - p[o + 3], p[o + 1] - p[o + 4], p[o + 2] - p[o + 5]), Math.hypot(p[o + 3] - p[o + 6], p[o + 4] - p[o + 7], p[o + 5] - p[o + 8]), Math.hypot(p[o + 6] - p[o], p[o + 7] - p[o + 1], p[o + 8] - p[o + 2]));
+        worst = Math.max(worst, e / z);
+      }
+      expect(worst).toBeLessThan(0.6);                           // screen-relative size of the largest face
     }
   });
 
-  it('cells get smaller and darker toward the vanishing point', () => {
-    const t = buildTunnel(1.6);
-    const near: number[] = [], far: number[] = [];
+  it('cells get smaller toward the centre, and depth depends on the horizontal only (vertical bands)', () => {
+    const aspect = 1.6, t = buildArch(aspect, 900), T = Math.tan((52 * Math.PI) / 360);
+    const sx = (o: number) => t.position[o] / (-t.position[o + 2] * T * aspect), sy = (o: number) => t.position[o + 1] / (-t.position[o + 2] * T);
+    const byBand: number[][] = [[], [], [], [], []];
+    const depthAtX = new Map<number, number[]>();
     for (let f = 0; f < t.faces; f++) {
-      // projected size on screen: the longest edge after perspective division
-      const p = t.position, o = f * 9;
-      const sx = (k: number) => p[o + k * 3] / -p[o + k * 3 + 2], sy = (k: number) => p[o + k * 3 + 1] / -p[o + k * 3 + 2];
-      const len = Math.max(Math.hypot(sx(1) - sx(0), sy(1) - sy(0)), Math.hypot(sx(2) - sx(1), sy(2) - sy(1)), Math.hypot(sx(0) - sx(2), sy(0) - sy(2)));
-      (t.depth[f] < 0.3 ? near : t.depth[f] > 0.6 ? far : []).push(len);
+      const o = f * 9;
+      const cx = (sx(o) + sx(o + 3) + sx(o + 6)) / 3, cy = (sy(o) + sy(o + 3) + sy(o + 6)) / 3;
+      if (Math.abs(cx) > 1 || Math.abs(cy) > 1) continue;
+      const len = Math.max(Math.hypot(sx(o + 3) - sx(o), sy(o + 3) - sy(o)), Math.hypot(sx(o + 6) - sx(o + 3), sy(o + 6) - sy(o + 3)));
+      byBand[Math.min(4, Math.floor(Math.abs(cx) * 5))].push(len);
+      const key = Math.round(cx * 10);
+      if (!depthAtX.has(key)) depthAtX.set(key, []);
+      depthAtX.get(key)!.push(t.depth[f]);
     }
     const mean = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length;
-    expect(mean(near)).toBeGreaterThan(mean(far) * 4);
+    expect(mean(byBand[4])).toBeGreaterThan(mean(byBand[0]) * 6);   // perspective: the size tells the depth
+    expect(mean(byBand[4]) / 2).toBeGreaterThan(0.1);                // foreground cells: over a tenth of the viewport height
+    // within one column of the screen, depth barely changes from top to bottom
+    for (const list of depthAtX.values()) if (list.length > 10) {
+      const m = mean(list), sd = Math.sqrt(mean(list.map(v => (v - m) ** 2)));
+      expect(sd).toBeLessThan(0.08);
+    }
   });
 
-  it('structural cells keep the silhouette exact', () => {
-    const m = buildCells(500, 300, 36, 3);
+  it('structural cells keep the silhouette exact and differ in size', () => {
+    const m = buildNetwork(500, 300, 21, 0, 200, 3);
     for (let i = 0; i < m.position.length; i += 2) {
       expect(m.position[i]).toBeGreaterThanOrEqual(0); expect(m.position[i]).toBeLessThanOrEqual(500);
       expect(m.position[i + 1]).toBeGreaterThanOrEqual(0); expect(m.position[i + 1]).toBeLessThanOrEqual(300);
@@ -158,5 +185,36 @@ describe('registry cleanup', () => {
     const r = new SurfaceRegistry();
     for (let i = 0; i < 5; i++) { const off = r.subscribe(() => {}); off(); }
     expect(r.listenerCount).toBe(0);
+  });
+});
+
+describe('type glow and card topology', () => {
+  it('the distance field follows the shape: negative inside, zero on the outline, positive outside', () => {
+    const w = 64, h = 64, a = new Uint8Array(w * h);
+    for (let y = 16; y < 48; y++) for (let x = 16; x < 48; x++) a[y * w + x] = 255;
+    const d = signedDistance(a, w, h);
+    expect(d[32 * w + 32]).toBeLessThan(-14);                   // centre of a 32 px square: ~16 px inside
+    expect(d[32 * w + 4]).toBeGreaterThan(10);                  // 12 px to the left of it
+    expect(Math.abs(d[32 * w + 16])).toBeLessThanOrEqual(1);    // on the edge (hard pixels: within one)
+    const e = encodeDistance(d, 1, 12);
+    expect(e[32 * w + 16]).toBeGreaterThan(110); expect(e[32 * w + 16]).toBeLessThan(145);
+    expect(e[32 * w + 32]).toBe(0); expect(e[0]).toBe(255);
+  });
+
+  it('card cells are fine along the outline and large in the middle', () => {
+    const W = 640, H = 330, m = buildNetwork(W, H, 62, 30, 170, 5, { spacing: 15, reach: 120 });
+    const edge: number[] = [], mid: number[] = [];
+    for (let f = 0; f < m.faces; f++) {
+      const o = f * 6, x = m.cx[f], y = m.cy[f];
+      if (x < 0 || y < 0 || x > W || y > H) continue;
+      const area = Math.abs((m.position[o + 2] - m.position[o]) * (m.position[o + 5] - m.position[o + 1]) - (m.position[o + 4] - m.position[o]) * (m.position[o + 3] - m.position[o + 1])) / 2;
+      const d = Math.min(x, y, W - x, H - y);
+      if (d < 30) edge.push(area); else if (d > 120) mid.push(area);
+      const k = m.cell[f * 12 + 3];
+      expect(k).toBeGreaterThanOrEqual(0); expect(k).toBeLessThanOrEqual(1);
+    }
+    const median = (a: number[]) => a.sort((x, y) => x - y)[Math.floor(a.length / 2)];
+    expect(edge.length).toBeGreaterThan(mid.length);
+    expect(median(mid)).toBeGreaterThan(median(edge) * 4);
   });
 });

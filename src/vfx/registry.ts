@@ -6,6 +6,10 @@ export interface SurfaceOptions {
   cut?: 'both' | 'tl' | 'none';
   /** Response strength relative to a primary surface (default 1). */
   gain?: number;
+  /** Never taken apart by scroll (an embedded map). */
+  solid?: boolean;
+  /** A large panel: on hover only the type near the pointer turns amber, not all of it. */
+  panel?: boolean;
 }
 
 type Listener = (reason: 'surfaces' | 'layout', target?: Element, strength?: number) => void;

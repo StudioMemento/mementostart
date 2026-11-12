@@ -19,10 +19,11 @@ export interface ChainProfile {
   spread: number;
   /** Share of energy carried to the next cell. */
   carry: number;
-  /** Release of a cell (s), when it differs from the shared one. */
+  /** Per-profile timing (s); the shared values apply when omitted. */
+  delay?: readonly [number, number];
   release?: readonly [number, number];
-  /** Rest after lighting (s), when it differs from the shared one. */
   refractory?: readonly [number, number];
+  attack?: number;
   /** Multiplier on pointer ignitions. */
   rate?: number;
 }
@@ -42,28 +43,33 @@ export const VFX = {
   },
   background: {
     fov: 52,              // deg, vertical
-    around: 30,           // faces around the tunnel
-    near: 1.9,            // first ring, as a multiple of the screen half-height (off screen)
-    far: 0.035,           // last ring, same unit (a point in the dark centre)
-    ratio: [1.85, 1.22],   // ring-to-ring depth ratio, near > far: long shards at the frame, dense small ones inward
-    twist: [0.22, 0.07],  // rad per ring, near > far: the oblique directrices
-    relief: 0.44,         // radial amplitude of peaks and valleys
-    split: 0.42,          // share of quads raised into a four-face pyramid
-    roll: 0.00011,        // rad per px of scroll
-    dolly: 0.28,          // forward travel across the whole page, in units of the first ring depth
-    parallax: 0.012,      // rad toward the pointer
-    fog: 3.0,             // darkness with depth
-    /** Point lights inside the tunnel, camera space (x, y, z, intensity): one deep and grazing, two near the frame. */
-    lights: [[0, 0.35, -9, 2.2], [-1.3, 1.0, -2.2, 1.6], [1.4, -0.9, -3, 1.2]] as [number, number, number, number][],
+    depth: 20,            // depth of the sheet at the centre, × its depth at the frame
+    curve: 1.5,           // recession profile: the walls face the viewer at the frame, then turn away into depth
+    cell: 0.21,           // cell where the sheet meets the frame (the foreground), × viewport height
+    cellPx: [72, 320] as [number, number],
+    cellMin: 9,           // px: smallest cell on screen, deep in the centre
+    cellGrowth: 0.1,      // cells open slightly with depth (on screen they still shrink ~depth^0.9)
+    relief: 0.9,          // peaks and valleys, × local cell size, along the sheet's normal
+    fog: 0.3,             // darkness with depth, on top of the light's own falloff
+    falloff: 0.05,        // light intensity / (1 + falloff·d²): near is bright, deep is dark
+    /** Point lights, camera space (x, y, z, intensity): one close to the viewer lifts the foreground, two inside rake along the walls. */
+    lights: [[0, 0.5, -0.5, 0.85], [0, -0.2, -3, 2.1], [0, 0, -10, 1.8]] as [number, number, number, number][],
     /** Body, diffuse, specular, ridge-line strengths. */
-    shade: [0.012, 0.045, 1.2, 4.2] as [number, number, number, number],
+    shade: [0.018, 0.07, 1.25, 3.4] as [number, number, number, number],
+    /** Broad sheen: strength, exponent, share on the ridge lines. */
+    gloss: [0.1, 8, 0.12] as [number, number, number],
+    /** Brightness behind the layout column relative to the frame: the gradient runs across the side padding. */
+    centre: 0.16,
   },
   chain: {
-    /** Cards: few, irregular, large cells. */
-    card: { spacing: 64, margin: 30, zone: 200, maxGen: 7, spread: 0.86, carry: 0.86 },
-    /** Large type: finer cells (em), zones about the size of a letter. */
-    title: { spacingEm: 0.2, marginEm: 0.07, zoneEm: 1.1, maxGen: 10, spread: 0.86, carry: 0.9, microEm: 0.07, release: [0.7, 1.4] as const, refractory: [0.3, 0.6] as const, rate: 1.7 },
-    background: { maxGen: 6, spread: 0.82, carry: 0.86, release: [0.6, 1.3] as const },
+    /** Cards: irregular cells of mixed sizes, fine along the outline and large in the middle; a slow, controlled reaction. */
+    card: { spacing: 62, edgeSpacing: 15, edgeReach: 120, margin: 30, zone: 170, maxGen: 6, spread: 0.74, carry: 0.86, rate: 0.5,
+      delay: [0.12, 0.28] as const, release: [0.9, 1.7] as const, refractory: [0.9, 1.5] as const, attack: 0.2 },
+    /** Large type: medium cells carry the reaction, a finer lattice of mixed sizes lights inside the glyphs. */
+    title: { spacingEm: 0.2, marginEm: 0.16, zoneEm: 1.1, maxGen: 9, spread: 0.82, carry: 0.9, microEm: 0.095, rate: 0.9,
+      delay: [0.14, 0.32] as const, release: [1.2, 2.2] as const, refractory: [0.8, 1.3] as const, attack: 0.24 },
+    background: { maxGen: 7, spread: 0.8, carry: 0.86,
+      delay: [0.1, 0.24] as const, release: [1.0, 1.9] as const, refractory: [1.2, 2] as const, attack: 0.16 },
     delay: [0.05, 0.15] as [number, number],       // s, from a lit cell to its neighbour
     refractory: [0.5, 1.0] as [number, number],    // s before a cell can light again
     release: [0.35, 0.8] as [number, number],      // s, energy of a cell falls below 2%
@@ -74,8 +80,8 @@ export const VFX = {
     touchRadius: 110,     // px CSS, touch
     attack: 0.12,         // s, hover state of a surface
     neighbour: 0.25,      // strength of surfaces in range that are not under the pointer
-    hoverRate: 8,         // ignitions per second under the pointer
-    stillRate: 4.5,       // after ~0.6 s without movement: the field keeps shifting slowly
+    hoverRate: 7,         // ignitions per second under the pointer
+    stillRate: 2.4,       // after ~0.6 s without movement: the field keeps shifting slowly
     moveRate: 1 / 85,     // extra ignitions per px of travel
     jitter: 0.32,         // spread of ignitions around the pointer, × radius
     enterBurst: 5,
@@ -85,6 +91,8 @@ export const VFX = {
   scroll: {
     /** Exit and entry bands, as a fraction of the viewport height. */
     band: 0.15,
+    /** Once the page stops, cells on their way out drift off along a curl field (px/s) and fade within `fade` s. */
+    drift: 42, fade: 1.6,
   },
   loading: {
     duration: 1.8,        // s, once fonts and first textures are ready
@@ -99,8 +107,9 @@ export const VFX = {
     shard: { size: [3, 12], life: [0.9, 1.5], speed: [45, 125] } as const,
   },
   /** Structural cells (loading and scroll tessellation). */
-  cells: { card: 36 },
-  bloom: { scale: 0.25, strength: 0.95 },
+  /** Structural cells (loading and scroll tessellation): smaller and of mixed sizes. */
+  cells: { card: 21, titleEm: 0.075 },
+  bloom: { scale: 0.5, strength: 1.1 },
   quality: {
     high: { dpr: 2, bloom: true, particles: 1, cellScale: 1 },
     medium: { dpr: 1.5, bloom: true, particles: 0.6, cellScale: 1.25 },

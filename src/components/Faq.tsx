@@ -13,7 +13,7 @@ export function Faq() {
   // One native accordion panel. Click, tap and keyboard share the same state.
   const [open, setOpen] = useState<string | null>('idea');
   const summaries = useRef<(HTMLElement | null)[]>([]);
-  const panel = useSurface<HTMLDivElement>('card');
+  const panel = useSurface<HTMLDivElement>('card', { panel: true });
   const visual = useRef<HTMLDivElement>(null);
   const { invalidate, impulse } = useVfxSignals();
   // The accordion changes the panel's content and height: the surface is re-measured, never read as a scroll.
