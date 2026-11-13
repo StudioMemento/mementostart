@@ -1,0 +1,1270 @@
+From 2cb7bfcb12bc86f9c4e217e81882b80860b765a8 Mon Sep 17 00:00:00 2001
+From: Memento Studio <noreply@anthropic.com>
+Date: Fri, 13 Nov 2026 14:05:21 +0100
+Subject: [PATCH] V21: sfondo in blocchi d'ossidiana, grade filmico, titoli e
+ tab rifiniti
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- Sfondo: blocchi d'ossidiana con fessure (rockField), vetro nero con grana di grafite che riflette uno studio fermo e simmetrico, luce morbida dall'alto, energia che sale dalle fessure; sfocatura dietro la colonna più leggera.
+- Pipeline: frame in half float con MSAA x4 e un solo grade finale (spalla delle luci, bloom e striatura orizzontale, vignettatura, grana, aberrazione ai bordi, dithering): niente bande ne giunzioni nei neri durante il caricamento.
+- Titoli: in quiete la prima riga resta bianca, l'ombra solo nella parte bassa dell'ultima; in hover reticolo dorato su tutto il blocco; all'uscita il blocco si desatura in un solo movimento, senza tagli.
+- Tab: pannello nero void opaco, immagine composta senza riquadro, nessun campo fermo di triangoli (celle solo vicino al cursore e dove passa la reazione), incandescenza dell'immagine contenuta.
+- Pagina nera dal primo paint (#020202).
+- DNA e guida effetti aggiornati.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01CPMnMqZJBqribc1yH7DHo6
+---
+ README.md                               |   6 +-
+ docs/V20-effetti-e-interazioni.md       |  49 ++++---
+ docs/dna/README.md                      |  12 +-
+ docs/dna/codice.md                      |   5 +-
+ docs/dna/energia.md                     |   6 +-
+ docs/dna/immagini-e-mappa.md            |   4 +-
+ docs/dna/interazione-e-accessibilita.md |   1 +
+ docs/dna/luce-e-incandescenza.md        |  18 ++-
+ docs/dna/materia.md                     |  25 ++--
+ docs/dna/movimento.md                   |   2 +-
+ docs/dna/struttura-e-scroll.md          |   1 +
+ docs/dna/tipografia.md                  |   8 +-
+ docs/dna/tokens.json                    |  10 +-
+ index.html                              |   4 +-
+ src/styles/navigation-insets.css        |   2 +-
+ src/styles/start.css                    |   2 +-
+ src/vfx/__tests__/runtime.test.ts       |  13 +-
+ src/vfx/config.ts                       |  37 ++++--
+ src/vfx/engine.ts                       |  80 +++++++----
+ src/vfx/geometry.ts                     |  52 +++++++-
+ src/vfx/shaders.ts                      | 168 +++++++++++++++++-------
+ src/vfx/vfx.css                         |   6 +-
+ 22 files changed, 369 insertions(+), 142 deletions(-)
+
+diff --git a/README.md b/README.md
+index 0282ff1..3b0fac8 100644
+--- a/README.md
++++ b/README.md
+@@ -1,4 +1,4 @@
+-# Memento Start — V20 (React + Three.js VFX)
++# Memento Start — V21 (React + Three.js VFX)
+ 
+ Pagina START su React + Vite + TypeScript, con il sistema VFX del brief tecnico: un solo contesto WebGL (Three.js, shader GLSL propri), regia GSAP + ScrollTrigger, scroll nativo.
+ Markup, testi, layout CSS, immagini e navigazione condivisa restano quelli dello skeleton V13.
+@@ -21,7 +21,7 @@ Vercel: `vercel.json` è già impostato (framework Vite, output `dist`). `?vfx=h
+ 
+ Un solo materiale, una sola energia.
+ 
+-- **Background**: un piano 3D inarcato e immobile, con l'asse verticale parallelo allo schermo, in grafite scura. Al bordo dello schermo il piano è vicino: lì le celle sono grandi e allungate in verticale (schegge alte circa un terzo del viewport), il corpo è quasi nero e la luce resta su poche creste nette e su qualche faccia lucida. Andando verso il centro il piano gira e si allontana: le celle rimpiccioliscono per prospettiva in un intervallo misurato (da 3 a 12 volte), così l'insieme si legge come il wireframe di una struttura in prospettiva. Il punto più scuro è il bordo della colonna del layout (letta da `.content-width`); da lì verso il centro il piano va fuori fuoco con gradualità (profondità di campo: una copia a metà risoluzione sfocata due volte, ricalcolata solo quando lo sfondo cambia) e dietro i contenuti restano celle piccole e appena visibili. Il cursore che si muove lascia una scia anche dietro la colonna, più leggera e sfocata; quando si ferma parte un impulso che si propaga e sparisce, dopo un po' un secondo impulso più leggero, poi niente.
++- **Background**: un piano 3D inarcato e immobile, con l'asse verticale parallelo allo schermo, fatto di blocchi d'ossidiana (vetro nero con grana di grafite) separati da fessure (`rockField`). Le facce riflettono uno studio fermo e simmetrico (softbox in alto, due strip, la luce in fondo al tunnel) con Fresnel; una luce morbida dall'alto modella i blocchi; l'energia sale dalle fessure. Al bordo dello schermo il piano è vicino: lì le celle sono grandi e allungate in verticale (schegge alte circa un terzo del viewport), il corpo è quasi nero e la luce resta su poche creste nette e su qualche faccia lucida. Andando verso il centro il piano gira e si allontana: le celle rimpiccioliscono per prospettiva in un intervallo misurato (da 3 a 12 volte), così l'insieme si legge come il wireframe di una struttura in prospettiva. Il punto più scuro è il bordo della colonna del layout (letta da `.content-width`); da lì verso il centro il piano va fuori fuoco con gradualità (profondità di campo: una copia a metà risoluzione sfocata due volte, ricalcolata solo quando lo sfondo cambia) e dietro i contenuti restano celle piccole e appena visibili. Il cursore che si muove lascia una scia anche dietro la colonna, più leggera e sfocata; quando si ferma parte un impulso che si propaga e sparisce, dopo un po' un secondo impulso più leggero, poi niente.
+ - **Energia = reazione a catena** (`chain.ts`): ogni superficie ha una rete di celle triangolari irregolari. Una cella accesa può accendere le vicine poco dopo, con probabilità data dalla sua zona (zone che conducono, zone dove si spegne); poi riposa e decade col suo tempo. Le generazioni sono limitate: ogni reazione ha una fine. Il puntatore, il tocco, il focus e il loading accendono celle sparse vicino al punto, mai un disco.
+ - **Card**: un solo insieme di celle di misure diverse, fitte lungo il contorno e grandi al centro. Ogni cella ha la sua visibilità (forte, debole, appena percettibile, invisibile) e una sua saturazione; il puntatore le sveglia dove si trova e la reazione a catena passa per le stesse celle, con lo stesso materiale. Una card vicina al cursore (nel raggio, senza hover) accende il bordo e le celle sul lato rivolto al cursore, e scalda appena l'immagine. L'immagine in hover viene illuminata dall'interno (grading caldo della sua luminanza; il nero resta nero, i bordi dell'immagine sfumano). Testi e icone hanno un solo colore, mai sfumature, e restano dello stesso peso: vicino al cursore prendono una tinta ambra chiara e molto diffusa.
+ - **Titoli**: interlinea ridotta e un'unica sfumatura sull'intero blocco. Il gradiente ambra (`VFX.color.titleAmber`: bianco caldo in alto, arancio alla base) è lo stato in hover; in quiete il blocco mostra lo stesso gradiente desaturato (stessa luminanza, nessuna tinta). Nel range, giallo caldo con accenti arancio delle micro-faccette e un reticolato chiaro sale dalla base solo nelle celle che il cursore raggiunge: il range è un insieme di celle allungato lungo la frase, ognuna con la sua portata, e si accende e si spegne nel tempo (`driveRange` in `engine.ts`), quindi non forma mai un disco. Glow caldo e un bloom leggero seguono la sagoma di ogni lettera grazie a un campo di distanza (`sdf.ts`). L'overlay sostituisce il testo della passata base invece di sommarsi: il peso del font non cambia.
+@@ -43,7 +43,7 @@ Il DOM resta la fonte di verità per layout, semantica, focus e click. Quando te
+ | `raster.ts` | Maschere dai glifi reali, icone, divisori; `object-fit` / `object-position` |
+ | `sdf.ts` | Campo di distanza dei glifi (bordo interno e bagliore esterno dei titoli) |
+ | `particles.ts` | Scintille dai glifi, frammenti che escono dalle card |
+-| `shaders.ts`, `engine.ts` | Risorse GPU, pass, bloom selettivo, loop unico (ticker GSAP) |
++| `shaders.ts`, `engine.ts` | Risorse GPU, pass, bloom selettivo, loop unico (ticker GSAP); frame in alta precisione (half float, MSAA ×4) e grade finale (`GRADE_FRAG`: spalla delle luci, bloom e striatura, vignettatura, grana, aberrazione, dithering) |
+ 
+ ## Controlli eseguiti
+ 
+diff --git a/docs/V20-effetti-e-interazioni.md b/docs/V20-effetti-e-interazioni.md
+index 84e8f6f..7bad627 100644
+--- a/docs/V20-effetti-e-interazioni.md
++++ b/docs/V20-effetti-e-interazioni.md
+@@ -1,4 +1,4 @@
+-# Memento START V20: effetti e interazioni
++# Memento START V21: effetti e interazioni
+ 
+ Questa guida descrive cosa deve succedere sulla pagina START, stato per stato, senza entrare nel codice. Per ogni parte ci sono due liste:
+ 
+@@ -39,16 +39,17 @@ Tutto il resto deriva da queste cinque regole.
+ 
+ ## 3. Lo sfondo
+ 
+-Lo sfondo è un foglio di triangoli di grafite curvato come un arco: vicino ai bordi dello schermo, lontano al centro. Il foglio non si muove mai: cambiano solo luce ed energia.
++Lo sfondo è un foglio d'ossidiana curvato come un arco: vicino ai bordi dello schermo, lontano al centro. Non è liscio: è fatto di blocchi sfaccettati di vetro nero, con fessure tra un blocco e l'altro. Il foglio, le luci e la camera non si muovono mai a riposo: cambiano solo con un gesto.
+ 
+ ### 3.1 A riposo
+ 
+ **Cosa vedi**
+-- Tono generale **molto scuro**. Le facce sono quasi nere; la luce sta su poche creste sottili e su qualche faccia lucida.
++- Tono generale **molto scuro**. Le facce sono vetro nero con una grana fine di grafite: la forma dei blocchi si legge dai riflessi (lunghi e netti, che attraversano le facce), dai fili di luce sugli spigoli e dal buio delle fessure.
++- Luce **simmetrica**: le due pareti si rispondono, la luce viene dall'alto e dal fondo del tunnel.
+ - **Ai bordi dello schermo** (primo piano): triangoli grandi e allungati in verticale, come schegge alte circa un terzo dello schermo. Qui ci sono i riflessi più netti.
+ - **Verso il centro** i triangoli diventano sempre più piccoli e più fitti, in modo graduale: si legge come una struttura 3D vista in prospettiva.
+ - **Il punto più scuro è il bordo della colonna dei contenuti** (dove inizia il testo).
+-- **Dentro la colonna** lo sfondo è sfocato: dal bordo della colonna verso il centro perde fuoco poco a poco. Restano triangoli piccoli, appena visibili, morbidi.
++- **Dentro la colonna** lo sfondo è scuro e leggermente sfocato: la profondità la danno soprattutto la misura e il buio. Restano triangoli piccoli, appena visibili, morbidi.
+ - Luce e buio dipendono solo dalla posizione orizzontale: si leggono come fasce verticali.
+ 
+ **È un errore se**
+@@ -57,6 +58,8 @@ Lo sfondo è un foglio di triangoli di grafite curvato come un arco: vicino ai b
+ - C'è un taglio netto tra la parte nitida e quella sfocata (la sfocatura deve crescere in modo graduale).
+ - Dietro il testo si vede una texture nitida e fitta che disturba la lettura.
+ - Una faccia diventa bianca piena, piatta, senza sfumatura.
++- Le pareti sembrano piatte (solo linee su un fondo uniforme) invece che blocchi con volume.
++- Luci, riflessi o camera si muovono a pagina ferma.
+ - Compaiono bande o gradini nel nero (scalini di colore nei gradienti scuri).
+ 
+ **Nota sugli schermi.** Su un monitor largo (come il tuo 3440×1440) le pareti occupano molto spazio ai lati. Su schermi più stretti la colonna dei contenuti prende quasi tutta la larghezza, quindi le pareti si vedono solo in una striscia sottile ai bordi. È voluto.
+@@ -66,7 +69,7 @@ Lo sfondo è un foglio di triangoli di grafite curvato come un arco: vicino ai b
+ **Cosa vedi**
+ - Il cursore lascia una **scia d'ambra** che corre negli spigoli dei triangoli vicini e si propaga ai vicini per qualche passo, poi si spegne. Più veloce muovi, più lunga la scia.
+ - La reazione **continua anche dentro la colonna dei contenuti**: lì è più leggera (circa metà delle accensioni) e sfocata come lo sfondo, così non si interrompe di colpo al bordo della colonna.
+-- Le facce grandi del primo piano non si riempiono d'ambra: l'energia corre sui loro spigoli e le scalda appena.
++- Le facce grandi del primo piano non si riempiono d'ambra: l'energia sale dalle fessure tra i blocchi, corre sui loro spigoli e le scalda appena.
+ - Sopra una card lo sfondo non reagisce: il cursore appartiene alla card.
+ 
+ **È un errore se**
+@@ -94,7 +97,7 @@ Titoli grandi: "LET'S WORK TOGETHER", "SIAMO QUI", "CONTINUA IL VIAGGIO!". Ogni
+ ### 4.1 A riposo
+ 
+ **Cosa vedi**
+-- Sfumatura grigia dall'alto verso il basso: bianco in alto, grigio medio alla base dell'ultima riga.
++- La prima riga è bianca piena. La sfumatura grigia vive solo nella parte bassa dell'ultima riga: bianco in alto, grigio medio sulla linea di base.
+ - È la **versione desaturata della sfumatura arancio dell'hover**: stessa luminosità, nessun colore.
+ - Bordi dei caratteri nitidi.
+ 
+@@ -106,7 +109,8 @@ Titoli grandi: "LET'S WORK TOGETHER", "SIAMO QUI", "CONTINUA IL VIAGGIO!". Ogni
+ ### 4.2 Cursore sul titolo: il blocco si scalda
+ 
+ **Cosa vedi**
+-- Entro circa un terzo di secondo l'intero blocco passa alla sua **sfumatura calda**: bianco caldo (leggermente pesca) in alto, pesca a metà, **arancio** alla base dell'ultima riga.
++- Entro circa un terzo di secondo l'intero blocco passa alla sua **sfumatura calda**: bianco caldo (leggermente pesca) in alto, pesca e **arancio** nella parte bassa dell'ultima riga.
++- Dentro tutte le lettere compare un **reticolo dorato** di piccoli triangoli, tenue lontano dal cursore e più fitto e acceso vicino. Attorno alle lettere, un bagliore ambra leggero.
+ - Respira piano (variazione minima, lenta).
+ 
+ **È un errore se**
+@@ -133,11 +137,10 @@ Titoli grandi: "LET'S WORK TOGETHER", "SIAMO QUI", "CONTINUA IL VIAGGIO!". Ogni
+ ### 4.4 Il cursore se ne va
+ 
+ **Cosa vedi**
+-- Le celle accese si spengono una a una in circa un secondo.
+-- La sfumatura calda del blocco torna grigia in circa mezzo secondo.
++- Tutto il blocco **si desatura** e torna grigio in un solo movimento (circa 0,6–1 s): sfumatura calda, giallo del range e reticolo insieme.
+ 
+ **È un errore se**
+-- Tutto si spegne nello stesso istante.
++- Si vedono i tagli triangolari delle celle mentre il colore se ne va.
+ - Resta una zona colorata dopo qualche secondo.
+ 
+ ---
+@@ -149,7 +152,7 @@ Le card hanno un'immagine (busta, portatile, telefono, icone social), un'icona p
+ ### 5.1 A riposo
+ 
+ **Cosa vedi**
+-- Card scure, cornice sottile, immagine in bianco e nero, testo e icona in **un solo colore** (grigio chiaro uniforme, perché a riposo la card ha un velo scuro).
++- Card in **nero void**, cornice sottile, immagine in bianco e nero, testo e icona in **un solo colore**.
+ - Nessuna cella visibile, nessuna ambra.
+ 
+ **È un errore se**
+@@ -175,16 +178,18 @@ Esempio: il cursore nello spazio tra quattro card.
+ ### 5.3 Cursore sulla card
+ 
+ **Cosa vedi**
+-- **Un solo insieme di celle**, più fitto lungo i bordi e più rado al centro. Le celle hanno visibilità diverse: alcune forti, alcune deboli, alcune appena percettibili, altre invisibili. Anche la saturazione cambia: alcune arancio pieno, altre quasi neutre.
++- **Un solo insieme di celle**, più fitto lungo i bordi e più rado al centro. Le celle compaiono **solo vicino al cursore e dove passa la reazione**, a zone, poi tornano al nero: nessun campo fermo di triangoli. Le visibilità e le saturazioni variano: alcune arancio pieno, altre quasi neutre.
+ - Vicino al cursore le celle sono più accese. Le celle respirano piano, ognuna col suo ritmo.
+ - La reazione a catena passa per **le stesse celle**, con lo stesso aspetto: non c'è uno strato fermo e uno che si muove.
+-- L'immagine si **illumina dall'interno**: le parti chiare diventano ambra, i neri restano neri.
++- L'immagine si **illumina dall'interno**: le creste dell'oggetto diventano ambra, i neri restano neri, il centro non brucia mai in bianco.
+ - Il bordo si accende a tratti.
+ - Il **testo resta dello stesso colore e dello stesso spessore**. Vicino al cursore prende una tinta ambra chiara e molto diffusa.
+ - Muovendo il cursore, qualche frammento si stacca dalle celle accese e scivola verso l'esterno della card.
+ 
+ **È un errore se**
+ - Si vedono due famiglie di triangoli diverse (per esempio una ferma e luminosa e un'altra che si muove con un altro colore).
++- Su tutta la card resta un tappeto fermo di triangoli che copre la reazione.
++- Si vede il bordo del riquadro dell'immagine o una zona grigia attorno all'oggetto.
+ - Le linee lunghe dei triangoli grandi al centro sono più evidenti di quelle fitte sui bordi.
+ - Il testo diventa più spesso in hover.
+ - Il testo prende un arancio saturo o una sfumatura.
+@@ -324,12 +329,24 @@ Per confrontare si può forzare il profilo aggiungendo all'indirizzo `?vfx=high`
+ 
+ ---
+ 
+-## 12. Colori di riferimento
++## 12. Grade finale
++
++**Cosa vedi**
++- Luci forti che si smorzano morbide invece di bruciare; testi con il loro colore esatto.
++- Angoli dello schermo appena più scuri; una grana finissima sulle superfici (non sul nero puro); un filo d'aberrazione cromatica solo sugli spigoli chiari vicino al bordo dello schermo; in hover, una leggera striatura orizzontale calda attorno alle luci.
++
++**È un errore se**
++- La grana si vede sul nero o sui testi a distanza normale.
++- L'aberrazione si vede al centro o sui titoli.
++- Compaiono bande o righe nei neri.
++
++## 13. Colori di riferimento
+ 
+ | Elemento | Colore |
+ | --- | --- |
+-| Fondo | quasi nero |
+-| Titoli a riposo | da bianco (#F2F2F2) a grigio medio (#838383) |
++| Fondo | quasi nero (#020202, anche prima che parta il WebGL) |
++| Card e pannelli | nero void opaco |
++| Titoli a riposo | bianco (#F2F2F2) fino alla parte alta dell'ultima riga, poi grigio medio (#838383) sulla linea di base |
+ | Titoli in hover, alto | bianco caldo (#FBEFE8) |
+ | Titoli in hover, base | arancio (#D9682F) |
+ | Range sui titoli | giallo caldo (#FFDA8C), più chiaro in alto (#FFE6C4), più profondo in basso (#FFB45C) |
+diff --git a/docs/dna/README.md b/docs/dna/README.md
+index 351df06..9fc2049 100644
+--- a/docs/dna/README.md
++++ b/docs/dna/README.md
+@@ -1,19 +1,19 @@
+ # Memento — VFX DNA
+ 
+-Il DNA visivo e di comportamento degli effetti di mementostudio.it: una sola materia, una sola energia, una sola luce, con regole precise su quando e quanto si mostrano. La pagina START (V20, `mementostart.vercel.app`) è l'implementazione di riferimento; navigation, servizi, Portfolio e levelup la seguiranno con le stesse regole e le stesse costanti.
++Il DNA visivo e di comportamento degli effetti di mementostudio.it: una sola materia, una sola energia, una sola luce, con regole precise su quando e quanto si mostrano. La pagina START (V21, `mementostart.vercel.app`) è l'implementazione di riferimento; navigation, servizi, Portfolio e levelup la seguiranno con le stesse regole e le stesse costanti.
+ 
+ Questo sistema serve a tre lettori. Il designer ci trova principi, palette, stati e la tavola master. Lo sviluppatore ci trova le costanti e dove vivono nel codice (`codice.md`). Un agente che costruisce una nuova pagina parte da qui, poi legge le sezioni nell'ordine sotto.
+ 
+ ## Manifesto
+ 
+-**Dal nero alla materia.** Tutto nasce dal nero e torna al nero. Una rete di celle triangolari diventa grafite, poi contenuto. L'ambra è l'energia che il gesto accende nella materia: arriva, corre negli spigoli e si esaurisce. Nessun effetto esiste "giusto per": ognuno risponde a una di queste tre domande. Dove sono (struttura)? Cosa posso toccare (energia)? Cosa conta (luce)?
++**Dal nero alla materia.** Tutto nasce dal nero e torna al nero. Una rete di celle triangolari diventa ossidiana, poi contenuto. L'ambra è l'energia che il gesto accende nella materia: arriva, corre negli spigoli e si esaurisce. Nessun effetto esiste "giusto per": ognuno risponde a una di queste tre domande. Dove sono (struttura)? Cosa posso toccare (energia)? Cosa conta (luce)?
+ 
+ ## Le tre sostanze
+ 
+ | Sostanza | Ruolo | Dove vive | Mai |
+ | --- | --- | --- | --- |
+ | **Nero** | il vuoto, il riposo, la pagina | sfondo, pannelli, il centro dello sfondo | grigio piatto, sfumature colorate |
+-| **Grafite** | la materia: celle triangolari irregolari, lucide sugli spigoli | pareti dello sfondo, card, glifi, frammenti | texture fotografiche, rumore senza struttura |
++| **Ossidiana** | la materia: blocchi sfaccettati di vetro nero con una grana di grafite, spigoli lucidi, riflessi netti | pareti dello sfondo, card, glifi, frammenti | texture fotografiche, rumore senza struttura, superfici piatte senza volume |
+ | **Ambra** | l'energia: reazione a catena, incandescenza | solo dove c'è un gesto, un caricamento, una sorgente | a riposo, come colore decorativo, su grandi superfici piene |
+ 
+ Il bianco caldo (`testo-luce`) è l'informazione: i testi. Non è una sostanza degli effetti.
+@@ -33,7 +33,7 @@ Due corollari dalle tavole: *fermo non significa assente* (a cursore fermo c'è
+ 
+ ## Sezioni
+ 
+-1. `materia.md`: il foglio di grafite, le celle, le luci, la prospettiva.
++1. `materia.md`: il foglio d'ossidiana, i blocchi, le celle, le luci, la prospettiva.
+ 2. `energia.md`: la reazione a catena, i tre livelli, il range, le sorgenti, il budget d'ambra.
+ 3. `luce-e-incandescenza.md`: luce dei bordi, glow dei testi, bloom.
+ 4. `tipografia.md`: gradiente di quiete, base attiva, range, interlinea.
+@@ -49,7 +49,7 @@ Due corollari dalle tavole: *fermo non significa assente* (a cursore fermo c'è
+ 
+ ![Master visual](memento-vfx-dna-master-visual.jpg)
+ 
+-La tavola `memento-vfx-dna-master-visual.jpg` è il riferimento visivo unico. Mostra la START in hover, la materia, l'energia su una card, l'incandescenza del titolo, la struttura dello scroll, la mappa come sorgente e la chiusura. Le immagini sono render reali dell'engine V19, non illustrazioni: in V20 sfondo, titoli, card e mappa sono cambiati (più scuri, ambra più arancio, profondità di campo dietro la colonna), quindi la tavola va rifatta dopo il deploy.
++La tavola `memento-vfx-dna-master-visual.jpg` è il riferimento visivo unico. Mostra la START in hover, la materia, l'energia su una card, l'incandescenza del titolo, la struttura dello scroll, la mappa come sorgente e la chiusura. Le immagini sono render reali dell'engine V19, non illustrazioni: in V20 e V21 sfondo, titoli e card sono cambiati (sfondo in blocchi d'ossidiana, gradiente dei titoli solo in basso, reticolo dorato in hover, grade filmico), quindi la tavola va rifatta dopo il deploy.
+ 
+ ## Da fare e da evitare
+ 
+@@ -72,5 +72,5 @@ La tavola `memento-vfx-dna-master-visual.jpg` è il riferimento visivo unico. Mo
+ ## Fonti
+ 
+ - Tavole del concept: `x.zip`, 200 tavole, novembre 2026. La sezione `tavole.md` dice quali restano valide.
+-- Implementazione: `memento-start` V20, `src/vfx/` (config, shader, engine).
++- Implementazione: `memento-start` V21, `src/vfx/` (config, shader, engine).
+ - Font: Inter (licenza SIL OFL 1.1), file variabile in `fonts/`.
+diff --git a/docs/dna/codice.md b/docs/dna/codice.md
+index f92df9d..d111b29 100644
+--- a/docs/dna/codice.md
++++ b/docs/dna/codice.md
+@@ -18,7 +18,10 @@ Implementazione di riferimento: progetto `memento-start` (React 18, Vite, TypeSc
+ | Fasce e frammentazione | `structure.ts`, `vfx.css` | `bandEnable`, `fragmentation`, `--vfx-band` |
+ | Deriva allo stop | `shaders.ts`, `config.ts` | `SURFACE_VERT`, `VFX.scroll` |
+ | Puntatore, fermo, sorgenti | `engine.ts`, `config.ts` | `driveBackground`, `VFX.pointer` |
+-| Bloom | `engine.ts`, `config.ts` | `render`, `VFX.bloom` |
++| Blocchi d'ossidiana, fessure | `geometry.ts`, `config.ts` | `rockField`, `VFX.background.rock` |
++| Studio riflesso, luce dall'alto | `shaders.ts`, `config.ts` | `studio` in `BG_FRAG`, `VFX.background.env`, `VFX.background.key` |
++| Bloom, striatura | `engine.ts`, `config.ts` | `render`, `VFX.bloom`, `VFX.post.streak` |
++| Grade finale (spalla, vignettatura, grana, aberrazione, dithering) | `shaders.ts`, `config.ts` | `GRADE_FRAG`, `VFX.post` |
+ | Profili di qualità | `config.ts` | `VFX.quality` |
+ | Mappa | `src/components/locationMap.ts` | posizioni delle etichette sul render della città |
+ 
+diff --git a/docs/dna/energia.md b/docs/dna/energia.md
+index 33eb933..07d8b1e 100644
+--- a/docs/dna/energia.md
++++ b/docs/dna/energia.md
+@@ -34,6 +34,10 @@ Sullo sfondo, a cursore fermo:
+ 
+ Mentre il cursore si muove, lascia una scia proporzionale alla velocità. La reazione non si ferma al bordo della colonna: dietro i contenuti continua con metà delle accensioni e meno luce, fuori fuoco come lo sfondo. Sopra una card il puntatore appartiene alla card.
+ 
++## Le fessure dello sfondo
++
++Sullo sfondo l'energia **sale dalle fessure** tra i blocchi d'ossidiana e corre sui loro spigoli: le facce si scaldano appena, le fessure brillano. È la stessa reazione a catena, letta dalla materia.
++
+ ## Sorgenti
+ 
+ Una superficie può avere una **sorgente**: un punto da cui l'energia parte da sola durante l'hover. Sulla mappa la sorgente è lo studio: un impulso ogni 1,6 s attraversa le celle della città. Una sorgente si usa solo quando ha un significato (dove siamo, cosa è attivo), mai come decorazione.
+@@ -48,6 +52,6 @@ Una superficie può avere una **sorgente**: un punto da cui l'energia parte da s
+ 
+ ## Card e un campo condiviso
+ 
+-- **Un solo insieme di celle**: ogni cella ha la sua visibilità (forte, debole, appena percettibile, invisibile) e una sua saturazione, più dense verso il contorno. Il puntatore le sveglia dove si trova; la reazione a catena passa per le stesse celle e le accende con lo stesso materiale. Mai uno strato fermo e uno che si muove.
++- **Un solo insieme di celle**: ogni cella ha la sua visibilità (forte, debole, appena percettibile, invisibile) e una sua saturazione, più dense verso il contorno. Il puntatore le sveglia solo vicino a sé (circa 150 px); la reazione a catena passa per le stesse celle e le accende a zone con lo stesso materiale. **Nessun campo fermo di triangoli** sulla card: dove la reazione è passata, le celle tornano al nero. Mai uno strato fermo e uno che si muove.
+ - Le card vicine al cursore (il **campo condiviso**) accendono la luce del bordo per segmenti dal lato più vicino, svegliano le celle interne sul lato rivolto al cursore e scaldano appena l'immagine.
+ - Testi e icone delle card hanno **un solo colore** e lo stesso peso in ogni stato: vicino al cursore prendono una tinta ambra chiara e molto diffusa.
+diff --git a/docs/dna/immagini-e-mappa.md b/docs/dna/immagini-e-mappa.md
+index 574c4e2..4010933 100644
+--- a/docs/dna/immagini-e-mappa.md
++++ b/docs/dna/immagini-e-mappa.md
+@@ -4,9 +4,9 @@
+ 
+ - **Produzione:** render 3D di oggetti su fondo nero, in bianco e nero, con polvere e frammenti che si staccano dall'oggetto (la materia che si disfa). I prompt sono in `docs/image-prompts-v13.md` del progetto START.
+ - **A riposo:** bianco e nero. Il nero resta nero.
+-- **Base attiva (hover):** l'immagine si scalda dall'interno. La sua luminanza viene mappata sulla rampa ambra solo dove c'è luce; i neri non si colorano mai.
++- **Base attiva (hover):** l'immagine si scalda dall'interno. La sua luminanza viene mappata sulla rampa ambra solo dove c'è luce; i neri non si colorano mai. L'incandescenza è **contenuta**: sta sulle creste dell'oggetto e il nucleo più chiaro non brucia mai in bianco.
+ - **Range:** dove arrivano le celle, ambra piena e faccette sopra l'immagine. La leggibilità dell'oggetto viene prima.
+-- **Bordi dell'immagine:** sfumano, così non si vede mai dove finisce il riquadro.
++- **Bordi dell'immagine:** l'immagine illumina il pannello nero void (il più chiaro dei due), quindi il riquadro non si vede mai; le faccette d'hover seguono l'oggetto, non il riquadro.
+ 
+ ## Ambienti (fotografie di studio)
+ 
+diff --git a/docs/dna/interazione-e-accessibilita.md b/docs/dna/interazione-e-accessibilita.md
+index 38d6eff..32519f3 100644
+--- a/docs/dna/interazione-e-accessibilita.md
++++ b/docs/dna/interazione-e-accessibilita.md
+@@ -23,6 +23,7 @@
+ - Gli hover restano, attenuati al 60%.
+ - Le fasce dello scroll non frammentano.
+ - Il caricamento è immediato: la pagina appare composta.
++- La grana della pellicola è ferma.
+ 
+ ## Profili di qualità
+ 
+diff --git a/docs/dna/luce-e-incandescenza.md b/docs/dna/luce-e-incandescenza.md
+index 7982273..54df66e 100644
+--- a/docs/dna/luce-e-incandescenza.md
++++ b/docs/dna/luce-e-incandescenza.md
+@@ -25,16 +25,30 @@ La luce segue tre regole:
+ 
+ - Il bloom è **selettivo**: viene renderizzato solo ciò che emette energia.
+ - È a metà risoluzione, con due passate di sfocatura separabile (la seconda larga il doppio), così non fa gradini. Intensità 0,95: regia cinematografica, la brillantezza si dosa.
++- Dallo stesso bloom nasce una **striatura orizzontale** (anamorfica), calda e bassa (0,2): solo dove c'è energia.
+ - Se non c'è energia nella scena, il bloom non viene calcolato.
+ - Nel profilo `low` è spento.
+ 
+ ## Profondità di campo dello sfondo
+ 
+ - Dal bordo della colonna dei contenuti verso il centro lo sfondo perde fuoco con gradualità: prima un po', poi del tutto.
+-- È una copia dello sfondo a metà risoluzione, sfocata due volte e tenuta in memoria: si ricalcola solo quando lo sfondo cambia (energia, loading, misure).
++- È **leggera**: la profondità la danno soprattutto scala e buio. È una copia dello sfondo a metà risoluzione, sfocata due volte e tenuta in memoria: si ricalcola solo quando lo sfondo cambia (energia, loading, misure).
+ - Tocca solo la colonna e il suo bordo. Nel profilo `low` non c'è: le celle lontane dietro la colonna sono tenute più basse.
+ 
+ ## Esposizione
+ 
+ - Le pareti dello sfondo non superano mai il bianco dei titoli. Il corpo della grafite resta quasi nero; i riflessi forti hanno una spalla morbida e non diventano mai bianco piatto.
+-- I gradienti scuri sono sempre con dithering, per non avere bande sugli schermi a 8 bit.
++- Il frame si compone in alta precisione (half float, multisample) e si quantizza una volta sola, nel grade finale, con il dithering: niente bande nei neri, niente giunzioni tra sfondo nitido e sfocato.
++
++## Il grade finale
++
++Una sola passata dal frame allo schermo, calibrata perché nessun effetto si noti da solo:
++
++| Effetto | Valore | Regola |
++| --- | --- | --- |
++| Spalla delle luci | sopra 0,84 | le luci forti rollano invece di bruciare; sotto la spalla i colori (testi compresi) restano esatti |
++| Bloom e striatura | 0,95 e 0,2 | solo con energia in scena |
++| Vignettatura | 26% agli angoli | scurisce solo, mai il centro |
++| Grana | 1,6% | finissima, nulla sul nero puro, 24 passi al secondo; ferma con reduced motion |
++| Aberrazione cromatica | 1,4 px agli angoli | solo verso il bordo dello schermo, zero al centro |
++| Dithering | ±0,5/255 | sempre, per ultimo |
+diff --git a/docs/dna/materia.md b/docs/dna/materia.md
+index 002c2ab..b9ac991 100644
+--- a/docs/dna/materia.md
++++ b/docs/dna/materia.md
+@@ -1,12 +1,12 @@
+ # Materia
+ 
+-La materia di Memento è un unico foglio di **grafite cristallina**: triangoli irregolari, facce opache, spigoli che catturano la luce. È la stessa ovunque. Cambiano solo la scala e quanta ne vediamo.
++La materia di Memento è un unico foglio di **ossidiana**: blocchi sfaccettati di vetro nero con una grana di grafite, spigoli lucidi, riflessi netti. È molto scura: la forma si legge dai riflessi e dagli spigoli, non da superfici grigie. È la stessa ovunque. Cambiano solo la scala e quanta ne vediamo.
+ 
+ ## La cella
+ 
+ - **Topologia:** triangolazione di Delaunay su punti irregolari, la cui densità segue un rumore lento. Celle vicine hanno misure diverse ma entro una banda stretta: ogni livello ha una sua scala riconoscibile e la differenza tra un livello e l'altro è proporzionata, così l'insieme si legge come il wireframe di una struttura vista in prospettiva. Mai un reticolo regolare, mai esagoni o quadrati.
+-- **Superficie:** faccia piatta grafite (`grafite`) con un riflesso ampio e, su alcune facce, uno lucido e stretto. La luce scorre dalla cresta più luminosa verso l'interno della faccia.
+-- **Spigolo:** linea sottile che si accende solo dove la luce la colpisce (`cresta`). Le valli restano scure.
++- **Superficie:** vetro nero (ossidiana) con una grana fine di grafite. Ogni faccia è lucida, alcune sono specchi. Riflette uno studio fermo e simmetrico: un softbox lungo in alto, due strip sottili attraverso il tunnel (linee nette che scorrono sulle facce e ne disegnano il gradiente interno) e la luce in fondo al tunnel. Il riflesso cresce verso gli angoli radenti (Fresnel). Una luce morbida dall'alto modella ogni blocco: creste chiare, lati in basso scuri, come i titoli.
++- **Spigolo:** filo di vetro sottile che si accende solo dove prende un riflesso o la luce (`cresta`). Le fessure restano scure.
+ 
+ ## Le scale
+ 
+@@ -19,23 +19,32 @@ La materia di Memento è un unico foglio di **grafite cristallina**: triangoli i
+ | Glifi (reazione) | 0,2 em | porta la reazione lungo la frase |
+ | Glifi (micro-faccette) | 0,075–0,095 em | si accendono solo nel range |
+ 
++## I blocchi: topologia 3D
++
++- Il foglio non è liscio: è fatto di **blocchi d'ossidiana** larghi circa 2,3 celle, che escono dal foglio verso chi guarda. Tra un blocco e l'altro c'è una **fessura**.
++- Ogni blocco ha la sua altezza e si inclina per conto suo, così le sue facce girano ad angoli diversi e prendono la luce una alla volta.
++- Le fessure tengono il buio (occlusione): la luce arriva prima sulle creste. È anche da lì che sale l'energia (vedi `energia.md`).
++- Oltre il bordo dello schermo i blocchi si appiattiscono, così le schegge al bordo non incombono sulla camera.
++
+ ## Lo sfondo: un piano inarcato e immobile
+ 
+ - È un foglio 3D inarcato con l'asse verticale parallelo allo schermo. Al bordo è vicino e frontale, verso il centro gira e si allontana fino a 20 volte la distanza iniziale.
+ - È **immobile**: si muovono solo luce ed energia.
+-- È **scuro**: corpo quasi nero, luce solo su poche creste nette del primo piano e su qualche faccia lucida. Le altre facce si leggono appena.
++- È **molto scuro**: corpo quasi nero; la luce sta sulle facce che riflettono lo studio, sulle creste e sui fili degli spigoli. Le altre facce si leggono appena.
+ - La luce dipende solo dalla posizione orizzontale, quindi si leggono **fasce verticali**. Il gradiente parte dal bordo dello schermo, attraversa il padding laterale e tocca il punto più scuro sul bordo della colonna dei contenuti (3,5% della luminanza del bordo).
+-- Dal bordo della colonna verso il centro il foglio **va fuori fuoco** con gradualità (profondità di campo). Dietro i contenuti restano celle piccole e appena visibili, sfocate: struttura percepita, mai texture che compete con il testo.
+-- **Luci:** una vicina a chi guarda solleva il primo piano; due dentro il tunnel radono le pareti. L'intensità cala con la distanza: vicino è chiaro, lontano è scuro.
++- Verso il centro la profondità la danno **la scala e il buio**; dal bordo della colonna una **sfocatura leggera** (profondità di campo) completa l'effetto. Dietro i contenuti restano celle piccole e appena visibili: struttura percepita, mai texture che compete con il testo.
++- **Luci simmetriche e centrali:** tutte sull'asse del tunnel. Una vicina a chi guarda solleva il primo piano, due dentro il tunnel radono le pareti, lo studio riflesso è simmetrico. L'intensità cala con la distanza: vicino è chiaro, lontano è scuro.
++- **Fermo:** a riposo luci, riflessi e camera non si muovono. Cambia qualcosa solo con un gesto.
+ 
+ ## Le card
+ 
+-- Pannello nero al 94%, angoli tagliati (`taglio-card`), cornice sottile con sfumatura.
++- Pannello **nero void, opaco** (`pannello`), angoli tagliati (`taglio-card`), cornice sottile con sfumatura. Dietro una card non traspare nulla, quindi non si vede mai dove finisce un'immagine.
+ - La rete di celle esiste anche a riposo ma **non si vede**. Compare solo come topologia in hover (vedi `energia.md`).
+ - Le card grandi (pannelli FAQ, legal, mappa) hanno una topologia più rada, in proporzione all'area.
+ 
+ ## Cosa non fare
+ 
+ - Non mettere texture o rumore fotografico al posto delle celle.
+-- Non far muovere il foglio dello sfondo (niente onde, niente parallasse della geometria).
++- Non far muovere il foglio dello sfondo (niente onde, niente parallasse della geometria), né la camera o le luci a riposo.
++- Non schiarire il corpo delle facce per far leggere la forma: la forma la danno riflessi, spigoli e fessure.
+ - Non usare celle della stessa misura su tutto lo schermo: perde la scala.
+diff --git a/docs/dna/movimento.md b/docs/dna/movimento.md
+index eabf77a..b8f9580 100644
+--- a/docs/dna/movimento.md
++++ b/docs/dna/movimento.md
+@@ -25,6 +25,6 @@ Un solo tempo per tutto il sito. Le animazioni nascono dalla materia e dall'ener
+ 
+ ## Regole
+ 
+-- Niente loop decorativi infiniti: tutto ciò che si muove ha una causa (gesto, posizione, caricamento, sorgente) e una fine.
++- Niente loop decorativi infiniti: tutto ciò che si muove ha una causa (gesto, posizione, caricamento, sorgente) e una fine. A riposo nulla si muove: né luci, né riflessi, né camera. L'unica eccezione è la grana della pellicola, sotto la soglia del movimento.
+ - Il foglio dello sfondo non si muove mai: si muovono luce ed energia.
+ - Ogni movimento ha la sua versione per reduced motion (vedi `interazione-e-accessibilita.md`).
+diff --git a/docs/dna/struttura-e-scroll.md b/docs/dna/struttura-e-scroll.md
+index 8173365..68b8d06 100644
+--- a/docs/dna/struttura-e-scroll.md
++++ b/docs/dna/struttura-e-scroll.md
+@@ -35,6 +35,7 @@ Sei fasi, con lo stesso ordine su ogni pagina:
+ | 05 assestamento | il contenuto prende il suo posto |
+ | 06 pronto | il primo frame è perfetto |
+ 
++- Il nero c'è dal primo istante (`#020202` già nel primo paint, prima di CSS e WebGL): nessun lampo grigio. Il frame del caricamento passa dallo stesso grade finale, con dithering: niente righe né giunzioni nei neri.
+ - Durata: **1,8 s**. Se l'utente interagisce prima, il caricamento accelera di 3,2 volte.
+ - Il 14% delle celle si accende mentre entra.
+ - Ogni cella entra con un ritardo dato da un rumore: il contenuto si costruisce, non appare.
+diff --git a/docs/dna/tipografia.md b/docs/dna/tipografia.md
+index 5a04e61..0b896dc 100644
+--- a/docs/dna/tipografia.md
++++ b/docs/dna/tipografia.md
+@@ -6,10 +6,10 @@ Un solo carattere, **Inter**. I titoli sono grandi e leggeri (peso 330–350), s
+ 
+ | Stato | Aspetto |
+ | --- | --- |
+-| **Quiete** | il gradiente ambra **desaturato** (stessa luminanza, nessuna tinta) su tutto il blocco: bianco in alto, grigio medio alla base. Simula una luce dall'alto. |
+-| **Base attiva** (cursore sul titolo) | lo stesso gradiente con la sua tinta: bianco caldo in alto, pesca a metà, arancio alla base (`VFX.color.titleAmber`), con un respiro lento di ±4% |
+-| **Range** | nelle celle raggiunte sale dalla base un giallo caldo (mai acido), più chiaro in alto e più profondo in basso; micro-faccette arancio e un reticolato chiaro dentro i glifi; bordo interno caldo; glow ambra esterno e un bloom leggero |
+-| **Ritorno** | le celle si spengono una a una in circa 1,1 s; la base attiva esce in circa 0,6 s |
++| **Quiete** | il gradiente ambra **desaturato** (stessa luminanza, nessuna tinta) su tutto il blocco: la prima riga resta bianca piena, l'ombra vive solo nella parte bassa dell'ultima riga e arriva al grigio medio sulla linea di base. Simula una luce dall'alto. |
++| **Base attiva** (cursore sul titolo) | lo stesso gradiente con la sua tinta: bianco caldo in alto, pesca e arancio nella parte bassa dell'ultima riga (`VFX.color.titleAmber`), con un respiro lento di ±4%. Dentro le lettere, su tutto il blocco, un **reticolo dorato** di micro-faccette; attorno, un bagliore ambra leggero. |
++| **Range** | nelle celle raggiunte sale dalla base un giallo caldo (mai acido), più chiaro in alto e più profondo in basso; il reticolo si fa più fitto e più acceso; bordo interno caldo; glow ambra esterno e un bloom leggero |
++| **Ritorno** | tutto il blocco **si desatura** verso il gradiente di quiete in un solo movimento (circa 0,6–1 s): base, range e reticolo insieme. Mai cella per cella, mai un overlay che sparisce lasciando vedere i tagli. |
+ 
+ ## Regole
+ 
+diff --git a/docs/dna/tokens.json b/docs/dna/tokens.json
+index 4cd640a..e5b3e28 100644
+--- a/docs/dna/tokens.json
++++ b/docs/dna/tokens.json
+@@ -1,19 +1,19 @@
+ {
+   "name": "Memento VFX DNA",
+   "version": 1,
+-  "meta": { "source": "memento-start V19 · src/vfx/config.ts, src/styles/start.css, src/vfx/vfx.css" },
++  "meta": { "source": "memento-start V21 · src/vfx/config.ts, src/styles/start.css, src/vfx/vfx.css" },
+   "color": {
+     "themes": [{ "id": "dark", "name": "Nero" }],
+     "tokens": [
+       { "name": "nero", "value": "#020202", "usage": "Il fondo di ogni pagina (VFX.color.base). Il vuoto da cui nasce la materia." },
+-      { "name": "pannello", "value": "#030304", "usage": "Fondo di card e pannelli, al 94% sopra la grafite (VFX.color.panel)." },
++      { "name": "pannello", "value": "#020202", "usage": "Fondo di card e pannelli: nero void, opaco (VFX.color.panel). Nulla traspare, quindi il riquadro di un'immagine non si vede mai." },
+       { "name": "grafite-profonda", "value": "#0B0B0C", "usage": "Facce lontane dello sfondo e centro dietro la colonna dei contenuti. Mai texture." },
+-      { "name": "grafite", "value": "#1C1C1F", "usage": "Tono medio di una faccia di grafite in quiete." },
++      { "name": "grafite", "value": "#1C1C1F", "usage": "Tono medio di una faccia d'ossidiana in quiete, dove prende appena la luce dall'alto." },
+       { "name": "grafite-chiara", "value": "#5E5E62", "usage": "Faccia vicina illuminata dalla luce radente." },
+       { "name": "cresta", "value": "#D9D9DC", "usage": "Spigolo che cattura la luce. Solo linee sottili, mai superfici." },
+-      { "name": "testo-luce", "value": "#F2F2F2", "usage": "Cima del gradiente di quiete dei titoli (il gradiente ambra desaturato)." },
++      { "name": "testo-luce", "value": "#F2F2F2", "usage": "Gradiente di quiete dei titoli: tutta la prima riga e la parte alta dell'ultima (il gradiente ambra desaturato)." },
+       { "name": "testo-card", "value": "#F2F0EC", "usage": "Testi e icone delle card: un solo colore, mai sfumature." },
+-      { "name": "testo-medio", "value": "#B4B4B4", "usage": "Gradiente di quiete dei titoli al 76%." },
++      { "name": "testo-medio", "value": "#BFBFBF", "usage": "Gradiente di quiete dei titoli all'80% del blocco, nella parte bassa dell'ultima riga." },
+       { "name": "testo-ombra", "value": "#838383", "usage": "Base del gradiente di quiete dei titoli. Solo a 24 px e oltre." },
+       { "name": "testo-secondario", "value": "#A29E97", "usage": "Righe secondarie: CAP, minuti sulla mappa, didascalie. 7.6:1 su nero." },
+       { "name": "ambra-brace", "value": "#9E2208", "usage": "Fondo della rampa ambra: brace, ombre calde dei glow. Mai per testo (2.9:1)." },
+diff --git a/index.html b/index.html
+index 7bda623..da13b5c 100644
+--- a/index.html
++++ b/index.html
+@@ -3,10 +3,10 @@
+ <head>
+   <meta charset="utf-8">
+   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
+-  <meta name="theme-color" content="#121212">
++  <meta name="theme-color" content="#020202">
+   <meta name="description" content="Raccontaci la tua idea. Contatta Memento Design Studio: web, branding, 3D ed esperienze digitali. Ci trovi a Maniago.">
+   <title>Start — Memento Design Studio</title>
+-  <style id="memento-first-paint">html{background:#121212}html[data-memento-surface="transparent"]{background:transparent;color-scheme:normal}html[data-memento-navigation="hosted"] memento-nav{display:none!important}memento-nav{position:fixed;inset:0;z-index:1000;pointer-events:none}html.vfx-boot main{opacity:0}</style>
++  <style id="memento-first-paint">html{background:#020202}html[data-memento-surface="transparent"]{background:transparent;color-scheme:normal}html[data-memento-navigation="hosted"] memento-nav{display:none!important}memento-nav{position:fixed;inset:0;z-index:1000;pointer-events:none}html.vfx-boot main{opacity:0}</style>
+   <script>(()=>{const root=document.documentElement,embedded=window.self!==window.top,hosted=embedded&&new URLSearchParams(location.search).get('mementoEmbed')==='1';root.dataset.embedded=String(embedded);root.dataset.mementoSurface=hosted?'transparent':'opaque';root.dataset.mementoInitialMode=root.dataset.mementoNavigation=hosted?'hosted':'standalone';
+   /* VFX boot: the content stays hidden until the loading veil has drawn its first frame. Failsafe: never longer than 3 s. */
+   try{if(!matchMedia('(prefers-reduced-motion: reduce)').matches&&document.createElement('canvas').getContext('webgl2')){root.classList.add('vfx-boot');setTimeout(()=>root.classList.remove('vfx-boot'),3000);}}catch(e){}})();</script>
+diff --git a/src/styles/navigation-insets.css b/src/styles/navigation-insets.css
+index 2925b69..6a9717d 100644
+--- a/src/styles/navigation-insets.css
++++ b/src/styles/navigation-insets.css
+@@ -1,5 +1,5 @@
+ /* Surface is selected before paint and never changes when the bridge connects. */
+-html[data-memento-surface="opaque"]{background-color:#121212}
++html[data-memento-surface="opaque"]{background-color:#020202}
+ html[data-memento-surface="transparent"]{background-color:transparent}
+ /* Page spacing is independent of the V12 blur renderer. */
+ :root{--memento-content-edge-space:clamp(180px,26dvh,300px)}
+diff --git a/src/styles/start.css b/src/styles/start.css
+index 4f5e775..68aee91 100644
+--- a/src/styles/start.css
++++ b/src/styles/start.css
+@@ -1,6 +1,6 @@
+ @font-face{font-family:Inter;src:url('/assets/fonts/InterVariable.woff2') format('woff2');font-weight:100 900;font-display:swap}
+ :root{--bg:#0b0c0d;--ink:#f3f0ea;--muted:#c6c2bc;--amber:#c98b42;--hover:#dfad6b;--ease:cubic-bezier(.22,1,.36,1);--cut:clamp(16px,1.5vw,24px);--title-gradient:linear-gradient(135deg,#f5f3ef 0%,#f5f3ef 34%,#eee4d6 61%,#ddbb8b 81%,#c98b42 100%);--category-gradient:linear-gradient(0deg,#c98b42 0%,#dfba86 24%,#eee5d7 53%,#f5f3ef 83%,#f5f3ef 100%);--frame-gradient:linear-gradient(135deg,#d8d1c3c7 0%,#aaa28f66 27%,#716a5e57 62%,#8c744b75 83%,#d9913de0 100%);color-scheme:dark}
+-*{box-sizing:border-box}html{background:#121212;scroll-behavior:smooth;scroll-padding-top:24px}html[data-memento-surface="transparent"]{background:transparent;color-scheme:normal}body{margin:0;background:transparent;color:var(--ink);font-family:Inter,'Helvetica Neue',Arial,sans-serif;font-size:16px;font-weight:400;line-height:1.45;letter-spacing:.018em;font-optical-sizing:auto;-webkit-font-smoothing:antialiased}body.modal-open{overflow:hidden}button,input,textarea{font:inherit;color:inherit}button,a{-webkit-tap-highlight-color:transparent}button{border:0;border-radius:0;background:none;cursor:pointer}a{color:inherit;text-decoration:none}button:disabled{cursor:wait;opacity:.65}button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid #ecc089;outline-offset:5px}h1,h2,h3,p{margin:0}h1,h2,h3{font-weight:380}img{display:block;max-width:100%;user-select:none}button [hidden],[hidden]{display:none!important}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}.skip-link{position:fixed;left:20px;top:20px;z-index:100;background:#f3f0ea;color:#080808;padding:12px 20px;transform:translateY(-200%)}.skip-link:focus{transform:none}::selection{background:#c98b4266;color:#fff}main{position:relative;isolation:isolate;overflow:clip}.content-width{width:min(80%,1280px);margin-inline:auto;container-type:inline-size}.title-gradient,.category-gradient{-webkit-background-clip:text;background-clip:text;color:transparent;box-decoration-break:clone;-webkit-box-decoration-break:clone}.title-gradient{background-image:var(--title-gradient)}.category-gradient{background-image:var(--category-gradient)}
++*{box-sizing:border-box}html{background:#020202;scroll-behavior:smooth;scroll-padding-top:24px}html[data-memento-surface="transparent"]{background:transparent;color-scheme:normal}body{margin:0;background:transparent;color:var(--ink);font-family:Inter,'Helvetica Neue',Arial,sans-serif;font-size:16px;font-weight:400;line-height:1.45;letter-spacing:.018em;font-optical-sizing:auto;-webkit-font-smoothing:antialiased}body.modal-open{overflow:hidden}button,input,textarea{font:inherit;color:inherit}button,a{-webkit-tap-highlight-color:transparent}button{border:0;border-radius:0;background:none;cursor:pointer}a{color:inherit;text-decoration:none}button:disabled{cursor:wait;opacity:.65}button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid #ecc089;outline-offset:5px}h1,h2,h3,p{margin:0}h1,h2,h3{font-weight:380}img{display:block;max-width:100%;user-select:none}button [hidden],[hidden]{display:none!important}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}.skip-link{position:fixed;left:20px;top:20px;z-index:100;background:#f3f0ea;color:#080808;padding:12px 20px;transform:translateY(-200%)}.skip-link:focus{transform:none}::selection{background:#c98b4266;color:#fff}main{position:relative;isolation:isolate;overflow:clip}.content-width{width:min(80%,1280px);margin-inline:auto;container-type:inline-size}.title-gradient,.category-gradient{-webkit-background-clip:text;background-clip:text;color:transparent;box-decoration-break:clone;-webkit-box-decoration-break:clone}.title-gradient{background-image:var(--title-gradient)}.category-gradient{background-image:var(--category-gradient)}
+ .cut-frame{position:relative;isolation:isolate;clip-path:polygon(var(--cut) 0,100% 0,100% calc(100% - var(--cut)),calc(100% - var(--cut)) 100%,0 100%,0 var(--cut));background:#000}.cut-frame::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:5;background:var(--frame-gradient);clip-path:polygon(evenodd,var(--cut) 0,100% 0,100% calc(100% - var(--cut)),calc(100% - var(--cut)) 100%,0 100%,0 var(--cut),var(--cut) 0,calc(var(--cut) + .4142px) 1px,1px calc(var(--cut) + .4142px),1px calc(100% - 1px),calc(100% - var(--cut) - .4142px) calc(100% - 1px),calc(100% - 1px) calc(100% - var(--cut) - .4142px),calc(100% - 1px) 1px,calc(var(--cut) + .4142px) 1px)}.cut-frame:focus-visible{outline-offset:-6px}.icon{display:inline-block;flex:0 0 auto;width:24px;height:24px;background:currentColor;mask:var(--icon) center/contain no-repeat;-webkit-mask:var(--icon) center/contain no-repeat}.mail{--icon:url('icons/mail.svg')}.phone{--icon:url('icons/phone.svg')}.whatsapp{--icon:url('icons/brand-whatsapp.svg')}.instagram{--icon:url('icons/brand-instagram.svg')}.fiverr{--icon:url('icons/brand-fiverr.svg')}.arrow-up-right{--icon:url('icons/arrow-up-right.svg')}.arrow-right{--icon:url('icons/arrow-right.svg')}.chevron-down{--icon:url('icons/chevron-down.svg')}.plus{--icon:url('icons/plus.svg')}.minus{--icon:url('icons/minus.svg')}.close{--icon:url('icons/x.svg')}.map-pin{--icon:url('icons/map-pin.svg')}
+ 
+ /* Start — classic layout, static lowpoly amber artwork. */
+diff --git a/src/vfx/__tests__/runtime.test.ts b/src/vfx/__tests__/runtime.test.ts
+index 1d979eb..014ec20 100644
+--- a/src/vfx/__tests__/runtime.test.ts
++++ b/src/vfx/__tests__/runtime.test.ts
+@@ -104,10 +104,15 @@ describe('geometry', () => {
+         if (side[0] !== 0 && side.every(v => v === side[0])) continue;
+         const lat = [0, 3, 6].map(k => Math.sign(p[o + k]) * (Math.abs(p[o + k]) > -p[o + k + 2] * T * aspect ? 1 : 0));
+         if (lat[0] !== 0 && lat.every(v => v === lat[0])) continue;
+-        const e = Math.max(Math.hypot(p[o] - p[o + 3], p[o + 1] - p[o + 4], p[o + 2] - p[o + 5]), Math.hypot(p[o + 3] - p[o + 6], p[o + 4] - p[o + 7], p[o + 5] - p[o + 8]), Math.hypot(p[o + 6] - p[o], p[o + 7] - p[o + 1], p[o + 8] - p[o + 2]));
+-        worst = Math.max(worst, e / z);
++        // measured on screen, the part inside the frame (in view heights): the blocks stand out of the sheet, so the
++        // shards at the frame come close and run off screen; what counts is what is seen
++        const cl = (v: number) => Math.max(-1.02, Math.min(1.02, v));
++        const sp = [0, 3, 6].map(k => [cl(p[o + k] / (-p[o + k + 2] * T * aspect)) * aspect / 2, cl(p[o + k + 1] / (-p[o + k + 2] * T)) / 2]);
++        const e = Math.max(Math.hypot(sp[0][0] - sp[1][0], sp[0][1] - sp[1][1]), Math.hypot(sp[1][0] - sp[2][0], sp[1][1] - sp[2][1]), Math.hypot(sp[2][0] - sp[0][0], sp[2][1] - sp[0][1]));
++        worst = Math.max(worst, e);
++        void z;
+       }
+-      expect(worst).toBeLessThan(0.6);                           // screen-relative size of the largest face
++      expect(worst).toBeLessThan(0.6);                           // the largest face seen: under 60% of the view height
+     }
+   });
+ 
+@@ -133,7 +138,7 @@ describe('geometry', () => {
+     // within one column of the screen, depth barely changes from top to bottom
+     for (const list of depthAtX.values()) if (list.length > 10) {
+       const m = mean(list), sd = Math.sqrt(mean(list.map(v => (v - m) ** 2)));
+-      expect(sd).toBeLessThan(0.08);
++      expect(sd).toBeLessThan(0.1);                              // the blocks add their relief, the bands stay vertical
+     }
+   });
+ 
+diff --git a/src/vfx/config.ts b/src/vfx/config.ts
+index 3cadbae..4d4de7a 100644
+--- a/src/vfx/config.ts
++++ b/src/vfx/config.ts
+@@ -40,13 +40,18 @@ export const desaturate = (hex: string) => {
+   return `#${v}${v}${v}`;
+ };
+ 
+-const TITLE_AMBER = [[0, '#fbefe8'], [0.4, '#f9e7dc'], [0.58, '#f0cbb4'], [0.76, '#e8a57c'], [0.88, '#e1844c'], [1, '#d9682f']] as const;
++/**
++ * One gradient over the whole title block (0 = cap line of the first line, 1 = baseline of the last). Light comes from
++ * above: the first line stays white, the shade only lives in the lower part of the last line.
++ */
++const TITLE_AMBER = [[0, '#fbefe8'], [0.56, '#fbefe8'], [0.68, '#f5d9c6'], [0.8, '#ecb28c'], [0.91, '#e2874f'], [1, '#d9682f']] as const;
+ 
+ export const VFX = {
+   color: {
+     /** Surface black behind everything (sRGB 0..1). */
+     base: [0.008, 0.008, 0.009] as const,
+-    panel: [0.012, 0.012, 0.014, 0.94] as const,
++    /** Cards and panels: void black, opaque. Nothing of the sheet shows through, so no edge of an image can either. */
++    panel: [0.006, 0.006, 0.007, 1] as const,
+     /** Amber scale: deep > mid > hot > core. `base` is the configurable reference tint. */
+     amber: { base: '#FF7950', deep: '#9E2208', mid: '#FF5510', hot: '#FF8A1C', core: '#FFCB72' },
+     /**
+@@ -73,7 +78,16 @@ export const VFX = {
+     stretch: 1.55,
+     /** Size variation between neighbouring cells (0 = even): small, so size reads as distance, as on a wireframe. */
+     irregular: 0.18,
+-    relief: 0.9,          // peaks and valleys, × local cell size, along the sheet's normal
++    relief: 0.95,         // height of the obsidian blocks, × local cell size, along the sheet's normal
++    /** Blocks: spacing of their centres (cells), crest profile (<1 rounder, 1 pyramid), how far each one leans. */
++    rock: [2.3, 0.8, 0.45] as [number, number, number],
++    /**
++     * Obsidian: the faces are black glass that reflects a still studio. Overhead softbox (light from above, like the
++     * type), the far light at the end of the tunnel (the centre), Fresnel F0, surface flecks (graphite grain).
++     */
++    env: [5, 2.5, 0.06, 0.4] as [number, number, number, number],
++    /** A soft light from above (camera-space direction, strength): crests lit, undersides dark, like the type. */
++    key: [0, 0.8, 0.55, 0.1] as [number, number, number, number],
+     fog: 0.55,            // darkness with depth, on top of the light's own falloff
+     falloff: 0.05,        // light intensity / (1 + falloff·d²): near is bright, deep is dark
+     /** Point lights, camera space (x, y, z, intensity): one close to the viewer lifts the foreground, two inside rake along the walls. */
+@@ -88,17 +102,17 @@ export const VFX = {
+     levels: [0.035, 0.07] as [number, number],
+     /** Depth of field behind the column: share of the column half-width over which focus is lost. */
+     focus: 0.55,
+-    /** Blur widths (half-size texels): a little out of focus, then fully. */
+-    blur: { med: [1] as readonly number[], big: [2, 3] as readonly number[] },
++    /** Blur widths (half-size texels): a little out of focus, then softly (a light depth of field: scale and darkness do the rest). */
++    blur: { med: [1] as readonly number[], big: [1.5, 2] as readonly number[] },
+     /** Pointer ignitions on the sheet behind the column, × those in the side padding. */
+     columnRate: 0.5,
+   },
+   chain: {
+     /** Cards: irregular cells of mixed sizes, fine along the outline and large in the middle; a slow, controlled reaction. */
+     card: { spacing: 62, edgeSpacing: 15, edgeReach: 120, topoArea: 230000, margin: 30, zone: 170, maxGen: 6, spread: 0.74, carry: 0.86, rate: 0.5,
+-      /** Reach of the pointer over the cells (px): under it, from outside (a neighbour in range); share lit across the card;
+-       *  strength from outside. */
+-      wake: [250, 190, 0.2, 1.35] as [number, number, number, number],
++      /** Reach of the pointer over the cells (px): under it, from outside (a neighbour in range); share lit across the card
++       *  (0: no still field of triangles, cells show where the reaction passes and near the pointer); strength from outside. */
++      wake: [150, 150, 0, 1.2] as [number, number, number, number],
+       /** Type near the pointer: warmth, reach (px), share when the card is only in range. */
+       inkWarm: [0.75, 280, 0.45] as [number, number, number],
+       delay: [0.12, 0.28] as const, release: [0.9, 1.7] as const, refractory: [0.9, 1.5] as const, attack: 0.2 },
+@@ -148,6 +162,13 @@ export const VFX = {
+   /** Structural cells (loading and scroll tessellation): smaller and of mixed sizes. */
+   cells: { card: 21, titleEm: 0.075 },
+   bloom: { scale: 0.5, strength: 0.95 },
++  /**
++   * The final grade, one pass over the whole frame: highlights roll off above `shoulder` instead of clipping (the type
++   * below it keeps its exact colour), a horizontal streak drawn from the bloom (anamorphic, warm, only where there is
++   * energy), vignette at the corners, fine film grain (none on pure black, 24 steps a second), chromatic aberration
++   * toward the frame (px at the corners), dithering against banding in the blacks.
++   */
++  post: { shoulder: 0.84, streak: 0.2, vignette: 0.26, grain: 0.016, aberration: 1.4 },
+   quality: {
+     high: { dpr: 2, bloom: true, particles: 1, cellScale: 1 },
+     medium: { dpr: 1.5, bloom: true, particles: 0.6, cellScale: 1.25 },
+diff --git a/src/vfx/engine.ts b/src/vfx/engine.ts
+index f37e873..e912082 100644
+--- a/src/vfx/engine.ts
++++ b/src/vfx/engine.ts
+@@ -1,8 +1,8 @@
+ import gsap from 'gsap';
+ import {
+-  BufferAttribute, BufferGeometry, CanvasTexture, CustomBlending, DataTexture, DoubleSide, DynamicDrawUsage, GLSL3, InstancedBufferGeometry,
++  BufferAttribute, BufferGeometry, CanvasTexture, CustomBlending, DataTexture, DoubleSide, DynamicDrawUsage, GLSL3, HalfFloatType, InstancedBufferGeometry,
+   InstancedInterleavedBuffer, InterleavedBufferAttribute, LinearFilter, Mesh, NoColorSpace, PerspectiveCamera,
+-  OneFactor, OneMinusSrcAlphaFactor, RawShaderMaterial, RedFormat, Scene, Sphere, Texture, UnsignedByteType, Vector2, Vector3, Vector4, WebGLRenderer, WebGLRenderTarget, ZeroFactor, type IUniform,
++  NoBlending, OneFactor, OneMinusSrcAlphaFactor, RawShaderMaterial, RedFormat, Scene, Sphere, Texture, UnsignedByteType, Vector2, Vector3, Vector4, WebGLRenderer, WebGLRenderTarget, ZeroFactor, type IUniform,
+ } from 'three';
+ import { BorderLight, outline } from './border';
+ import { ChainField } from './chain';
+@@ -14,7 +14,7 @@ import { collect, distanceField, imageFit, paint } from './raster';
+ import type { SurfaceOptions, SurfaceRegistry } from './registry';
+ import { ScrollState } from './scroll';
+ import {
+-  BG_FRAG, BG_SOFT_FRAG, BG_VERT, BLUR_FRAG, COMPOSITE_FRAG, FS_VERT, OVERLAY_CARD_FRAG, OVERLAY_TITLE_FRAG, OVERLAY_VERT,
++  BG_FRAG, BG_SOFT_FRAG, BG_VERT, BLUR_FRAG, FS_VERT, GRADE_FRAG, OVERLAY_CARD_FRAG, OVERLAY_TITLE_FRAG, OVERLAY_VERT,
+   PART_FRAG, PART_VERT, SURFACE_FRAG, SURFACE_VERT,
+ } from './shaders';
+ import { loadingDelay, smoothstep } from './structure';
+@@ -98,11 +98,15 @@ export class VfxEngine {
+   private partGeo = new InstancedBufferGeometry();
+   private partBuf: InstancedInterleavedBuffer;
+   private partMesh: Mesh;
++  /** The frame in high precision (multisampled): everything is drawn here, then graded once to the screen. */
++  private rtMain: WebGLRenderTarget;
+   private rtE: WebGLRenderTarget; private rtA: WebGLRenderTarget; private rtB: WebGLRenderTarget;
++  /** The horizontal streak of the bloom, at a quarter of the size. */
++  private rtS1: WebGLRenderTarget; private rtS2: WebGLRenderTarget;
+   /** The sheet out of focus behind the layout column: a little (med) and fully (big). Kept until the sheet changes. */
+   private rtMed: WebGLRenderTarget; private rtBig: WebGLRenderTarget; private softKeep: RawShaderMaterial; private softAdd: RawShaderMaterial;
+   private bgVersion = 0; private softKey = '';
+-  private blur: RawShaderMaterial; private composite: RawShaderMaterial; private fsMesh: Mesh<BufferGeometry, RawShaderMaterial>;
++  private blur: RawShaderMaterial; private grade: RawShaderMaterial; private fsMesh: Mesh<BufferGeometry, RawShaderMaterial>;
+ 
+   private surfaces = new Map<HTMLElement, Surface>();
+   private byIndex: Surface[] = [];
+@@ -123,7 +127,8 @@ export class VfxEngine {
+   private nextIndex = 0;
+ 
+   private constructor(private canvas: HTMLCanvasElement, private registry: SurfaceRegistry) {
+-    const renderer = new WebGLRenderer({ canvas, alpha: true, antialias: true, premultipliedAlpha: true, depth: true, stencil: false, powerPreference: 'high-performance' });
++    // the frame is drawn into a multisampled target and graded to the canvas: the canvas itself needs no depth or AA
++    const renderer = new WebGLRenderer({ canvas, alpha: true, antialias: false, premultipliedAlpha: true, depth: false, stencil: false, powerPreference: 'high-performance' });
+     if (!renderer.capabilities.isWebGL2) { renderer.dispose(); throw new Error('WebGL2 unavailable'); }
+     this.renderer = renderer;
+     renderer.autoClear = false;
+@@ -155,6 +160,7 @@ export class VfxEngine {
+         ...this.globals, uBase: { value: [...VFX.color.base] }, uZ: { value: new Vector2(1, 10) }, uFog: { value: VFX.background.fog }, uAlpha: { value: 0 },
+         uLight: { value: new Float32Array(VFX.background.lights.flat()) }, uShade: { value: new Vector4(...VFX.background.shade) }, uFall: { value: VFX.background.falloff }, uGloss: { value: new Vector4(...VFX.background.gloss) },
+         uBand: { value: new Vector4(1, 0.4, ...VFX.background.levels) }, uRim: { value: new Vector3(...VFX.background.rim) },
++        uEnv: { value: new Vector4(...VFX.background.env) }, uKey: { value: new Vector4(...VFX.background.key) },
+       },
+     }));
+     this.bg.frustumCulled = false; this.bg.renderOrder = 0;
+@@ -173,15 +179,23 @@ export class VfxEngine {
+     this.partMesh.renderOrder = 1000; this.partMesh.frustumCulled = false;
+     this.scene.add(this.partMesh);
+ 
++    // high precision wherever light is accumulated or blurred: no banding in the blacks, no seams where passes meet
++    const ext = renderer.extensions;
++    const type = ext.has('EXT_color_buffer_float') || ext.has('EXT_color_buffer_half_float') ? HalfFloatType : UnsignedByteType;
++    const rt = (depth: boolean, samples = 0) => new WebGLRenderTarget(4, 4, { depthBuffer: depth, minFilter: LinearFilter, magFilter: LinearFilter, type, samples });
++    this.rtMain = rt(true, 4);
+     // selective bloom: only the emission pass is blurred and added back
+-    const rt = (depth: boolean) => new WebGLRenderTarget(4, 4, { depthBuffer: depth, minFilter: LinearFilter, magFilter: LinearFilter });
+     this.rtE = rt(true); this.rtA = rt(false); this.rtB = rt(false); this.rtMed = rt(false); this.rtBig = rt(false);
++    this.rtS1 = rt(false); this.rtS2 = rt(false);
+     const fs = unbounded(new BufferGeometry());
+     fs.setAttribute('position', new BufferAttribute(new Float32Array([-1, -1, 3, -1, -1, 3]), 2));
+     const raw = (frag: string, uniforms: Uniforms) => new RawShaderMaterial({ glslVersion: GLSL3, vertexShader: FS_VERT, fragmentShader: frag, uniforms, depthTest: false, depthWrite: false });
+     this.blur = raw(BLUR_FRAG, { uTex: { value: null }, uStep: { value: new Vector2() } });
+-    this.composite = raw(COMPOSITE_FRAG, { uTex: { value: null }, uStrength: { value: VFX.bloom.strength } });
+-    this.composite.transparent = true; this.composite.premultipliedAlpha = true;
++    this.grade = raw(GRADE_FRAG, {
++      uScene: { value: this.rtMain.texture }, uBloom: { value: this.rtB.texture }, uStreak: { value: this.rtS1.texture },
++      uRes: { value: new Vector2(1, 1) }, uMix: { value: new Vector4() }, uLens: { value: new Vector2() }, uFrame: { value: 0 },
++    });
++    this.grade.blending = NoBlending;
+     // the soft sheet: the first pass keeps the sharp share of what is on screen, the second adds the blurred shares
+     const uCol = { value: new Vector2(0.4, VFX.background.focus) };
+     const soft = (pass: number, src: typeof OneFactor | typeof ZeroFactor, dst: typeof OneFactor | typeof OneMinusSrcAlphaFactor) => {
+@@ -221,8 +235,8 @@ export class VfxEngine {
+     this.surfaces.clear();
+     this.bg.geometry.dispose(); this.bg.material.dispose();
+     this.partGeo.dispose(); (this.partMesh.material as RawShaderMaterial).dispose();
+-    this.fsMesh.geometry.dispose(); this.blur.dispose(); this.composite.dispose();
+-    this.rtE.dispose(); this.rtA.dispose(); this.rtB.dispose();
++    this.fsMesh.geometry.dispose(); this.blur.dispose(); this.grade.dispose(); this.softKeep.dispose(); this.softAdd.dispose();
++    [this.rtMain, this.rtE, this.rtA, this.rtB, this.rtMed, this.rtBig, this.rtS1, this.rtS2].forEach(t => t.dispose());
+     this.renderer.dispose();
+     root().classList.remove('vfx-live', 'vfx-boot', 'vfx-ready');
+   }
+@@ -333,6 +347,10 @@ export class VfxEngine {
+     this.renderer.setSize(w, h, false);
+     const bw = Math.max(2, Math.round(w * VFX.bloom.scale)), bh = Math.max(2, Math.round(h * VFX.bloom.scale));
+     this.rtE.setSize(bw, bh); this.rtA.setSize(bw, bh); this.rtB.setSize(bw, bh); this.rtMed.setSize(bw, bh); this.rtBig.setSize(bw, bh);
++    this.rtS1.setSize(Math.max(2, bw >> 1), Math.max(2, bh >> 1)); this.rtS2.setSize(Math.max(2, bw >> 1), Math.max(2, bh >> 1));
++    const gl = this.renderer.getContext();
++    this.rtMain.setSize(gl.drawingBufferWidth, gl.drawingBufferHeight);
++    (this.grade.uniforms.uRes.value as Vector2).set(gl.drawingBufferWidth, gl.drawingBufferHeight);
+     this.bgVersion++;
+     this.parts.limit = Math.round(VFX.particles.pool * q.particles);
+     this.scroll.measure(h);
+@@ -346,7 +364,7 @@ export class VfxEngine {
+     const bu = this.bg.material.uniforms.uBand.value as Vector4, col = column ? Math.min(0.5, column.width / 2 / w) : 0.4;
+     // without the depth of field (no bloom on this profile) the far cells behind the column are held lower: in focus they would be busy
+     const [edgeLevel, farLevel] = VFX.background.levels;
+-    bu.set(this.renderer.getContext().drawingBufferWidth, col, edgeLevel, farLevel * (q.bloom ? 1 : 0.35));
++    bu.set(this.renderer.getContext().drawingBufferWidth, col, edgeLevel, farLevel * (q.bloom ? 1 : 0.2));
+     (this.softKeep.uniforms.uCol.value as Vector2).set(col, VFX.background.focus);
+ 
+     // DOM colours and opacities are read in their normal state, then the GPU representation takes over again
+@@ -378,6 +396,7 @@ export class VfxEngine {
+     g.setAttribute('bary', new BufferAttribute(barycentric(t.faces), 3));
+     g.setAttribute('face', new BufferAttribute(t.face, 4));
+     g.setAttribute('edge', new BufferAttribute(t.edge, 3));
++    g.setAttribute('rock', new BufferAttribute(t.rock, 1));
+     const energy = new BufferAttribute(new Float32Array(t.faces * 6), 2);
+     energy.setUsage(DynamicDrawUsage);
+     g.setAttribute('energy', energy);
+@@ -799,7 +818,7 @@ export class VfxEngine {
+   }
+ 
+   private render(emissive: boolean) {
+-    const r = this.renderer, g = this.globals;
++    const r = this.renderer, g = this.globals, P = VFX.post;
+     this.renderDirty = false;
+     // off-screen surfaces are skipped entirely
+     const top = this.scroll.y - 80, bottom = this.scroll.y + this.viewH + 80;
+@@ -812,19 +831,28 @@ export class VfxEngine {
+     });
+     const bloom = this.profile().bloom;
+     g.uEmissive.value = 0;
+-    r.setRenderTarget(null);
++    // the frame, in high precision: the sheet, its depth of field behind the column, then the content and its energy
++    r.setRenderTarget(this.rtMain);
+     r.clear();
+     r.render(this.bgScene, this.camera);
+     if (bloom) this.softenBackground();
+     r.render(this.scene, this.camera);
+-    if (!emissive || !energy || !bloom) return;
+-    g.uEmissive.value = 1;
+-    r.setRenderTarget(this.rtE); r.clear(); r.render(this.bgScene, this.camera); r.render(this.scene, this.camera);
+-    g.uEmissive.value = 0;
+-    // two separable passes, the second twice as wide: a smooth falloff with no stepped edges once scaled up
+-    this.blurPasses(this.rtE, [1, 2]);
+-    this.fsMesh.material = this.composite;
+-    this.composite.uniforms.uTex.value = this.rtB.texture;
++    const glow = emissive && energy && bloom;
++    if (glow) {
++      g.uEmissive.value = 1;
++      r.setRenderTarget(this.rtE); r.clear(); r.render(this.bgScene, this.camera); r.render(this.scene, this.camera);
++      g.uEmissive.value = 0;
++      // two separable passes, the second twice as wide: a smooth falloff with no stepped edges once scaled up
++      this.blurPasses(this.rtE, [1, 2]);
++      // the anamorphic streak: the emission stretched along the horizontal only, at a quarter of the size
++      this.blurPass(this.rtE, this.rtS1, 2, 0); this.blurPass(this.rtS1, this.rtS2, 5, 0); this.blurPass(this.rtS2, this.rtS1, 14, 0);
++    }
++    // the grade, once, to the screen
++    const u = this.grade.uniforms;
++    (u.uMix.value as Vector4).set(glow ? VFX.bloom.strength : 0, glow ? P.streak : 0, P.vignette, P.grain);
++    (u.uLens.value as Vector2).set(bloom ? P.aberration * r.getPixelRatio() : 0, P.shoulder);
++    u.uFrame.value = this.reduced ? 0 : Math.floor(this.clock * 24) % 4096;
++    this.fsMesh.material = this.grade;
+     r.setRenderTarget(null); r.render(this.post, this.camera);
+   }
+ 
+@@ -859,13 +887,13 @@ export class VfxEngine {
+       this.blurPasses(this.rtE, B.med, this.rtMed);
+       this.blurPasses(this.rtMed, B.big, this.rtBig);
+     }
+-    // only the column and its edge are touched
+-    const gl = r.getContext(), W = gl.drawingBufferWidth, H = gl.drawingBufferHeight, dpr = r.getPixelRatio();
++    // only the column and its edge are touched (the target's own scissor, in its pixels)
++    const t = this.rtMain, W = t.width, H = t.height;
+     const half = Math.min(W / 2, bu.y * 1.06 * W);
+-    r.setRenderTarget(null);
+-    r.setScissorTest(true); r.setScissor((W / 2 - half) / dpr, 0, (half * 2) / dpr, H / dpr);
++    t.scissor.set(Math.floor(W / 2 - half), 0, Math.ceil(half * 2), H); t.scissorTest = true;
++    r.setRenderTarget(t);
+     this.fsMesh.material = this.softKeep; r.render(this.post, this.camera);
+     this.fsMesh.material = this.softAdd; r.render(this.post, this.camera);
+-    r.setScissorTest(false);
++    t.scissorTest = false; r.setRenderTarget(t);
+   }
+ }
+diff --git a/src/vfx/geometry.ts b/src/vfx/geometry.ts
+index 801dc14..6e7bc8a 100644
+--- a/src/vfx/geometry.ts
++++ b/src/vfx/geometry.ts
+@@ -144,6 +144,8 @@ export interface Arch extends CellNetwork {
+   face: Float32Array;
+   /** Per vertex: ridge light of the edges opposite vertex 0, 1, 2 (same on the three vertices of a face). */
+   edge: Float32Array;
++  /** Per rendered vertex: height within its block of obsidian, 0 in the crack between blocks .. 1 at its crest. */
++  rock: Float32Array;
+   centroid: Float32Array;
+   depth: Float32Array;
+   zNear: number; zFar: number;
+@@ -152,6 +154,44 @@ export interface Arch extends CellNetwork {
+   border: number;
+ }
+ 
++/**
++ * Blocks of obsidian on the sheet: a cellular field over the sampled points. A share of the points become the centres of
++ * blocks a few cells wide; every point takes its height from the two nearest centres, measured in local cells (so blocks
++ * keep their size in cells at every depth): 0 on the crack between two blocks, 1 on the crest. Each block has its own
++ * height and leans its own way, so its facets turn to different angles and catch the light one by one.
++ */
++export function rockField(pts: ArrayLike<number>, cellAt: (s: number) => number, seed: number) {
++  const [spacing, profile, lean] = VFX.background.rock;
++  const n = pts.length / 2, rnd = mulberry(seed ^ 0x6f0c);
++  const centres: { s: number; y: number; h: number; tx: number; ty: number }[] = [];
++  const share = 1 / (spacing * spacing * 0.95);
++  for (let i = 0; i < n; i++) if (rnd() < share) {
++    const a = rnd() * 6.283;
++    centres.push({ s: pts[i * 2], y: pts[i * 2 + 1], h: 0.55 + 0.9 * rnd(), tx: Math.cos(a) * lean * rnd(), ty: Math.sin(a) * lean * rnd() });
++  }
++  centres.sort((a, b) => a.s - b.s);
++  const lift = new Float32Array(n), rock = new Float32Array(n);
++  for (let i = 0; i < n; i++) {
++    const s = pts[i * 2], y = pts[i * 2 + 1], c = cellAt(s), win = c * spacing * 2.2;
++    let lo = 0, hi = centres.length;
++    while (lo < hi) { const m = (lo + hi) >> 1; if (centres[m].s < s - win) lo = m + 1; else hi = m; }
++    let d1 = Infinity, d2 = Infinity, best = -1;
++    for (let k = lo; k < centres.length && centres[k].s <= s + win; k++) {
++      const dy = centres[k].y - y;
++      if (Math.abs(dy) > win) continue;
++      const d = Math.hypot(centres[k].s - s, dy) / c;
++      if (d < d1) { d2 = d1; d1 = d; best = k; } else if (d < d2) d2 = d;
++    }
++    if (best < 0) continue;
++    if (!Number.isFinite(d2)) d2 = d1 + spacing;
++    const r = Math.pow(Math.min(1, (d2 - d1) / (d2 + d1) * 2.2), profile);
++    const b = centres[best], ds = (s - b.s) / c, dy = (y - b.y) / c;
++    rock[i] = r;
++    lift[i] = r * b.h * (1 + (ds * b.tx + dy * b.ty) * 0.5);
++  }
++  return { lift, rock };
++}
++
+ /**
+  * Background: one arched sheet, its axis vertical and parallel to the screen, still.
+  * Seen from the front, the two sides come close to the frame and recede toward the centre, where the sheet lies far
+@@ -226,7 +266,8 @@ export function buildArch(aspect: number, viewH: number, seed = 20240611, scale
+   }
+   const d = new Delaunator(Float64Array.from(pts));
+   const tri = d.triangles, faces = tri.length / 3, points = pts.length / 2;
+-  // lift to 3D and push along the sheet's normal: peaks and valleys
++  const height = rockField(pts, s => cellAt(zAt(uOf(Math.abs(s)))), seed);
++  // lift to 3D and push along the sheet's normal: blocks of obsidian standing out of the sheet, cracks between them
+   const P = new Float32Array(points * 3);
+   for (let i = 0; i < points; i++) {
+     const s = pts[i * 2], y = pts[i * 2 + 1], side = Math.sign(s) || 1;
+@@ -238,7 +279,9 @@ export function buildArch(aspect: number, viewH: number, seed = 20240611, scale
+     let nx = -tz / l, nz = tx / l;
+     const x0 = side * u * z * T * aspect;
+     if (nx * -x0 * side + nz * z < 0) { nx = -nx; nz = -nz; }
+-    const relief = (rnd() - 0.45) * B.relief * cellAt(z);
++    // past the frame the blocks flatten out: off screen, they would only come close to the camera and loom
++    const taper = u > 1 ? Math.max(0.3, 1 - (u - 1) * 2.8) : 1;
++    const relief = (height.lift[i] + (rnd() - 0.5) * 0.08) * B.relief * cellAt(z) * taper;
+     P[i * 3] = x0 + side * nx * relief; P[i * 3 + 1] = y + (rnd() - 0.5) * 0.2 * cellAt(z); P[i * 3 + 2] = -(z - nz * relief);
+   }
+   const t = tables(tri, faces, points);
+@@ -271,6 +314,7 @@ export function buildArch(aspect: number, viewH: number, seed = 20240611, scale
+     return 0;
+   };
+   const position = new Float32Array(faces * 9), face = new Float32Array(faces * 12), edgeArr = new Float32Array(faces * 9);
++  const rock = new Float32Array(faces * 3);
+   const vertexOf = new Uint32Array(faces * 3), depth = new Float32Array(faces), seeds = new Float32Array(faces);
+   const cond = new Float32Array(faces), weight = new Float32Array(faces);
+   const span = Math.log(zF / zN);
+@@ -284,14 +328,14 @@ export function buildArch(aspect: number, viewH: number, seed = 20240611, scale
+     weight[f] = 0.3 + 0.7 * (1 - dn);   // every face can answer, the near ones first
+     for (let k = 0; k < 3; k++) {
+       const v = tri[f * 3 + k], o = f * 3 + k;
+-      vertexOf[o] = v;
++      vertexOf[o] = v; rock[o] = height.rock[v];
+       position.set([P[v * 3], P[v * 3 + 1], P[v * 3 + 2]], o * 3);
+       face.set([sd, gloss, sheen, dn], o * 4);
+       edgeArr.set(e, o * 3);
+     }
+   }
+   return {
+-    faces, points, position, face, edge: edgeArr, centroid: cen, depth, zNear: zN, zFar: zF, open: t.open, border: d.hull.length,
++    faces, points, position, face, edge: edgeArr, rock, centroid: cen, depth, zNear: zN, zFar: zF, open: t.open, border: d.hull.length,
+     cx: new Float32Array(faces), cy: new Float32Array(faces), nbStart: t.nbStart, nb: t.nb, cond, weight, seed: seeds,
+     vertexOf, pfStart: t.pfStart, pf: t.pf,
+   };
+diff --git a/src/vfx/shaders.ts b/src/vfx/shaders.ts
+index d99148a..fd4d0f9 100644
+--- a/src/vfx/shaders.ts
++++ b/src/vfx/shaders.ts
+@@ -132,12 +132,13 @@ in vec3 bary;
+ in vec4 face;                 // seed, gloss, sheen edge, depth
+ in vec3 edge;                 // ridge light of the three edges
+ in vec2 energy;               // face, smoothed vertex
++in float rock;                // height within its block: 0 in the crack, 1 on the crest
+ uniform mat4 modelViewMatrix;
+ uniform mat4 projectionMatrix;
+-out vec3 vPos; out vec3 vBary; flat out vec4 vFace; flat out vec3 vEdge; flat out float vE; out float vEv;
++out vec3 vPos; out vec3 vBary; flat out vec4 vFace; flat out vec3 vEdge; flat out float vE; out float vEv; out float vRock;
+ void main(){
+   vec4 mv=modelViewMatrix*vec4(position,1.);   // the sheet is still: only light moves on it
+-  vPos=mv.xyz; vBary=bary; vFace=face; vEdge=edge; vE=energy.x; vEv=energy.y;
++  vPos=mv.xyz; vBary=bary; vFace=face; vEdge=edge; vE=energy.x; vEv=energy.y; vRock=rock;
+   gl_Position=projectionMatrix*mv;
+ }`;
+ 
+@@ -155,8 +156,20 @@ uniform float uFall;          // light falloff with distance
+ uniform vec4 uGloss;          // broad sheen: strength, exponent, share on the ridge lines; faint level of every edge
+ uniform vec4 uBand;           // drawing-buffer width (px), layout column half-width (0..0.5 of the width), level at the column edge, far cells behind it
+ uniform vec3 uRim;            // foreground ridge highlights: strength, depth reach, selectivity
+-in vec3 vPos; in vec3 vBary; flat in vec4 vFace; flat in vec3 vEdge; flat in float vE; in float vEv;
++uniform vec4 uEnv;            // obsidian: overhead softbox and strips, far light at the end of the tunnel, Fresnel F0, surface flecks
++uniform vec4 uKey;            // a soft light from above (direction, camera space; strength): it shapes every block, crest lit, underside dark
++in vec3 vPos; in vec3 vBary; flat in vec4 vFace; flat in vec3 vEdge; flat in float vE; in float vEv; in float vRock;
+ out vec4 o;
++/*
++ * The still studio the black glass reflects, symmetric about the tunnel's axis: a long softbox overhead, two thin strip
++ * lights across the tunnel (crisp lines that sweep across the facets), the light at the far end of the tunnel.
++ */
++float studio(vec3 r){
++  float top=smoothstep(.04,.6,r.y)*(.55+.45*smoothstep(.6,.9,r.y));
++  float strips=exp(-pow((r.y-.3)/.04,2.))+.55*exp(-pow((r.y+.2)/.03,2.));
++  float far=pow(max(-r.z,0.),5.);
++  return (top*.45+strips*smoothstep(-.3,.5,-r.z))*uEnv.x+far*uEnv.y;
++}
+ void main(){
+   vec3 n=normalize(cross(dFdx(vPos),dFdy(vPos)));
+   vec3 v=normalize(-vPos);
+@@ -164,32 +177,44 @@ void main(){
+   float seed=vFace.x, gloss=vFace.y;
+   float h1=h11(seed*3.1), h2=h11(seed*5.7), h3=h11(seed*13.3);
+   float depth=clamp(log(max(-vPos.z,1e-3)/uZ.x)/log(uZ.y/uZ.x),0.,1.);
+-  // grazing light: point lights inside the tunnel rake along the walls; flat faces turn it into sheens and edges
++  float calm=1.-smoothstep(.3,.8,depth);
++  // the cracks between blocks hold the dark: light reaches them last (occlusion), the crests first
++  float occ=mix(.28,1.,smoothstep(0.,.42,vRock));
++  // point lights inside the tunnel, on its axis: they rake along the walls, symmetric
+   float spec=0., diff=0., hi=0., broad=0.;
+   for(int k=0;k<3;k++){
+     vec3 L=uLight[k].xyz-vPos; float d=length(L); L/=d;
+     float fall=uLight[k].w/(1.+d*d*uFall);
+     diff+=max(dot(n,L),0.)*fall;
+     float nh=max(dot(n,normalize(L+v)),0.);
+-    float s=pow(nh,mix(18.,90.,k==0?h1:h2))*fall;
++    float s=pow(nh,mix(40.,220.,k==0?h1:h2))*fall;           // obsidian: sharp, small highlights
+     spec+=s; hi=max(hi,s); broad+=pow(nh,uGloss.y)*fall;
+   }
+   float be=vFace.z<.5?vBary.x:(vFace.z<1.5?vBary.y:vBary.z);
+   float sweep=exp(-be*mix(2.2,6.5,h3));                    // light raking off the brightest ridge into the face
+-  // graphite: a dull body, a broad sheen that shapes every facet, a sharp gloss on some of them
+-  // deep in the centre the sheet is seen edge-on: its facets turn to thin slivers, so gloss and ridge lines fade out
+-  // there and only the graphite remains; behind the content the field is calm
+-  float calm=1.-smoothstep(.3,.8,depth);
+-  // graphite, dark: a dull body, a strong sheen on the few glossy facets (raking off their brightest ridge),
+-  // a faint broad sheen that shapes the others. Deep in the centre the facets turn edge-on: gloss and lines fade out
+-  float g=uShade.x*(.35+.65*h3*h3)+uShade.y*diff*(.4+.6*h2)
+-         +(uShade.z*spec*gloss*gloss+uGloss.x*broad*(.5+.5*h1))*(.12+.88*sweep)*mix(.2,1.,calm);
++  // surface: black glass with a graphite grain. Flecks and fine conchoidal marks break the reflections up a little
++  vec3 wp=vPos*(64./(1.+depth*3.));
++  float fleck=vnoise(wp.xy+wp.z*1.7+seed*40.)*.45+vnoise(wp.yz*3.1+seed*13.)*.35+vnoise(wp.xz*7.3-seed*7.)*.2;
++  fleck=mix(1.,.6+.8*fleck,uEnv.w*calm);
++  // obsidian: what the faces reflect, stronger at grazing angles (Fresnel); every face is glossy, some are mirrors
++  float ndv=max(dot(n,v),0.);
++  float F=uEnv.z+(1.-uEnv.z)*pow(1.-ndv,4.);
++  vec3 r=reflect(-v,n);
++  float mirror=(.35+.65*gloss)*fleck;
++  float refl=studio(r)*F*mirror;
++  // graphite: a dull body and a broad sheen that shapes every facet; obsidian: sharp highlights on the glossy ones
++  float key=max(dot(n,normalize(uKey.xyz)),0.);
++  float g=uShade.x*(.35+.65*h3*h3)+uShade.y*diff*(.4+.6*h2)+uKey.w*key*key*(.6+.4*h1)
++         +(uShade.z*spec*gloss*gloss*fleck+uGloss.x*broad*(.5+.5*h1))*(.12+.88*sweep)*mix(.2,1.,calm)
++         +refl*mix(.35,1.,calm);
++  g*=occ;
+   float l0=aa(vBary.x)*vEdge.x, l1=aa(vBary.y)*vEdge.y, l2=aa(vBary.z)*vEdge.z;
+-  g+=(l0+l1+l2)*(uGloss.w*mix(.3,1.,calm)+uShade.w*(hi*(.35+.65*gloss)+broad*uGloss.z)*calm);   // ridges catch the light, valleys stay dark
++  // the edges of the blocks are glass: a thin line that lights where it catches a highlight or the studio
++  g+=(l0+l1+l2)*(uGloss.w*mix(.3,1.,calm)+uShade.w*(hi*(.35+.65*gloss)+broad*uGloss.z+refl*1.6)*calm)*occ;
+   // foreground: only the sharpest ridges of the nearest faces light up, a thin cold line on a dark body
+   float near=1.-smoothstep(0.,uRim.y,depth);
+   float r0=aa(vBary.x)*pow(vEdge.x,uRim.z), r1=aa(vBary.y)*pow(vEdge.y,uRim.z), r2=aa(vBary.z)*pow(vEdge.z,uRim.z);
+-  g+=(r0+r1+r2)*uRim.x*near*(.45+.55*sweep);
++  g+=(r0+r1+r2)*uRim.x*near*(.45+.55*sweep)*occ;
+   g=1.-exp(-g);                                             // highlights roll off instead of clipping to flat white
+   float fog=exp(-pow(depth*uFog,1.6));                      // smaller and darker with depth
+   // vertical bands: bright at the frame, darkest at the edge of the layout column
+@@ -197,27 +222,30 @@ void main(){
+   fog*=fx>cb ? mix(uBand.z,1.,pow(smoothstep(cb,.5,fx),.85)) : uBand.z;
+   float d=mix(1.-vFace.w,h2,.45);
+   float appear=smoothstep(d-.12,d+.12,uLoad*1.25-.1);
+-  vec3 col=vec3(g)*vec3(.96,.975,1.)*fog*appear;
++  // cool black glass: the reflections a touch colder than the body
++  vec3 col=vec3(g)*vec3(.955,.97,1.)*fog*appear;
+   // behind the column: the small far cells, drawn faintly by their edges and a hint of their facets (then out of focus)
+   float inner=fx<cb?smoothstep(cb,cb*.4,fx):0.;
+   float mesh=min(aa(vBary.x)+aa(vBary.y)+aa(vBary.z),1.);
+-  col+=vec3(.95,.97,1.)*uBand.w*inner*appear*(mesh*(.3+.7*h1)+.22*h3);
++  col+=vec3(.95,.97,1.)*uBand.w*inner*appear*(mesh*(.3+.7*h1)+.22*h3)*occ;
+ 
+   vec3 em=vec3(0.);
+   if(vE+vEv>.004){
+-    // energy: the face inherits amber from its ridge and from its hottest corners; edges carry the brightest line
++    // energy: it comes up through the cracks between the blocks and runs along their edges; a face is only warmed
+     float sw=exp(-be*3.);
+     float lines=(aa(vBary.x)+aa(vBary.y)+aa(vBary.z));
+     float x=clamp(.5*vE+.8*vEv,0.,1.);
++    float crack=1.-smoothstep(0.,.4,vRock);
+     // a large near face never fills with amber: the energy runs along its edges and only warms the face (amber is an event)
+-    em=ramp(x*(.5+.5*sw))*x*(.3+.62*sw)*1.6*mix(.35,1.,smoothstep(.05,.45,depth));
++    em=ramp(x*(.5+.5*sw))*x*(.22+.45*sw)*1.4*mix(.35,1.,smoothstep(.05,.45,depth))*mix(.45,1.,crack);
++    em+=ramp(.55+.4*vEv)*crack*crack*vEv*1.5;              // the glow of the cracks
+     em+=ramp(.68+.32*vEv)*((l0+l1+l2)*1.5+lines*.45)*vEv*2.;
+     em+=ramp(.3)*spec*gloss*vE*.5;
+     em*=mix(.55,1.,fog)*appear;
+     em*=mix(.45,1.,smoothstep(cb*.7,cb,fx));                // behind the layout column the reaction carries on, softer (and blurred)
+   }
+   if(uEmissive>.5){ o=vec4(em,1.); return; }
+-  col+=uBase+em+(h21(gl_FragCoord.xy)-.5)/255.;
++  col+=uBase+em;                                            // dithering happens once, in the final grade
+   if(uAlpha>.5){ float a=clamp(max(max(col.r,col.g),col.b)*7.,0.,1.); o=vec4(col*a,a); }
+   else o=vec4(col,1.);
+ }`;
+@@ -291,7 +319,8 @@ void main(){
+   float inside=uPanel>.5?1.-smoothstep(-.7,.3,sd):1.;
+   vec4 col=uPanel>.5?vec4(uPanelCol.rgb,1.)*uPanelCol.a*inside:vec4(0.);
+   vec3 ph=photo(p,inside);
+-  col.rgb=mix(col.rgb,vec3(ph.x),ph.y);
++  // the photographs are objects on black: they light the void panel (the brighter of the two), so no box ever shows
++  col.rgb=max(col.rgb,vec3(ph.x)*ph.y);
+   col.rgb*=1.-ph.z;
+   if(uPanel>.5){
+     float frame=1.-smoothstep(0.,1.,abs(sd+.7)-.15);
+@@ -375,8 +404,9 @@ void main(){
+   //     A neighbour in range warms a little, on the side facing the pointer
+   float lift=clamp(uHover*.72+Ev*.8,0.,1.)*uGain+uNear*.32*exp(-dot(dp,dp)/(uWake.x*uWake.x*2.6));
+   float gA=ia*min(lift*(1.+.35*uOwn),1.)*(1.-ph.z*.5)*smoothstep(.015,.12,lum);   // black stays black: no visible image box
+-  float l=pow(lum,.9);
+-  vec3 graded=ramp(clamp(l*1.45+.14,0.,1.))*(l*2.5);
++  // contained: the light lives on the crests of the object, its brightest core never burns out
++  float l=pow(lum,1.05);
++  vec3 graded=ramp(clamp(l*1.12+.1,0.,.84))*(l*1.7);
+   graded*=1.+E*(.24*sweep-.08+.18*(h-.5));                 // each lit cell grades a little differently
+   graded=mix(graded,phRGB*(.94+.3*E*sweep),uOwn);
+ 
+@@ -389,9 +419,10 @@ void main(){
+   vec2 dc=vCentre-uPointer.xy;
+   float wake=uHover*uGain*(uWake.z+(1.-uWake.z)*exp(-dot(dc,dc)/(uWake.x*uWake.x)))+uNear*uWake.w*exp(-dot(dc,dc)/(uWake.y*uWake.y));
+   float beat=.62+.38*sin(uTime*(.22+.3*h)+h2*6.283)*uMotion;
+-  float L=clamp(vis*wake*beat*uTopo+E*(.3+.7*max(vis,.3)),0.,1.);
++  // no still field of triangles: they show where the reaction passes and close to the pointer, nowhere else
++  float L=clamp(vis*wake*beat*uTopo+E*(.45+.8*max(vis,.35)),0.,1.);
+   float sat=.3+.7*h2;                                        // some cells deep amber, others close to neutral
+-  float fA=inside*L*(.05+.24*h)*(.3+.7*sweep)*(1.-ia*.4);
++  float fA=inside*L*(.05+.24*h)*(.3+.7*sweep)*(1.-ia*.4*smoothstep(.04,.3,lum));   // the object, not its box
+   vec3 facet=ramp(.24+.44*L*sweep);
+   facet=mix(vec3(dot(facet,vec3(.3333))),facet,sat)*(.45+.9*sweep);
+   float edges=aa(vBary.x)*step(.45,h2)+aa(vBary.y)*step(.45,h3)+aa(vBary.z)*step(.45,h);
+@@ -409,7 +440,7 @@ void main(){
+   c.rgb+=wire;
+   // type and icons are drawn once, by the content pass: light never covers them (and never thickens them)
+   c*=(1.-ink.a)*vFade;
+-  if(uEmissive>.5){ o=vec4((graded*gA*smoothstep(.3,.85,lum)*.85+facet*fA*.7+wire)*(1.-ink.a)*vFade+glow,0.); return; }
++  if(uEmissive>.5){ o=vec4((graded*gA*smoothstep(.4,.9,lum)*.4+facet*fA*.7+wire)*(1.-ink.a)*vFade+glow,0.); return; }
+   o=vec4(c.rgb+glow,c.a);
+ }`;
+ 
+@@ -429,6 +460,7 @@ uniform float uGain;
+ uniform float uHover;         // 0..1, eased
+ uniform vec3 uPointer;        // local px, range of the pointer (px)
+ uniform float uMicro;         // px, micro-lattice inside the glyphs
++uniform float uLoad;
+ in vec2 vLocal; in vec3 vBary; flat in vec4 vCell; flat in float vE; in float vEv; in float vFade;
+ out vec4 o;
+ /* px from the nearest outline: negative inside a letter; beyond the texture, the distance to it is added */
+@@ -447,12 +479,14 @@ vec3 amberOf(float lum){
+ }
+ void main(){
+   vec2 p=vLocal;
+-  // two levels: on hover the whole block takes its amber gradient (base); the cells the range reaches and the
+-  // reaction they start go warm yellow, with orange facets and a lattice inside the letters (local). Never a disc
+-  float base=uHover*uGain*(.96+.04*sin(uTime*.8+p.x*.0025)*uMotion);
++  // two levels: on hover the whole block takes its amber gradient (base) and a golden lattice inside the letters; the
++  // cells the range reaches and the reaction they start go warm yellow, the lattice denser there (local). Never a disc
++  float base=clamp(uHover*uGain,0.,1.)*(.96+.04*sin(uTime*.8+p.x*.0025)*uMotion);
+   float local=clamp(vEv*1.12+vE*.32,0.,1.15);
+-  float level=max(base,local);
+-  if(level<.01) discard;
++  // the warmth of the block decides everything: leaving, the whole look desaturates back into the idle gradient as one
++  // piece (never cell by cell, never an overlay fading out). While the page builds, a few cells flash as they join
++  float W=max(base,local*clamp((1.-uLoad)*3.,0.,1.)*.8);
++  if(W<.004) discard;
+   float sd=sdAt(p);
+   if(sd>uRange) discard;
+   vec2 uv=p/uSize;
+@@ -464,28 +498,31 @@ void main(){
+   // in range: warm yellow, paler at the top, deeper toward the base; it climbs from the base as the range grows
+   float fill=smoothstep(t-.3,t+.06,local*1.05);
+   vec3 hot=t>.5?mix(uHot[1],uHot[0],(t-.5)*2.):mix(uHot[2],uHot[1],t*2.);
+-  // micro-facets of mixed sizes inside the reached letters, switched on and off slowly: the orange accents
++  // micro-facets of mixed sizes inside the letters, switched on and off slowly: across the block on hover, denser and
++  // brighter where the range is
++  float reach=max(local,base*.5);
+   Tri m=tri(toL(p,uMicro),vec2(.62,.42));
+   float mh=h11(m.id*5.1), mh2=h11(m.id*9.7);
+   float th=.18+.6*mh*mh+.05*sin(uTime*(.16+.4*mh2)+mh*40.)*uMotion;
+-  float lit=smoothstep(th,th+.16,local)*step(.2,mh2);
+-  vec3 facet=mix(ramp(.4+.22*local*mh),hot,.25+.3*h11(m.id*2.7))*(.8+.35*h11(m.id*4.3)-.15*m.b.y);
++  float lit=smoothstep(th,th+.16,reach)*step(.2,mh2);
++  vec3 facet=mix(ramp(.4+.22*reach*mh),hot,.25+.3*h11(m.id*2.7))*(.8+.35*h11(m.id*4.3)-.15*m.b.y);
+   float wire=(1.-smoothstep(0.,1.,m.edge*uMicro*.8))*step(.45,h11(m.id*11.3));
+-  vec3 col=mix(idle,amber,clamp(base,0.,1.));
++  vec3 col=amber;
+   col=mix(col,hot,fill);
+-  col=mix(col,facet,lit*.55);
++  col=mix(col,facet,lit*mix(.4,.55,clamp(local,0.,1.)));
+   col=mix(col,vec3(1.,.9,.74),wire*lit*.3);
+-  // the overlay replaces the base pass's type where it shows (never adds coverage: the weight stays the same)
+-  float k=clamp(max(base,max(fill,lit*.85)),0.,1.)*vFade;
++  col=mix(idle,col,W);
++  // the overlay replaces the base pass's type wherever the ink is (never adds coverage: the weight stays the same)
++  float k=vFade;
+   // warm light that follows each letter: a rim just inside the outline where the energy is, a soft glow outside
+-  float g=clamp(local*1.1+base*.15,0.,1.)*vFade;
++  float g=clamp(local*1.1+base*.4,0.,1.)*vFade*W;
+   float rim=a*exp(-max(-sd,0.)/(uEm*.02));
+   float outer=(1.-a)*exp(-max(sd,0.)/(uEm*.045))*(1.-smoothstep(uRange*.5,uRange,sd));
+-  vec3 rimC=ramp(.56+.2*g)*rim*local*vFade*.6;
+-  vec3 glow=ramp(.42+.2*g)*outer*(.04+.17*g)*vFade;
+-  // bloom: a touch of brilliance from the reached letters and their rim, held low
+-  if(uEmissive>.5){ o=vec4((hot*a*fill*.09+facet*a*lit*.07)*vFade+rimC*.24+glow*.3,0.); return; }
+-  o=vec4(col*a*k+rimC*k+glow,k*min(1.,a*8.)+outer*(.05+.18*g)*vFade);
++  vec3 rimC=ramp(.56+.2*g)*rim*local*vFade*.6*W;
++  vec3 glow=ramp(.42+.2*g)*outer*(.04+.17*g)*vFade*W;
++  // bloom: a touch of brilliance from the reached letters, the lattice and their rim, held low
++  if(uEmissive>.5){ o=vec4(((hot*a*fill*.09+facet*a*lit*.07)*vFade+rimC*.24+glow*.3)*W,0.); return; }
++  o=vec4(col*a*k+rimC*k+glow,k*min(1.,a*8.)+outer*(.05+.18*g)*vFade*W);
+ }`;
+ 
+ /* ------------------------------------------------------------------ particles */
+@@ -564,3 +601,46 @@ void main(){
+   if(uPass<.5){ o=vec4(0.,0.,0.,1.-sharp); return; }
+   o=texture(uMed,vUv)*med+texture(uBig,vUv)*big;
+ }`;
++
++/**
++ * The final grade: one pass from the HDR frame to the screen. Bloom and a warm horizontal streak are added where there is
++ * energy; highlights roll off above the shoulder (the type below it keeps its exact colour); a slight chromatic
++ * aberration toward the frame, vignette at the corners, fine film grain (none on pure black) and dithering last.
++ */
++export const GRADE_FRAG = /* glsl */ `
++precision highp float;
++uniform sampler2D uScene;
++uniform sampler2D uBloom;
++uniform sampler2D uStreak;
++uniform vec2 uRes;            // drawing buffer, px
++uniform vec4 uMix;            // bloom, streak, vignette, grain
++uniform vec2 uLens;           // chromatic aberration at the corners (px), shoulder
++uniform float uFrame;         // grain frame (24 steps a second), fixed with reduced motion
++in vec2 vUv; out vec4 o;
++float ign(vec2 p){ return fract(52.9829189*fract(dot(p,vec2(.06711056,.00583715)))); }
++float hash(vec2 p){ vec3 p3=fract(vec3(p.xyx)*.1031); p3+=dot(p3,p3.yzx+33.33); return fract((p3.x+p3.y)*p3.z); }
++vec3 shoulder(vec3 c){
++  float k=uLens.y;
++  vec3 over=max(c-k,0.);
++  return min(c,vec3(k))+(1.-k)*(1.-exp(-over/(1.-k)));
++}
++void main(){
++  vec2 c=vUv-.5, asp=vec2(uRes.x/uRes.y,1.);
++  float r=length(c*asp)/length(.5*asp);                  // 0 centre .. 1 corner
++  vec4 s=texture(uScene,vUv);
++  if(uLens.x>0.){
++    vec2 off=normalize(c+1e-6)*uLens.x*smoothstep(.45,1.,r)*r/uRes;
++    s.r=texture(uScene,vUv+off).r; s.b=texture(uScene,vUv-off).b;
++  }
++  vec3 col=s.rgb;
++  if(uMix.x>0.) col+=texture(uBloom,vUv).rgb*uMix.x;
++  if(uMix.y>0.) col+=texture(uStreak,vUv).rgb*vec3(1.,.82,.62)*uMix.y;
++  col=shoulder(col);
++  col*=1.-uMix.z*smoothstep(.42,1.05,r)*smoothstep(.42,1.05,r);
++  float l=dot(col,vec3(.299,.587,.114));
++  float grain=(hash(gl_FragCoord.xy+vec2(uFrame*17.31,uFrame*-9.73))-.5)*2.;
++  col+=(grain*uMix.w*smoothstep(.004,.12,l)*(1.-.6*l)+(ign(gl_FragCoord.xy+uFrame*5.588)-.5)/255.)*s.a;   // nothing on a transparent pixel
++  float a=s.a;
++  if(a<1.) a=clamp(max(a,max(col.r,max(col.g,col.b))),0.,1.);
++  o=vec4(max(col,0.),a);
++}`;
+diff --git a/src/vfx/vfx.css b/src/vfx/vfx.css
+index e2561dd..45ce955 100644
+--- a/src/vfx/vfx.css
++++ b/src/vfx/vfx.css
+@@ -3,7 +3,7 @@
+ 
+ .vfx-canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; pointer-events: none; }
+ main { z-index: 1; }
+-html { background: #070708; }
++html { background: #020202; }
+ html[data-memento-surface='transparent'] { background: transparent; }
+ 
+ /* Before the engine is live the page waits in black (failsafe in index.html: 3 s). */
+@@ -45,8 +45,8 @@ main :focus-visible { scroll-margin-block: 20vh; }
+  */
+ :root {
+   /* the amber title gradient (VFX.color.titleAmber) desaturated: same luminance, no hue */
+-  --title-gradient: linear-gradient(0deg, #838383 0%, #999999 12%, #b4b4b4 24%, #d3d3d3 42%, #ebebeb 60%, #f2f2f2 100%);
+-  --category-gradient: linear-gradient(0deg, #838383 0%, #999999 12%, #b4b4b4 24%, #d3d3d3 42%, #ebebeb 60%, #f2f2f2 100%);
++  --title-gradient: linear-gradient(0deg, #838383 0%, #9c9c9c 9%, #bfbfbf 20%, #dfdfdf 32%, #f2f2f2 44%, #f2f2f2 100%);
++  --category-gradient: linear-gradient(0deg, #838383 0%, #9c9c9c 9%, #bfbfbf 20%, #dfdfdf 32%, #f2f2f2 44%, #f2f2f2 100%);
+   --frame-gradient: linear-gradient(135deg, #d6d5d2c7 0%, #a3a29f66 27%, #6b6a6857 62%, #7b7a7875 83%, #b9b8b5cc 100%);
+ }
+ /* Titles: tighter lines, so one gradient runs over the whole block (light above, shade at the base). */
+-- 
+2.43.0
+
