@@ -33,23 +33,24 @@ Due corollari dalle tavole: *fermo non significa assente* (a cursore fermo c'è 
 
 ## Sezioni
 
-1. `materia.md`: il foglio d'ossidiana, i blocchi, le celle, le luci, la prospettiva.
-2. `energia.md`: la reazione a catena, i tre livelli, il range, le sorgenti, il budget d'ambra.
-3. `luce-e-incandescenza.md`: luce dei bordi, glow dei testi, bloom.
-4. `tipografia.md`: gradiente di quiete, base attiva, range, interlinea.
-5. `immagini-e-mappa.md`: grading delle foto, produzione delle immagini, la mappa.
-6. `struttura-e-scroll.md`: le fasce, il caricamento, la deriva, prima e ultima schermata.
-7. `movimento.md`: tempi e curve, tutti in una tabella.
-8. `interazione-e-accessibilita.md`: puntatore, touch, tastiera, reduced motion, profili di qualità.
-9. `applicazione-alle-pagine.md`: cosa resta fisso e cosa cambia su navigation, servizi, Portfolio, levelup.
-10. `tavole.md`: quali tavole del concept sono canoniche e quali superate.
-11. `codice.md`: dove vive ogni costante, come si registra una superficie, checklist per una nuova pagina.
+1. `materia.md`: l'ossidiana, i blocchi, le celle, le luci, la prospettiva.
+2. `sfondo.md`: il mondo d'ossidiana (V22), plate, profondità di campo, fuoco, glow, scroll.
+3. `energia.md`: la reazione a catena, i tre livelli, il range, le sorgenti, il budget d'ambra.
+4. `luce-e-incandescenza.md`: luce dei bordi, glow dei testi, bloom.
+5. `tipografia.md`: gradiente di quiete, base attiva, range, interlinea.
+6. `immagini-e-mappa.md`: grading delle foto, produzione delle immagini, la mappa.
+7. `struttura-e-scroll.md`: le fasce, il caricamento, la deriva, prima e ultima schermata.
+8. `movimento.md`: tempi e curve, tutti in una tabella.
+9. `interazione-e-accessibilita.md`: puntatore, touch, tastiera, reduced motion, profili di qualità.
+10. `applicazione-alle-pagine.md`: cosa resta fisso e cosa cambia su navigation, servizi, Portfolio, levelup.
+11. `tavole.md`: quali tavole del concept sono canoniche e quali superate.
+12. `codice.md`: dove vive ogni costante, come si registra una superficie, checklist per una nuova pagina.
 
 ## Master visual
 
 ![Master visual](memento-vfx-dna-master-visual.jpg)
 
-La tavola `memento-vfx-dna-master-visual.jpg` è il riferimento visivo unico. Mostra la START in hover, la materia, l'energia su una card, l'incandescenza del titolo, la struttura dello scroll, la mappa come sorgente e la chiusura. Le immagini sono render reali dell'engine V19, non illustrazioni: in V20 e V21 sfondo, titoli e card sono cambiati (sfondo in blocchi d'ossidiana, gradiente dei titoli solo in basso, reticolo dorato in hover, grade filmico), quindi la tavola va rifatta dopo il deploy.
+La tavola `memento-vfx-dna-master-visual.jpg` è il riferimento visivo unico. Mostra la START in hover, la materia, l'energia su una card, l'incandescenza del titolo, la struttura dello scroll, la mappa come sorgente e la chiusura. Le immagini sono render reali dell'engine V19, non illustrazioni: in V20 e V21 sfondo, titoli e card sono cambiati (sfondo in blocchi d'ossidiana, gradiente dei titoli solo in basso, reticolo dorato in hover, grade filmico) e in V22 lo sfondo è diventato il mondo d'ossidiana (`sfondo.md`), quindi la tavola va rifatta dopo il deploy.
 
 ## Da fare e da evitare
 

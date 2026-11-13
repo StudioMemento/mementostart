@@ -1,20 +1,21 @@
 import gsap from 'gsap';
 import {
-  BufferAttribute, BufferGeometry, CanvasTexture, CustomBlending, DataTexture, DoubleSide, DynamicDrawUsage, GLSL3, HalfFloatType, InstancedBufferGeometry,
+  BufferAttribute, BufferGeometry, CanvasTexture, DataTexture, DoubleSide, DynamicDrawUsage, GLSL3, HalfFloatType, InstancedBufferGeometry,
   InstancedInterleavedBuffer, InterleavedBufferAttribute, LinearFilter, Mesh, NoColorSpace, PerspectiveCamera,
-  NoBlending, OneFactor, OneMinusSrcAlphaFactor, RawShaderMaterial, RedFormat, Scene, Sphere, Texture, UnsignedByteType, Vector2, Vector3, Vector4, WebGLRenderer, WebGLRenderTarget, ZeroFactor, type IUniform,
+  NoBlending, RawShaderMaterial, RedFormat, Scene, Sphere, Texture, UnsignedByteType, Vector2, Vector3, Vector4, WebGLRenderer, WebGLRenderTarget, type IUniform,
 } from 'three';
+import { BkgRenderer } from './bkg/renderer';
 import { BorderLight, outline } from './border';
 import { ChainField } from './chain';
 import { VFX, gradientRange, hexToRgb, titleRamp, type ChainProfile, type QualityName } from './config';
-import { buildArch, buildNetwork, hashString, type Arch, type SurfaceNetwork } from './geometry';
+import { buildNetwork, hashString, type SurfaceNetwork } from './geometry';
 import { PointerField } from './input';
 import { GPU_STRIDE, Particles } from './particles';
 import { collect, distanceField, imageFit, paint } from './raster';
 import type { SurfaceOptions, SurfaceRegistry } from './registry';
 import { ScrollState } from './scroll';
 import {
-  BG_FRAG, BG_SOFT_FRAG, BG_VERT, BLUR_FRAG, FS_VERT, GRADE_FRAG, OVERLAY_CARD_FRAG, OVERLAY_TITLE_FRAG, OVERLAY_VERT,
+  BLUR_FRAG, FS_VERT, GRADE_FRAG, OVERLAY_CARD_FRAG, OVERLAY_TITLE_FRAG, OVERLAY_VERT,
   PART_FRAG, PART_VERT, SURFACE_FRAG, SURFACE_VERT,
 } from './shaders';
 import { loadingDelay, smoothstep } from './structure';
@@ -56,12 +57,12 @@ const barycentric = (triangles: number) => {
   for (let i = 0; i < a.length; i++) a[i] = BARY[i % 9];
   return a;
 };
-const tmp = new Vector3();
 
 /**
  * VFX engine: one persistent WebGL context, one update loop (the GSAP ticker).
  *
- * One material, one energy. The background is a 3D graphite surface seen in perspective; every surface of the page
+ * One material, one energy. The background is the obsidian world (V22: pre-rendered depth planes with a real depth of
+ * field, `bkg/`); every surface of the page
  * (titles, cards with their photographs and labels) has a monochrome representation for structure and an overlay for
  * energy. Energy is the same thing everywhere: amber light carried by a chain reaction across a network of cells,
  * started by pointer, touch, focus and loading, ending on its own. Scroll moves the structure, never the light.
@@ -83,14 +84,18 @@ export class VfxEngine {
 
   private renderer: WebGLRenderer;
   private scene = new Scene();
-  private bgScene = new Scene();
   private post = new Scene();
-  private camera = new PerspectiveCamera(VFX.background.fov, 1, 0.02, 400);
+  private camera = new PerspectiveCamera(52, 1, 0.02, 400);
   private globals: Uniforms;
-  private bg: Mesh<BufferGeometry, RawShaderMaterial>;
-  private arch: Arch | null = null;
+  /** The obsidian world: plates, depth of field, motes. Its chain reaction runs on screen-space cells (`bgNet`). */
+  private bkg: BkgRenderer;
+  private bkgLoad: Promise<void>;
+  private bgNet: SurfaceNetwork | null = null;
   private bgChain: ChainField | null = null;
   private bgEnergy: BufferAttribute | null = null;
+  private col = 0.4;
+  private transparent = false;
+  private readonly coarse = matchMedia('(pointer: coarse)').matches;
   private lastScroll = 0;
   private bgKey = ''; private bgDebt = 0; private bgHot = false; private bgStage = 0;
   private still = 0;
@@ -103,9 +108,6 @@ export class VfxEngine {
   private rtE: WebGLRenderTarget; private rtA: WebGLRenderTarget; private rtB: WebGLRenderTarget;
   /** The horizontal streak of the bloom, at a quarter of the size. */
   private rtS1: WebGLRenderTarget; private rtS2: WebGLRenderTarget;
-  /** The sheet out of focus behind the layout column: a little (med) and fully (big). Kept until the sheet changes. */
-  private rtMed: WebGLRenderTarget; private rtBig: WebGLRenderTarget; private softKeep: RawShaderMaterial; private softAdd: RawShaderMaterial;
-  private bgVersion = 0; private softKey = '';
   private blur: RawShaderMaterial; private grade: RawShaderMaterial; private fsMesh: Mesh<BufferGeometry, RawShaderMaterial>;
 
   private surfaces = new Map<HTMLElement, Surface>();
@@ -152,19 +154,9 @@ export class VfxEngine {
       uDrift: { value: new Vector3(0, VFX.scroll.drift, VFX.scroll.fade) },
     };
 
-    // background: a real 3D surface with depth, drawn first
-    this.bg = new Mesh(unbounded(new BufferGeometry()), new RawShaderMaterial({
-      glslVersion: GLSL3, vertexShader: BG_VERT, fragmentShader: BG_FRAG, side: DoubleSide,
-      depthTest: true, depthWrite: true, transparent: false,
-      uniforms: {
-        ...this.globals, uBase: { value: [...VFX.color.base] }, uZ: { value: new Vector2(1, 10) }, uFog: { value: VFX.background.fog }, uAlpha: { value: 0 },
-        uLight: { value: new Float32Array(VFX.background.lights.flat()) }, uShade: { value: new Vector4(...VFX.background.shade) }, uFall: { value: VFX.background.falloff }, uGloss: { value: new Vector4(...VFX.background.gloss) },
-        uBand: { value: new Vector4(1, 0.4, ...VFX.background.levels) }, uRim: { value: new Vector3(...VFX.background.rim) },
-        uEnv: { value: new Vector4(...VFX.background.env) }, uKey: { value: new Vector4(...VFX.background.key) },
-      },
-    }));
-    this.bg.frustumCulled = false; this.bg.renderOrder = 0;
-    this.bgScene.add(this.bg);
+    // background: the obsidian world, drawn first into the frame; its plates load in parallel with the content
+    this.bkg = new BkgRenderer(renderer, this.quality);
+    this.bkgLoad = this.bkg.load().catch(error => console.warn('Memento BKG unavailable:', error));
 
     // particles
     const corner = new Float32Array([0, -1, 0.9, 0.62, -0.9, 0.62]);
@@ -185,7 +177,7 @@ export class VfxEngine {
     const rt = (depth: boolean, samples = 0) => new WebGLRenderTarget(4, 4, { depthBuffer: depth, minFilter: LinearFilter, magFilter: LinearFilter, type, samples });
     this.rtMain = rt(true, 4);
     // selective bloom: only the emission pass is blurred and added back
-    this.rtE = rt(true); this.rtA = rt(false); this.rtB = rt(false); this.rtMed = rt(false); this.rtBig = rt(false);
+    this.rtE = rt(true); this.rtA = rt(false); this.rtB = rt(false);
     this.rtS1 = rt(false); this.rtS2 = rt(false);
     const fs = unbounded(new BufferGeometry());
     fs.setAttribute('position', new BufferAttribute(new Float32Array([-1, -1, 3, -1, -1, 3]), 2));
@@ -196,15 +188,6 @@ export class VfxEngine {
       uRes: { value: new Vector2(1, 1) }, uMix: { value: new Vector4() }, uLens: { value: new Vector2() }, uFrame: { value: 0 },
     });
     this.grade.blending = NoBlending;
-    // the soft sheet: the first pass keeps the sharp share of what is on screen, the second adds the blurred shares
-    const uCol = { value: new Vector2(0.4, VFX.background.focus) };
-    const soft = (pass: number, src: typeof OneFactor | typeof ZeroFactor, dst: typeof OneFactor | typeof OneMinusSrcAlphaFactor) => {
-      const m = raw(BG_SOFT_FRAG, { uMed: { value: this.rtMed.texture }, uBig: { value: this.rtBig.texture }, uCol, uPass: { value: pass } });
-      m.transparent = true; m.blending = CustomBlending;
-      m.blendSrc = m.blendSrcAlpha = src; m.blendDst = m.blendDstAlpha = dst;
-      return m;
-    };
-    this.softKeep = soft(0, ZeroFactor, OneMinusSrcAlphaFactor); this.softAdd = soft(1, OneFactor, OneFactor);
     this.fsMesh = new Mesh(fs, this.blur);
     this.fsMesh.frustumCulled = false;
     this.post.add(this.fsMesh);
@@ -233,10 +216,10 @@ export class VfxEngine {
     this.scroll.destroy();
     this.surfaces.forEach(s => this.dropSurface(s));
     this.surfaces.clear();
-    this.bg.geometry.dispose(); this.bg.material.dispose();
+    this.bkg.dispose();
     this.partGeo.dispose(); (this.partMesh.material as RawShaderMaterial).dispose();
-    this.fsMesh.geometry.dispose(); this.blur.dispose(); this.grade.dispose(); this.softKeep.dispose(); this.softAdd.dispose();
-    [this.rtMain, this.rtE, this.rtA, this.rtB, this.rtMed, this.rtBig, this.rtS1, this.rtS2].forEach(t => t.dispose());
+    this.fsMesh.geometry.dispose(); this.blur.dispose(); this.grade.dispose();
+    [this.rtMain, this.rtE, this.rtA, this.rtB, this.rtS1, this.rtS2].forEach(t => t.dispose());
     this.renderer.dispose();
     root().classList.remove('vfx-live', 'vfx-boot', 'vfx-ready');
   }
@@ -255,6 +238,8 @@ export class VfxEngine {
     if (this.destroyed) return;
     this.layout();
     await Promise.race([this.whenPainted(first), wait(400)]);
+    // the world joins with the page when its first plate is on the GPU; a slow network does not hold the page back
+    await Promise.race([this.bkgLoad, wait(VFX.bkg.loadTimeout)]);
     if (this.destroyed || this.lost) return;
     this.goLive();
     if (this.reduced) { this.load.value = 1; this.loaded = true; return; }
@@ -346,26 +331,24 @@ export class VfxEngine {
     this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, q.dpr));
     this.renderer.setSize(w, h, false);
     const bw = Math.max(2, Math.round(w * VFX.bloom.scale)), bh = Math.max(2, Math.round(h * VFX.bloom.scale));
-    this.rtE.setSize(bw, bh); this.rtA.setSize(bw, bh); this.rtB.setSize(bw, bh); this.rtMed.setSize(bw, bh); this.rtBig.setSize(bw, bh);
+    this.rtE.setSize(bw, bh); this.rtA.setSize(bw, bh); this.rtB.setSize(bw, bh);
     this.rtS1.setSize(Math.max(2, bw >> 1), Math.max(2, bh >> 1)); this.rtS2.setSize(Math.max(2, bw >> 1), Math.max(2, bh >> 1));
     const gl = this.renderer.getContext();
     this.rtMain.setSize(gl.drawingBufferWidth, gl.drawingBufferHeight);
     (this.grade.uniforms.uRes.value as Vector2).set(gl.drawingBufferWidth, gl.drawingBufferHeight);
-    this.bgVersion++;
+    // the world: resizes only re-frame it (no content is re-rendered); an orientation change swaps its plate
+    this.bkg.setQuality(this.quality);
+    this.bkg.viewport(gl.drawingBufferWidth, gl.drawingBufferHeight, w, h);
     this.parts.limit = Math.round(VFX.particles.pool * q.particles);
     this.scroll.measure(h);
     (this.globals.uView.value as Vector2).set(w, h);
     this.globals.uBand.value = this.scroll.bandPx;
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
-    const bgKey = `${Math.round((w / h) * 50)}|${Math.round(h / 40)}|${this.quality}`;
-    if (bgKey !== this.bgKey) { this.bgKey = bgKey; this.buildBackground(w / h, h); }
+    const bgKey = `${w}x${h}|${this.quality}`;
+    if (bgKey !== this.bgKey) { this.bgKey = bgKey; this.buildBackground(w, h); }
     const column = document.querySelector('.content-width')?.getBoundingClientRect();
-    const bu = this.bg.material.uniforms.uBand.value as Vector4, col = column ? Math.min(0.5, column.width / 2 / w) : 0.4;
-    // without the depth of field (no bloom on this profile) the far cells behind the column are held lower: in focus they would be busy
-    const [edgeLevel, farLevel] = VFX.background.levels;
-    bu.set(this.renderer.getContext().drawingBufferWidth, col, edgeLevel, farLevel * (q.bloom ? 1 : 0.2));
-    (this.softKeep.uniforms.uCol.value as Vector2).set(col, VFX.background.focus);
+    this.col = column ? Math.min(0.5, column.width / 2 / w) : 0.4;
 
     // DOM colours and opacities are read in their normal state, then the GPU representation takes over again
     const live = this.live;
@@ -386,26 +369,21 @@ export class VfxEngine {
     this.surfaces.forEach((s, el) => { if (!seen.has(el)) { this.dropSurface(s); this.surfaces.delete(el); } });
     this.byIndex = [];
     this.surfaces.forEach(s => { this.byIndex[s.index] = s; });
-    this.bg.material.uniforms.uAlpha.value = root().dataset.mementoSurface === 'transparent' ? 1 : 0;
+    this.transparent = root().dataset.mementoSurface === 'transparent';
   }
 
-  private buildBackground(aspect: number, viewH: number) {
-    const t = buildArch(aspect, viewH, undefined, this.profile().cellScale);
-    const g = unbounded(new BufferGeometry());
-    g.setAttribute('position', new BufferAttribute(t.position, 3));
-    g.setAttribute('bary', new BufferAttribute(barycentric(t.faces), 3));
-    g.setAttribute('face', new BufferAttribute(t.face, 4));
-    g.setAttribute('edge', new BufferAttribute(t.edge, 3));
-    g.setAttribute('rock', new BufferAttribute(t.rock, 1));
-    const energy = new BufferAttribute(new Float32Array(t.faces * 6), 2);
+  /**
+   * The background's chain reaction: irregular screen-space cells (client px) over the viewport. Its energy is drawn into
+   * the world's energy map and lights the cracks of the plates cell by cell; it never forms a disc.
+   */
+  private buildBackground(w: number, h: number) {
+    const E = VFX.bkg.energy;
+    const net = buildNetwork(w, h, E.spacing * this.profile().cellScale, E.margin, E.zone, 20240611);
+    const energy = new BufferAttribute(new Float32Array(net.faces * 6), 2);
     energy.setUsage(DynamicDrawUsage);
-    g.setAttribute('energy', energy);
-    this.bg.geometry.dispose();
-    this.bg.geometry = g;
-    (this.bg.material.uniforms.uZ.value as Vector2).set(t.zNear, t.zFar);
-    this.arch = t; this.bgEnergy = energy;
-    this.bgChain = new ChainField(t, VFX.chain.background);
-    this.projectBackground();
+    this.bgNet = net; this.bgEnergy = energy; this.bgHot = false;
+    this.bgChain = new ChainField(net, VFX.chain.background);
+    this.bkg.setEnergyNetwork(net.position, energy);
   }
 
   private addSurface(el: HTMLElement, opt: SurfaceOptions): Surface {
@@ -745,6 +723,11 @@ export class VfxEngine {
 
     this.driveBackground(dt, hovered, present, px, input.y);
     if (this.bgChain?.active || this.bgHot) busy = true;
+    this.bkg.update({
+      dt, time: this.clock, x: px, y: input.y, present: present && this.live, touch: this.coarse || input.touch, speed: input.speed,
+      defocus: !!hovered, scroll: sc.progress, load: this.live ? this.load.value : 0, reduced: this.reduced,
+    });
+    if (this.bkg.animating) busy = true;
 
     this.parts.step(dt);
     this.partGeo.instanceCount = this.parts.count;
@@ -781,13 +764,13 @@ export class VfxEngine {
    */
   private driveBackground(dt: number, hovered: Surface | null, present: boolean, clientX: number, clientY: number) {
     const ch = this.bgChain, input = this.input, P = VFX.pointer;
-    if (!this.arch || !ch || !this.bgEnergy) return;
+    if (!this.bgNet || !ch || !this.bgEnergy) return;
     ch.propagate = !this.reduced;
     // the sheet answers in the side padding, where it is seen; over the layout column the content owns the pointer
     // behind the layout column it carries on, softer: out of focus there, it never competes with the type
-    const W = root().clientWidth, col = (this.bg.material.uniforms.uBand.value as Vector4).y;
-    const inColumn = Math.abs(clientX / W - 0.5) < col;
-    const over = hovered?.opt.kind === 'card' ? 0 : (hovered ? 0.45 : 1) * (inColumn ? VFX.background.columnRate : 1);
+    const W = root().clientWidth;
+    const inColumn = Math.abs(clientX / W - 0.5) < this.col;
+    const over = hovered?.opt.kind === 'card' ? 0 : (hovered ? 0.45 : 1) * (inColumn ? VFX.bkg.energy.columnRate : 1);
     if (present && over > 0 && this.live) {
       if (input.still < 0.05) {
         this.bgStage = 0;
@@ -801,20 +784,8 @@ export class VfxEngine {
         for (let i = 0; i < 2; i++) ch.igniteAt(clientX, clientY, input.radius * 0.15, rand(0.4, 0.55) * over);
       }
     } else { this.bgDebt = 0; if (!present) this.bgStage = 0; }
-    if (ch.active) { ch.step(dt); ch.write(this.bgEnergy.array as Float32Array); this.bgEnergy.needsUpdate = true; this.bgHot = true; this.bgVersion++; }
-    else if (this.bgHot) { (this.bgEnergy.array as Float32Array).fill(0); this.bgEnergy.needsUpdate = true; this.bgHot = false; this.bgVersion++; }
-  }
-
-  /** Face centroids → client px. The sheet and the camera are still: done once per layout. */
-  private projectBackground() {
-    const t = this.arch!;
-    this.camera.updateMatrixWorld();
-    const W = root().clientWidth, H = innerHeight;
-    for (let f = 0; f < t.faces; f++) {
-      tmp.set(t.centroid[f * 3], t.centroid[f * 3 + 1], t.centroid[f * 3 + 2]).project(this.camera);
-      t.cx[f] = (tmp.x * 0.5 + 0.5) * W; t.cy[f] = (-tmp.y * 0.5 + 0.5) * H;
-      if (tmp.z > 1) t.cx[f] = -1e6;
-    }
+    if (ch.active) { ch.step(dt); ch.write(this.bgEnergy.array as Float32Array); this.bgEnergy.needsUpdate = true; this.bgHot = true; }
+    else if (this.bgHot) { (this.bgEnergy.array as Float32Array).fill(0); this.bgEnergy.needsUpdate = true; this.bgHot = false; }
   }
 
   private render(emissive: boolean) {
@@ -831,16 +802,17 @@ export class VfxEngine {
     });
     const bloom = this.profile().bloom;
     g.uEmissive.value = 0;
-    // the frame, in high precision: the sheet, its depth of field behind the column, then the content and its energy
+    // the energy map of the background reaction, then the frame in high precision: the world (with its depth of field
+    // and motes), then the content and its energy
+    this.bkg.drawEnergy(!!this.bgChain?.active || this.bgHot);
     r.setRenderTarget(this.rtMain);
     r.clear();
-    r.render(this.bgScene, this.camera);
-    if (bloom) this.softenBackground();
+    this.bkg.render(this.rtMain, { transparent: this.transparent });
     r.render(this.scene, this.camera);
     const glow = emissive && energy && bloom;
     if (glow) {
       g.uEmissive.value = 1;
-      r.setRenderTarget(this.rtE); r.clear(); r.render(this.bgScene, this.camera); r.render(this.scene, this.camera);
+      r.setRenderTarget(this.rtE); r.clear(); this.bkg.render(this.rtE, { emissive: true }); r.render(this.scene, this.camera);
       g.uEmissive.value = 0;
       // two separable passes, the second twice as wide: a smooth falloff with no stepped edges once scaled up
       this.blurPasses(this.rtE, [1, 2]);
@@ -868,32 +840,5 @@ export class VfxEngine {
   /** Horizontal then vertical at each width, src → rtA → `out`, the next width starting from `out`. */
   private blurPasses(src: WebGLRenderTarget, widths: readonly number[], out = this.rtB) {
     widths.forEach((k, i) => { this.blurPass(i ? out : src, this.rtA, k, 0); this.blurPass(this.rtA, out, 0, k); });
-  }
-
-  /**
-   * Depth of field: behind the layout column the sheet goes out of focus, gradually from the column edge inward.
-   * The sheet is drawn again at half size, blurred a little (med) then fully (big) and kept; both are recomputed only
-   * when the sheet changes (energy, loading, size), then laid over the sharp sheet already on screen.
-   */
-  private softenBackground() {
-    const r = this.renderer, bu = this.bg.material.uniforms.uBand.value as Vector4, B = VFX.background.blur;
-    const key = `${this.bgVersion}|${(this.globals.uLoad.value as number).toFixed(3)}`;
-    if (key !== this.softKey) {
-      this.softKey = key;
-      const full = bu.x;
-      bu.x = this.rtE.width;
-      r.setRenderTarget(this.rtE); r.clear(); r.render(this.bgScene, this.camera);
-      bu.x = full;
-      this.blurPasses(this.rtE, B.med, this.rtMed);
-      this.blurPasses(this.rtMed, B.big, this.rtBig);
-    }
-    // only the column and its edge are touched (the target's own scissor, in its pixels)
-    const t = this.rtMain, W = t.width, H = t.height;
-    const half = Math.min(W / 2, bu.y * 1.06 * W);
-    t.scissor.set(Math.floor(W / 2 - half), 0, Math.ceil(half * 2), H); t.scissorTest = true;
-    r.setRenderTarget(t);
-    this.fsMesh.material = this.softKeep; r.render(this.post, this.camera);
-    this.fsMesh.material = this.softAdd; r.render(this.post, this.camera);
-    t.scissorTest = false; r.setRenderTarget(t);
   }
 }

@@ -31,13 +31,12 @@ La luce segue tre regole:
 
 ## Profondità di campo dello sfondo
 
-- Dal bordo della colonna dei contenuti verso il centro lo sfondo perde fuoco con gradualità: prima un po', poi del tutto.
-- È **leggera**: la profondità la danno soprattutto scala e buio. È una copia dello sfondo a metà risoluzione, sfocata due volte e tenuta in memoria: si ricalcola solo quando lo sfondo cambia (energia, loading, misure).
-- Tocca solo la colonna e il suo bordo. Nel profilo `low` non c'è: le celle lontane dietro la colonna sono tenute più basse.
+- Dal V22 è una **profondità di campo vera** sui tre piani del mondo d'ossidiana, con bokeh esagonale. A riposo il fuoco è sul piano intermedio; il cursore lo sposta sulla superficie che ha sotto; dietro titoli e card tutto va fuori fuoco (vedi `sfondo.md`).
+- Si ricalcola solo quando il fuoco si muove, in spazio plate: il resize non la ricalcola.
 
 ## Esposizione
 
-- Le pareti dello sfondo non superano mai il bianco dei titoli. Il corpo della grafite resta quasi nero; i riflessi forti hanno una spalla morbida e non diventano mai bianco piatto.
+- Lo sfondo non supera mai il bianco dei titoli. Il corpo della grafite resta quasi nero; i riflessi forti hanno una spalla morbida e non diventano mai bianco piatto.
 - Il frame si compone in alta precisione (half float, multisample) e si quantizza una volta sola, nel grade finale, con il dithering: niente bande nei neri, niente giunzioni tra sfondo nitido e sfocato.
 
 ## Il grade finale

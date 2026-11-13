@@ -6,7 +6,7 @@ Ogni pagina usa **lo stesso engine, le stesse costanti e la stessa materia**. Da
 
 - Palette, scala delle celle, reazione a catena, tre livelli di saturazione, luce del bordo, incandescenza dei testi.
 - Fasce 15/70/15, caricamento in sei fasi, deriva allo stop.
-- Il foglio dello sfondo è sempre immobile, con la colonna dei contenuti più scura.
+- Lo sfondo è lo stesso mondo d'ossidiana (`sfondo.md`): cambiano inquadratura e fuoco di riposo, il centro dietro i contenuti resta il più scuro.
 - Prima e ultima schermata composte secondo `struttura-e-scroll.md`.
 
 ## Cosa può cambiare: la scena
@@ -15,11 +15,11 @@ Il foglio di grafite si può piegare in modi diversi. Le tavole ne esplorano div
 
 | Pagina | Scena proposta | Sorgente proposta | Perché |
 | --- | --- | --- | --- |
-| **START** (fatta) | arco: pareti ai lati, profondità al centro | lo studio sulla mappa | invita a entrare; il centro è per il contatto |
+| **START** (fatta, V22) | la conca d'ossidiana: lastre ai bordi, fondo lontano al centro | lo studio sulla mappa | invita a entrare; il centro è per il contatto |
 | **Servizi** | pieghe geodetiche o superficie a sella: il foglio si piega dietro la griglia dei servizi | la card del servizio in hover | i servizi come facce dello stesso solido |
 | **Portfolio** | scaglie sospese ai margini, più rade, perché i lavori sono immagini piene | il progetto aperto | la materia incornicia, non compete con le immagini |
 | **Levelup** | portale: il foglio si apre in una soglia luminosa al centro | la soglia | è un passaggio di livello |
-| **Navigation** | lo stesso arco della START, più profondo | nessuna: solo luce sugli spigoli al passaggio | è il corridoio tra le pagine |
+| **Navigation** | la stessa conca della START, inquadrata più in profondità | nessuna: solo luce sugli spigoli al passaggio | è il corridoio tra le pagine |
 
 Queste scelte sono proposte. Il criterio per scegliere è che la forma della scena dica cosa fa la pagina.
 

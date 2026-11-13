@@ -2,3 +2,5 @@ node_modules
 dist
 .ssr
 .DS_Store
+out
+__pycache__

@@ -26,5 +26,5 @@ Un solo tempo per tutto il sito. Le animazioni nascono dalla materia e dall'ener
 ## Regole
 
 - Niente loop decorativi infiniti: tutto ciò che si muove ha una causa (gesto, posizione, caricamento, sorgente) e una fine. A riposo nulla si muove: né luci, né riflessi, né camera. L'unica eccezione è la grana della pellicola, sotto la soglia del movimento.
-- Il foglio dello sfondo non si muove mai: si muovono luce ed energia.
+- Lo sfondo si muove solo con lo scroll (dolly e parallasse per piano) e con il fuoco; a riposo respira solo il glow delle fessure e derivano i puntini ambra (vedi `sfondo.md`).
 - Ogni movimento ha la sua versione per reduced motion (vedi `interazione-e-accessibilita.md`).

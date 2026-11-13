@@ -1,0 +1,76 @@
+{
+ "version": 1,
+ "znear": 2.0,
+ "zfar": 16.0,
+ "encC": 0.6,
+ "planes": {
+  "bg": 0.0357,
+  "mg": 0.2228,
+  "fg": 0.4863
+ },
+ "sets": {
+  "landscape": {
+   "w": 2560,
+   "h": 1920,
+   "ext": [
+    0.56,
+    0.42
+   ],
+   "key": [
+    "landscape_bg_key.webp",
+    "landscape_mg_key.webp",
+    "landscape_fg_key.webp"
+   ],
+   "glow": [
+    "landscape_bg_glow.webp",
+    "landscape_mg_glow.webp",
+    "landscape_fg_glow.webp"
+   ],
+   "alpha": "landscape_alpha.webp",
+   "depth": "landscape_depth.webp",
+   "glints": "glints.json"
+  },
+  "landscape_m": {
+   "w": 1280,
+   "h": 960,
+   "ext": [
+    0.56,
+    0.42
+   ],
+   "key": [
+    "landscape_m_bg_key.webp",
+    "landscape_m_mg_key.webp",
+    "landscape_m_fg_key.webp"
+   ],
+   "glow": [
+    "landscape_m_bg_glow.webp",
+    "landscape_m_mg_glow.webp",
+    "landscape_m_fg_glow.webp"
+   ],
+   "alpha": "landscape_m_alpha.webp",
+   "depth": "landscape_m_depth.webp",
+   "glints": "glints.json"
+  },
+  "portrait": {
+   "w": 1080,
+   "h": 1440,
+   "ext": [
+    0.42,
+    0.56
+   ],
+   "key": [
+    "portrait_bg_key.webp",
+    "portrait_mg_key.webp",
+    "portrait_fg_key.webp"
+   ],
+   "glow": [
+    "portrait_bg_glow.webp",
+    "portrait_mg_glow.webp",
+    "portrait_fg_glow.webp"
+   ],
+   "alpha": "portrait_alpha.webp",
+   "depth": "portrait_depth.webp",
+   "glints": "glints.json"
+  }
+ }
+}

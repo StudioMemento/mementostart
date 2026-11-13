@@ -7,7 +7,7 @@ vi.mock('gsap/ScrollTrigger', () => ({ ScrollTrigger: {} }));
 import { BorderLight, outline } from '../border';
 import { ChainField } from '../chain';
 import { VFX } from '../config';
-import { buildArch, buildNetwork, mulberry } from '../geometry';
+import { buildNetwork, mulberry } from '../geometry';
 import { PointerField } from '../input';
 import { Particles } from '../particles';
 import { encodeDistance, signedDistance } from '../sdf';
@@ -86,60 +86,6 @@ describe('geometry', () => {
     }
     areas.sort((x, y) => x - y);
     expect(areas[Math.floor(areas.length * 0.9)] / areas[Math.floor(areas.length * 0.1)]).toBeGreaterThan(3);   // mixed sizes
-  });
-
-  it('the background is one sheet without holes: the only open edges are its outer border', () => {
-    for (const [aspect, h] of [[16 / 9, 900], [1.5, 800], [0.46, 844], [2.39, 1440]] as const) {
-      const t = buildArch(aspect, h);
-      expect(t.open).toBe(t.border);
-      expect(t.faces).toBeGreaterThan(900);                     // a readable wireframe
-      expect(t.faces).toBeLessThan(40000);                      // and still light
-      // no fill triangles: every face is about as large as its neighbours (none spans from the walls to the centre)
-      let worst = 0;
-      const T = Math.tan((52 * Math.PI) / 360);
-      for (let f = 0; f < t.faces; f++) {
-        const o = f * 9, p = t.position, z = -(p[o + 2] + p[o + 5] + p[o + 8]) / 3;
-        // a face beyond the top or the bottom of the view, all three corners, is never seen
-        const side = [0, 3, 6].map(k => Math.sign(p[o + k + 1]) * (Math.abs(p[o + k + 1]) > -p[o + k + 2] * T ? 1 : 0));
-        if (side[0] !== 0 && side.every(v => v === side[0])) continue;
-        const lat = [0, 3, 6].map(k => Math.sign(p[o + k]) * (Math.abs(p[o + k]) > -p[o + k + 2] * T * aspect ? 1 : 0));
-        if (lat[0] !== 0 && lat.every(v => v === lat[0])) continue;
-        // measured on screen, the part inside the frame (in view heights): the blocks stand out of the sheet, so the
-        // shards at the frame come close and run off screen; what counts is what is seen
-        const cl = (v: number) => Math.max(-1.02, Math.min(1.02, v));
-        const sp = [0, 3, 6].map(k => [cl(p[o + k] / (-p[o + k + 2] * T * aspect)) * aspect / 2, cl(p[o + k + 1] / (-p[o + k + 2] * T)) / 2]);
-        const e = Math.max(Math.hypot(sp[0][0] - sp[1][0], sp[0][1] - sp[1][1]), Math.hypot(sp[1][0] - sp[2][0], sp[1][1] - sp[2][1]), Math.hypot(sp[2][0] - sp[0][0], sp[2][1] - sp[0][1]));
-        worst = Math.max(worst, e);
-        void z;
-      }
-      expect(worst).toBeLessThan(0.6);                           // the largest face seen: under 60% of the view height
-    }
-  });
-
-  it('cells get smaller toward the centre, and depth depends on the horizontal only (vertical bands)', () => {
-    const aspect = 1.6, t = buildArch(aspect, 900), T = Math.tan((52 * Math.PI) / 360);
-    const sx = (o: number) => t.position[o] / (-t.position[o + 2] * T * aspect), sy = (o: number) => t.position[o + 1] / (-t.position[o + 2] * T);
-    const byBand: number[][] = [[], [], [], [], []];
-    const depthAtX = new Map<number, number[]>();
-    for (let f = 0; f < t.faces; f++) {
-      const o = f * 9;
-      const cx = (sx(o) + sx(o + 3) + sx(o + 6)) / 3, cy = (sy(o) + sy(o + 3) + sy(o + 6)) / 3;
-      if (Math.abs(cx) > 1 || Math.abs(cy) > 1) continue;
-      const len = Math.max(Math.hypot(sx(o + 3) - sx(o), sy(o + 3) - sy(o)), Math.hypot(sx(o + 6) - sx(o + 3), sy(o + 6) - sy(o + 3)));
-      byBand[Math.min(4, Math.floor(Math.abs(cx) * 5))].push(len);
-      const key = Math.round(cx * 10);
-      if (!depthAtX.has(key)) depthAtX.set(key, []);
-      depthAtX.get(key)!.push(t.depth[f]);
-    }
-    const mean = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length;
-    expect(mean(byBand[4])).toBeGreaterThan(mean(byBand[0]) * 3);   // perspective: the size tells the depth
-    expect(mean(byBand[4])).toBeLessThan(mean(byBand[0]) * 12);     // over a measured range (a hierarchy, not dust)
-    expect(mean(byBand[4]) / 2).toBeGreaterThan(0.1);                // foreground cells: over a tenth of the viewport height
-    // within one column of the screen, depth barely changes from top to bottom
-    for (const list of depthAtX.values()) if (list.length > 10) {
-      const m = mean(list), sd = Math.sqrt(mean(list.map(v => (v - m) ** 2)));
-      expect(sd).toBeLessThan(0.1);                              // the blocks add their relief, the bands stay vertical
-    }
   });
 
   it('structural cells keep the silhouette exact and differ in size', () => {

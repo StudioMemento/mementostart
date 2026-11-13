@@ -26,15 +26,9 @@ La materia di Memento è un unico foglio di **ossidiana**: blocchi sfaccettati d
 - Le fessure tengono il buio (occlusione): la luce arriva prima sulle creste. È anche da lì che sale l'energia (vedi `energia.md`).
 - Oltre il bordo dello schermo i blocchi si appiattiscono, così le schegge al bordo non incombono sulla camera.
 
-## Lo sfondo: un piano inarcato e immobile
+## Lo sfondo (V22)
 
-- È un foglio 3D inarcato con l'asse verticale parallelo allo schermo. Al bordo è vicino e frontale, verso il centro gira e si allontana fino a 20 volte la distanza iniziale.
-- È **immobile**: si muovono solo luce ed energia.
-- È **molto scuro**: corpo quasi nero; la luce sta sulle facce che riflettono lo studio, sulle creste e sui fili degli spigoli. Le altre facce si leggono appena.
-- La luce dipende solo dalla posizione orizzontale, quindi si leggono **fasce verticali**. Il gradiente parte dal bordo dello schermo, attraversa il padding laterale e tocca il punto più scuro sul bordo della colonna dei contenuti (3,5% della luminanza del bordo).
-- Verso il centro la profondità la danno **la scala e il buio**; dal bordo della colonna una **sfocatura leggera** (profondità di campo) completa l'effetto. Dietro i contenuti restano celle piccole e appena visibili: struttura percepita, mai texture che compete con il testo.
-- **Luci simmetriche e centrali:** tutte sull'asse del tunnel. Una vicina a chi guarda solleva il primo piano, due dentro il tunnel radono le pareti, lo studio riflesso è simmetrico. L'intensità cala con la distanza: vicino è chiaro, lontano è scuro.
-- **Fermo:** a riposo luci, riflessi e camera non si muovono. Cambia qualcosa solo con un gesto.
+Lo sfondo non è più un piano inarcato generato in tempo reale: è il **mondo d'ossidiana**, una conca di schegge renderizzata in Blender su tre piani e ricomposta con una profondità di campo vera. La materia è la stessa (vetro nero, spigoli lucidi, fessure); scala, luce, fuoco e movimento sono in `sfondo.md`.
 
 ## Le card
 
@@ -45,6 +39,6 @@ La materia di Memento è un unico foglio di **ossidiana**: blocchi sfaccettati d
 ## Cosa non fare
 
 - Non mettere texture o rumore fotografico al posto delle celle.
-- Non far muovere il foglio dello sfondo (niente onde, niente parallasse della geometria), né la camera o le luci a riposo.
+- Non far muovere la materia a caso: lo sfondo si muove solo con lo scroll (dolly e parallasse per piano) e con il fuoco; a riposo respirano solo le fessure.
 - Non schiarire il corpo delle facce per far leggere la forma: la forma la danno riflessi, spigoli e fessure.
 - Non usare celle della stessa misura su tutto lo schermo: perde la scala.

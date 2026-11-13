@@ -66,46 +66,40 @@ export const VFX = {
     /** Type and icons on cards: one colour, no gradient. */
     cardInk: '#f2f0ec',
   },
-  background: {
-    fov: 52,              // deg, vertical
-    depth: 20,            // depth of the sheet at the centre, × its depth at the frame
-    curve: 1.5,           // recession profile: the walls face the viewer at the frame, then turn away into depth
-    cell: 0.26,           // cell where the sheet meets the frame (the foreground), × viewport height
-    cellPx: [96, 470] as [number, number],
-    cellMin: 24,          // px: smallest cell on screen, deep in the centre
-    cellGrowth: 0.3,      // cells open with depth: on screen they shrink ~depth^0.7, a measured range from the frame to the centre
-    /** Foreground cells are drawn out along the vertical: tall shards at the frame, even cells in depth. */
-    stretch: 1.55,
-    /** Size variation between neighbouring cells (0 = even): small, so size reads as distance, as on a wireframe. */
-    irregular: 0.18,
-    relief: 0.95,         // height of the obsidian blocks, × local cell size, along the sheet's normal
-    /** Blocks: spacing of their centres (cells), crest profile (<1 rounder, 1 pyramid), how far each one leans. */
-    rock: [2.3, 0.8, 0.45] as [number, number, number],
-    /**
-     * Obsidian: the faces are black glass that reflects a still studio. Overhead softbox (light from above, like the
-     * type), the far light at the end of the tunnel (the centre), Fresnel F0, surface flecks (graphite grain).
-     */
-    env: [5, 2.5, 0.06, 0.4] as [number, number, number, number],
-    /** A soft light from above (camera-space direction, strength): crests lit, undersides dark, like the type. */
-    key: [0, 0.8, 0.55, 0.1] as [number, number, number, number],
-    fog: 0.55,            // darkness with depth, on top of the light's own falloff
-    falloff: 0.05,        // light intensity / (1 + falloff·d²): near is bright, deep is dark
-    /** Point lights, camera space (x, y, z, intensity): one close to the viewer lifts the foreground, two inside rake along the walls. */
-    lights: [[0, 0.5, -0.5, 0.85], [0, -0.2, -3, 2.1], [0, 0, -10, 1.8]] as [number, number, number, number][],
-    /** Body, diffuse, specular, ridge-line strengths: a dark graphite body, light only where it rakes. */
-    shade: [0.003, 0.008, 1.6, 1.4] as [number, number, number, number],
-    /** Broad sheen: strength, exponent, share on the ridge lines; faint level of every edge. */
-    gloss: [0.02, 10, 0.05, 0.012] as [number, number, number, number],
-    /** Foreground highlights: strength, depth they reach (0..1), selectivity (higher = only the sharpest ridges). */
-    rim: [0.8, 0.32, 3] as [number, number, number],
-    /** Brightness at the edge of the layout column (the darkest point, × the frame); level of the far cells behind it. */
-    levels: [0.035, 0.07] as [number, number],
-    /** Depth of field behind the column: share of the column half-width over which focus is lost. */
-    focus: 0.55,
-    /** Blur widths (half-size texels): a little out of focus, then softly (a light depth of field: scale and darkness do the rest). */
-    blur: { med: [1] as readonly number[], big: [1.5, 2] as readonly number[] },
-    /** Pointer ignitions on the sheet behind the column, × those in the side padding. */
-    columnRate: 0.5,
+  /**
+   * The background (V22): the obsidian world, pre-rendered in Blender as three depth planes (public/assets/bkg) and recomposed
+   * in the frame with a real depth of field. 90% carbon black, 10% warm amber. Plates and their pipeline: docs/V22-background.md.
+   */
+  bkg: {
+    base: 'assets/bkg',
+    /** The long side of the viewport always shows this half extent (tan): the scale ramp reaches the edge on every screen. */
+    viewLongHalf: 0.52,
+    /** The short side never shows more than this (tan): the plates keep a margin for the scroll drift. */
+    viewShortCap: 0.4,
+    /** Circle of confusion, as a share of the viewport's long side per unit of disparity (foreground at rest ≈ 1.4%), and its cap. */
+    coc: { relPerW: 0.052, maxRel: 0.024 },
+    /** Focus: a slow spring with a slight overshoot; a virtual plane nearer than everything puts it all out of focus. */
+    focus: { period: 1.7, damping: 0.72, defocusW: 1.15, hysteresis: 0.02, dwell: 0.12 },
+    /** Glow of the cracks: low at rest (breathing: amp, period s, amp, period s), plus the light the reaction adds. */
+    glow: { rest: 0.34, breathe: [0.1, 7.2, 0.04, 2.9] as [number, number, number, number], energy: 1.5 },
+    /** Neutral light on the faces, per plane (bg, mg, fg): the far centre stays dark behind the content. */
+    key: { gain: 0.85, tint: [1, 0.975, 0.95] as [number, number, number], layer: [0.3, 0.8, 0.78] as [number, number, number] },
+    glowLayer: [0.7, 0.95, 1] as [number, number, number],
+    /** Shards near the pointer lift a little (magnification per plane) within this radius (tan). */
+    lift: { amount: [0.006, 0.013, 0.024] as [number, number, number], radius: 0.13 },
+    /** Scroll: per plane dolly and drift (bg, mg, fg); the rest focus slides this far toward the background. */
+    scroll: { dolly: [0.035, 0.065, 0.11] as [number, number, number], shift: [0.008, 0.02, 0.042] as [number, number, number], focusDeeper: 0.55 },
+    motes: { high: 110, medium: 60, low: 30, rot: 0.26 },
+    glints: { energyBoost: 1.4 },
+    /** The background chain reaction: screen-space cells (px), margin, zone size, energy map resolution; rate behind the column. */
+    energy: { spacing: 64, margin: 40, zone: 320, scale: 0.25, columnRate: 0.5 },
+    quality: {
+      high: { blurScale: 0.5, rings: 6 },
+      medium: { blurScale: 0.25, rings: 4 },
+      low: { blurScale: 0.25, rings: 3 },
+    },
+    /** ms the engine waits for the first plate before going live (the sheet then joins when it arrives). */
+    loadTimeout: 2500,
   },
   chain: {
     /** Cards: irregular cells of mixed sizes, fine along the outline and large in the middle; a slow, controlled reaction. */
