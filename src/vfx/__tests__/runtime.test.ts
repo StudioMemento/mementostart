@@ -104,10 +104,15 @@ describe('geometry', () => {
         if (side[0] !== 0 && side.every(v => v === side[0])) continue;
         const lat = [0, 3, 6].map(k => Math.sign(p[o + k]) * (Math.abs(p[o + k]) > -p[o + k + 2] * T * aspect ? 1 : 0));
         if (lat[0] !== 0 && lat.every(v => v === lat[0])) continue;
-        const e = Math.max(Math.hypot(p[o] - p[o + 3], p[o + 1] - p[o + 4], p[o + 2] - p[o + 5]), Math.hypot(p[o + 3] - p[o + 6], p[o + 4] - p[o + 7], p[o + 5] - p[o + 8]), Math.hypot(p[o + 6] - p[o], p[o + 7] - p[o + 1], p[o + 8] - p[o + 2]));
-        worst = Math.max(worst, e / z);
+        // measured on screen, the part inside the frame (in view heights): the blocks stand out of the sheet, so the
+        // shards at the frame come close and run off screen; what counts is what is seen
+        const cl = (v: number) => Math.max(-1.02, Math.min(1.02, v));
+        const sp = [0, 3, 6].map(k => [cl(p[o + k] / (-p[o + k + 2] * T * aspect)) * aspect / 2, cl(p[o + k + 1] / (-p[o + k + 2] * T)) / 2]);
+        const e = Math.max(Math.hypot(sp[0][0] - sp[1][0], sp[0][1] - sp[1][1]), Math.hypot(sp[1][0] - sp[2][0], sp[1][1] - sp[2][1]), Math.hypot(sp[2][0] - sp[0][0], sp[2][1] - sp[0][1]));
+        worst = Math.max(worst, e);
+        void z;
       }
-      expect(worst).toBeLessThan(0.6);                           // screen-relative size of the largest face
+      expect(worst).toBeLessThan(0.6);                           // the largest face seen: under 60% of the view height
     }
   });
 
@@ -133,7 +138,7 @@ describe('geometry', () => {
     // within one column of the screen, depth barely changes from top to bottom
     for (const list of depthAtX.values()) if (list.length > 10) {
       const m = mean(list), sd = Math.sqrt(mean(list.map(v => (v - m) ** 2)));
-      expect(sd).toBeLessThan(0.08);
+      expect(sd).toBeLessThan(0.1);                              // the blocks add their relief, the bands stay vertical
     }
   });
 

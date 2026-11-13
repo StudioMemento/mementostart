@@ -35,6 +35,7 @@ Sei fasi, con lo stesso ordine su ogni pagina:
 | 05 assestamento | il contenuto prende il suo posto |
 | 06 pronto | il primo frame è perfetto |
 
+- Il nero c'è dal primo istante (`#020202` già nel primo paint, prima di CSS e WebGL): nessun lampo grigio. Il frame del caricamento passa dallo stesso grade finale, con dithering: niente righe né giunzioni nei neri.
 - Durata: **1,8 s**. Se l'utente interagisce prima, il caricamento accelera di 3,2 volte.
 - Il 14% delle celle si accende mentre entra.
 - Ogni cella entra con un ritardo dato da un rumore: il contenuto si costruisce, non appare.

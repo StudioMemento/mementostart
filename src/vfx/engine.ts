@@ -1,8 +1,8 @@
 import gsap from 'gsap';
 import {
-  BufferAttribute, BufferGeometry, CanvasTexture, CustomBlending, DataTexture, DoubleSide, DynamicDrawUsage, GLSL3, InstancedBufferGeometry,
+  BufferAttribute, BufferGeometry, CanvasTexture, CustomBlending, DataTexture, DoubleSide, DynamicDrawUsage, GLSL3, HalfFloatType, InstancedBufferGeometry,
   InstancedInterleavedBuffer, InterleavedBufferAttribute, LinearFilter, Mesh, NoColorSpace, PerspectiveCamera,
-  OneFactor, OneMinusSrcAlphaFactor, RawShaderMaterial, RedFormat, Scene, Sphere, Texture, UnsignedByteType, Vector2, Vector3, Vector4, WebGLRenderer, WebGLRenderTarget, ZeroFactor, type IUniform,
+  NoBlending, OneFactor, OneMinusSrcAlphaFactor, RawShaderMaterial, RedFormat, Scene, Sphere, Texture, UnsignedByteType, Vector2, Vector3, Vector4, WebGLRenderer, WebGLRenderTarget, ZeroFactor, type IUniform,
 } from 'three';
 import { BorderLight, outline } from './border';
 import { ChainField } from './chain';
@@ -14,7 +14,7 @@ import { collect, distanceField, imageFit, paint } from './raster';
 import type { SurfaceOptions, SurfaceRegistry } from './registry';
 import { ScrollState } from './scroll';
 import {
-  BG_FRAG, BG_SOFT_FRAG, BG_VERT, BLUR_FRAG, COMPOSITE_FRAG, FS_VERT, OVERLAY_CARD_FRAG, OVERLAY_TITLE_FRAG, OVERLAY_VERT,
+  BG_FRAG, BG_SOFT_FRAG, BG_VERT, BLUR_FRAG, FS_VERT, GRADE_FRAG, OVERLAY_CARD_FRAG, OVERLAY_TITLE_FRAG, OVERLAY_VERT,
   PART_FRAG, PART_VERT, SURFACE_FRAG, SURFACE_VERT,
 } from './shaders';
 import { loadingDelay, smoothstep } from './structure';
@@ -98,11 +98,15 @@ export class VfxEngine {
   private partGeo = new InstancedBufferGeometry();
   private partBuf: InstancedInterleavedBuffer;
   private partMesh: Mesh;
+  /** The frame in high precision (multisampled): everything is drawn here, then graded once to the screen. */
+  private rtMain: WebGLRenderTarget;
   private rtE: WebGLRenderTarget; private rtA: WebGLRenderTarget; private rtB: WebGLRenderTarget;
+  /** The horizontal streak of the bloom, at a quarter of the size. */
+  private rtS1: WebGLRenderTarget; private rtS2: WebGLRenderTarget;
   /** The sheet out of focus behind the layout column: a little (med) and fully (big). Kept until the sheet changes. */
   private rtMed: WebGLRenderTarget; private rtBig: WebGLRenderTarget; private softKeep: RawShaderMaterial; private softAdd: RawShaderMaterial;
   private bgVersion = 0; private softKey = '';
-  private blur: RawShaderMaterial; private composite: RawShaderMaterial; private fsMesh: Mesh<BufferGeometry, RawShaderMaterial>;
+  private blur: RawShaderMaterial; private grade: RawShaderMaterial; private fsMesh: Mesh<BufferGeometry, RawShaderMaterial>;
 
   private surfaces = new Map<HTMLElement, Surface>();
   private byIndex: Surface[] = [];
@@ -123,7 +127,8 @@ export class VfxEngine {
   private nextIndex = 0;
 
   private constructor(private canvas: HTMLCanvasElement, private registry: SurfaceRegistry) {
-    const renderer = new WebGLRenderer({ canvas, alpha: true, antialias: true, premultipliedAlpha: true, depth: true, stencil: false, powerPreference: 'high-performance' });
+    // the frame is drawn into a multisampled target and graded to the canvas: the canvas itself needs no depth or AA
+    const renderer = new WebGLRenderer({ canvas, alpha: true, antialias: false, premultipliedAlpha: true, depth: false, stencil: false, powerPreference: 'high-performance' });
     if (!renderer.capabilities.isWebGL2) { renderer.dispose(); throw new Error('WebGL2 unavailable'); }
     this.renderer = renderer;
     renderer.autoClear = false;
@@ -155,6 +160,7 @@ export class VfxEngine {
         ...this.globals, uBase: { value: [...VFX.color.base] }, uZ: { value: new Vector2(1, 10) }, uFog: { value: VFX.background.fog }, uAlpha: { value: 0 },
         uLight: { value: new Float32Array(VFX.background.lights.flat()) }, uShade: { value: new Vector4(...VFX.background.shade) }, uFall: { value: VFX.background.falloff }, uGloss: { value: new Vector4(...VFX.background.gloss) },
         uBand: { value: new Vector4(1, 0.4, ...VFX.background.levels) }, uRim: { value: new Vector3(...VFX.background.rim) },
+        uEnv: { value: new Vector4(...VFX.background.env) }, uKey: { value: new Vector4(...VFX.background.key) },
       },
     }));
     this.bg.frustumCulled = false; this.bg.renderOrder = 0;
@@ -173,15 +179,23 @@ export class VfxEngine {
     this.partMesh.renderOrder = 1000; this.partMesh.frustumCulled = false;
     this.scene.add(this.partMesh);
 
+    // high precision wherever light is accumulated or blurred: no banding in the blacks, no seams where passes meet
+    const ext = renderer.extensions;
+    const type = ext.has('EXT_color_buffer_float') || ext.has('EXT_color_buffer_half_float') ? HalfFloatType : UnsignedByteType;
+    const rt = (depth: boolean, samples = 0) => new WebGLRenderTarget(4, 4, { depthBuffer: depth, minFilter: LinearFilter, magFilter: LinearFilter, type, samples });
+    this.rtMain = rt(true, 4);
     // selective bloom: only the emission pass is blurred and added back
-    const rt = (depth: boolean) => new WebGLRenderTarget(4, 4, { depthBuffer: depth, minFilter: LinearFilter, magFilter: LinearFilter });
     this.rtE = rt(true); this.rtA = rt(false); this.rtB = rt(false); this.rtMed = rt(false); this.rtBig = rt(false);
+    this.rtS1 = rt(false); this.rtS2 = rt(false);
     const fs = unbounded(new BufferGeometry());
     fs.setAttribute('position', new BufferAttribute(new Float32Array([-1, -1, 3, -1, -1, 3]), 2));
     const raw = (frag: string, uniforms: Uniforms) => new RawShaderMaterial({ glslVersion: GLSL3, vertexShader: FS_VERT, fragmentShader: frag, uniforms, depthTest: false, depthWrite: false });
     this.blur = raw(BLUR_FRAG, { uTex: { value: null }, uStep: { value: new Vector2() } });
-    this.composite = raw(COMPOSITE_FRAG, { uTex: { value: null }, uStrength: { value: VFX.bloom.strength } });
-    this.composite.transparent = true; this.composite.premultipliedAlpha = true;
+    this.grade = raw(GRADE_FRAG, {
+      uScene: { value: this.rtMain.texture }, uBloom: { value: this.rtB.texture }, uStreak: { value: this.rtS1.texture },
+      uRes: { value: new Vector2(1, 1) }, uMix: { value: new Vector4() }, uLens: { value: new Vector2() }, uFrame: { value: 0 },
+    });
+    this.grade.blending = NoBlending;
     // the soft sheet: the first pass keeps the sharp share of what is on screen, the second adds the blurred shares
     const uCol = { value: new Vector2(0.4, VFX.background.focus) };
     const soft = (pass: number, src: typeof OneFactor | typeof ZeroFactor, dst: typeof OneFactor | typeof OneMinusSrcAlphaFactor) => {
@@ -221,8 +235,8 @@ export class VfxEngine {
     this.surfaces.clear();
     this.bg.geometry.dispose(); this.bg.material.dispose();
     this.partGeo.dispose(); (this.partMesh.material as RawShaderMaterial).dispose();
-    this.fsMesh.geometry.dispose(); this.blur.dispose(); this.composite.dispose();
-    this.rtE.dispose(); this.rtA.dispose(); this.rtB.dispose();
+    this.fsMesh.geometry.dispose(); this.blur.dispose(); this.grade.dispose(); this.softKeep.dispose(); this.softAdd.dispose();
+    [this.rtMain, this.rtE, this.rtA, this.rtB, this.rtMed, this.rtBig, this.rtS1, this.rtS2].forEach(t => t.dispose());
     this.renderer.dispose();
     root().classList.remove('vfx-live', 'vfx-boot', 'vfx-ready');
   }
@@ -333,6 +347,10 @@ export class VfxEngine {
     this.renderer.setSize(w, h, false);
     const bw = Math.max(2, Math.round(w * VFX.bloom.scale)), bh = Math.max(2, Math.round(h * VFX.bloom.scale));
     this.rtE.setSize(bw, bh); this.rtA.setSize(bw, bh); this.rtB.setSize(bw, bh); this.rtMed.setSize(bw, bh); this.rtBig.setSize(bw, bh);
+    this.rtS1.setSize(Math.max(2, bw >> 1), Math.max(2, bh >> 1)); this.rtS2.setSize(Math.max(2, bw >> 1), Math.max(2, bh >> 1));
+    const gl = this.renderer.getContext();
+    this.rtMain.setSize(gl.drawingBufferWidth, gl.drawingBufferHeight);
+    (this.grade.uniforms.uRes.value as Vector2).set(gl.drawingBufferWidth, gl.drawingBufferHeight);
     this.bgVersion++;
     this.parts.limit = Math.round(VFX.particles.pool * q.particles);
     this.scroll.measure(h);
@@ -346,7 +364,7 @@ export class VfxEngine {
     const bu = this.bg.material.uniforms.uBand.value as Vector4, col = column ? Math.min(0.5, column.width / 2 / w) : 0.4;
     // without the depth of field (no bloom on this profile) the far cells behind the column are held lower: in focus they would be busy
     const [edgeLevel, farLevel] = VFX.background.levels;
-    bu.set(this.renderer.getContext().drawingBufferWidth, col, edgeLevel, farLevel * (q.bloom ? 1 : 0.35));
+    bu.set(this.renderer.getContext().drawingBufferWidth, col, edgeLevel, farLevel * (q.bloom ? 1 : 0.2));
     (this.softKeep.uniforms.uCol.value as Vector2).set(col, VFX.background.focus);
 
     // DOM colours and opacities are read in their normal state, then the GPU representation takes over again
@@ -378,6 +396,7 @@ export class VfxEngine {
     g.setAttribute('bary', new BufferAttribute(barycentric(t.faces), 3));
     g.setAttribute('face', new BufferAttribute(t.face, 4));
     g.setAttribute('edge', new BufferAttribute(t.edge, 3));
+    g.setAttribute('rock', new BufferAttribute(t.rock, 1));
     const energy = new BufferAttribute(new Float32Array(t.faces * 6), 2);
     energy.setUsage(DynamicDrawUsage);
     g.setAttribute('energy', energy);
@@ -799,7 +818,7 @@ export class VfxEngine {
   }
 
   private render(emissive: boolean) {
-    const r = this.renderer, g = this.globals;
+    const r = this.renderer, g = this.globals, P = VFX.post;
     this.renderDirty = false;
     // off-screen surfaces are skipped entirely
     const top = this.scroll.y - 80, bottom = this.scroll.y + this.viewH + 80;
@@ -812,19 +831,28 @@ export class VfxEngine {
     });
     const bloom = this.profile().bloom;
     g.uEmissive.value = 0;
-    r.setRenderTarget(null);
+    // the frame, in high precision: the sheet, its depth of field behind the column, then the content and its energy
+    r.setRenderTarget(this.rtMain);
     r.clear();
     r.render(this.bgScene, this.camera);
     if (bloom) this.softenBackground();
     r.render(this.scene, this.camera);
-    if (!emissive || !energy || !bloom) return;
-    g.uEmissive.value = 1;
-    r.setRenderTarget(this.rtE); r.clear(); r.render(this.bgScene, this.camera); r.render(this.scene, this.camera);
-    g.uEmissive.value = 0;
-    // two separable passes, the second twice as wide: a smooth falloff with no stepped edges once scaled up
-    this.blurPasses(this.rtE, [1, 2]);
-    this.fsMesh.material = this.composite;
-    this.composite.uniforms.uTex.value = this.rtB.texture;
+    const glow = emissive && energy && bloom;
+    if (glow) {
+      g.uEmissive.value = 1;
+      r.setRenderTarget(this.rtE); r.clear(); r.render(this.bgScene, this.camera); r.render(this.scene, this.camera);
+      g.uEmissive.value = 0;
+      // two separable passes, the second twice as wide: a smooth falloff with no stepped edges once scaled up
+      this.blurPasses(this.rtE, [1, 2]);
+      // the anamorphic streak: the emission stretched along the horizontal only, at a quarter of the size
+      this.blurPass(this.rtE, this.rtS1, 2, 0); this.blurPass(this.rtS1, this.rtS2, 5, 0); this.blurPass(this.rtS2, this.rtS1, 14, 0);
+    }
+    // the grade, once, to the screen
+    const u = this.grade.uniforms;
+    (u.uMix.value as Vector4).set(glow ? VFX.bloom.strength : 0, glow ? P.streak : 0, P.vignette, P.grain);
+    (u.uLens.value as Vector2).set(bloom ? P.aberration * r.getPixelRatio() : 0, P.shoulder);
+    u.uFrame.value = this.reduced ? 0 : Math.floor(this.clock * 24) % 4096;
+    this.fsMesh.material = this.grade;
     r.setRenderTarget(null); r.render(this.post, this.camera);
   }
 
@@ -859,13 +887,13 @@ export class VfxEngine {
       this.blurPasses(this.rtE, B.med, this.rtMed);
       this.blurPasses(this.rtMed, B.big, this.rtBig);
     }
-    // only the column and its edge are touched
-    const gl = r.getContext(), W = gl.drawingBufferWidth, H = gl.drawingBufferHeight, dpr = r.getPixelRatio();
+    // only the column and its edge are touched (the target's own scissor, in its pixels)
+    const t = this.rtMain, W = t.width, H = t.height;
     const half = Math.min(W / 2, bu.y * 1.06 * W);
-    r.setRenderTarget(null);
-    r.setScissorTest(true); r.setScissor((W / 2 - half) / dpr, 0, (half * 2) / dpr, H / dpr);
+    t.scissor.set(Math.floor(W / 2 - half), 0, Math.ceil(half * 2), H); t.scissorTest = true;
+    r.setRenderTarget(t);
     this.fsMesh.material = this.softKeep; r.render(this.post, this.camera);
     this.fsMesh.material = this.softAdd; r.render(this.post, this.camera);
-    r.setScissorTest(false);
+    t.scissorTest = false; r.setRenderTarget(t);
   }
 }

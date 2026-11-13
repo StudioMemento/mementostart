@@ -4,9 +4,9 @@
 
 - **Produzione:** render 3D di oggetti su fondo nero, in bianco e nero, con polvere e frammenti che si staccano dall'oggetto (la materia che si disfa). I prompt sono in `docs/image-prompts-v13.md` del progetto START.
 - **A riposo:** bianco e nero. Il nero resta nero.
-- **Base attiva (hover):** l'immagine si scalda dall'interno. La sua luminanza viene mappata sulla rampa ambra solo dove c'è luce; i neri non si colorano mai.
+- **Base attiva (hover):** l'immagine si scalda dall'interno. La sua luminanza viene mappata sulla rampa ambra solo dove c'è luce; i neri non si colorano mai. L'incandescenza è **contenuta**: sta sulle creste dell'oggetto e il nucleo più chiaro non brucia mai in bianco.
 - **Range:** dove arrivano le celle, ambra piena e faccette sopra l'immagine. La leggibilità dell'oggetto viene prima.
-- **Bordi dell'immagine:** sfumano, così non si vede mai dove finisce il riquadro.
+- **Bordi dell'immagine:** l'immagine illumina il pannello nero void (il più chiaro dei due), quindi il riquadro non si vede mai; le faccette d'hover seguono l'oggetto, non il riquadro.
 
 ## Ambienti (fotografie di studio)
 

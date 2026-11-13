@@ -25,6 +25,6 @@ Un solo tempo per tutto il sito. Le animazioni nascono dalla materia e dall'ener
 
 ## Regole
 
-- Niente loop decorativi infiniti: tutto ciò che si muove ha una causa (gesto, posizione, caricamento, sorgente) e una fine.
+- Niente loop decorativi infiniti: tutto ciò che si muove ha una causa (gesto, posizione, caricamento, sorgente) e una fine. A riposo nulla si muove: né luci, né riflessi, né camera. L'unica eccezione è la grana della pellicola, sotto la soglia del movimento.
 - Il foglio dello sfondo non si muove mai: si muovono luce ed energia.
 - Ogni movimento ha la sua versione per reduced motion (vedi `interazione-e-accessibilita.md`).

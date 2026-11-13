@@ -18,7 +18,10 @@ Implementazione di riferimento: progetto `memento-start` (React 18, Vite, TypeSc
 | Fasce e frammentazione | `structure.ts`, `vfx.css` | `bandEnable`, `fragmentation`, `--vfx-band` |
 | Deriva allo stop | `shaders.ts`, `config.ts` | `SURFACE_VERT`, `VFX.scroll` |
 | Puntatore, fermo, sorgenti | `engine.ts`, `config.ts` | `driveBackground`, `VFX.pointer` |
-| Bloom | `engine.ts`, `config.ts` | `render`, `VFX.bloom` |
+| Blocchi d'ossidiana, fessure | `geometry.ts`, `config.ts` | `rockField`, `VFX.background.rock` |
+| Studio riflesso, luce dall'alto | `shaders.ts`, `config.ts` | `studio` in `BG_FRAG`, `VFX.background.env`, `VFX.background.key` |
+| Bloom, striatura | `engine.ts`, `config.ts` | `render`, `VFX.bloom`, `VFX.post.streak` |
+| Grade finale (spalla, vignettatura, grana, aberrazione, dithering) | `shaders.ts`, `config.ts` | `GRADE_FRAG`, `VFX.post` |
 | Profili di qualità | `config.ts` | `VFX.quality` |
 | Mappa | `src/components/locationMap.ts` | posizioni delle etichette sul render della città |
 

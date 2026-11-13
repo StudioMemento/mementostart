@@ -6,10 +6,10 @@ Un solo carattere, **Inter**. I titoli sono grandi e leggeri (peso 330–350), s
 
 | Stato | Aspetto |
 | --- | --- |
-| **Quiete** | il gradiente ambra **desaturato** (stessa luminanza, nessuna tinta) su tutto il blocco: bianco in alto, grigio medio alla base. Simula una luce dall'alto. |
-| **Base attiva** (cursore sul titolo) | lo stesso gradiente con la sua tinta: bianco caldo in alto, pesca a metà, arancio alla base (`VFX.color.titleAmber`), con un respiro lento di ±4% |
-| **Range** | nelle celle raggiunte sale dalla base un giallo caldo (mai acido), più chiaro in alto e più profondo in basso; micro-faccette arancio e un reticolato chiaro dentro i glifi; bordo interno caldo; glow ambra esterno e un bloom leggero |
-| **Ritorno** | le celle si spengono una a una in circa 1,1 s; la base attiva esce in circa 0,6 s |
+| **Quiete** | il gradiente ambra **desaturato** (stessa luminanza, nessuna tinta) su tutto il blocco: la prima riga resta bianca piena, l'ombra vive solo nella parte bassa dell'ultima riga e arriva al grigio medio sulla linea di base. Simula una luce dall'alto. |
+| **Base attiva** (cursore sul titolo) | lo stesso gradiente con la sua tinta: bianco caldo in alto, pesca e arancio nella parte bassa dell'ultima riga (`VFX.color.titleAmber`), con un respiro lento di ±4%. Dentro le lettere, su tutto il blocco, un **reticolo dorato** di micro-faccette; attorno, un bagliore ambra leggero. |
+| **Range** | nelle celle raggiunte sale dalla base un giallo caldo (mai acido), più chiaro in alto e più profondo in basso; il reticolo si fa più fitto e più acceso; bordo interno caldo; glow ambra esterno e un bloom leggero |
+| **Ritorno** | tutto il blocco **si desatura** verso il gradiente di quiete in un solo movimento (circa 0,6–1 s): base, range e reticolo insieme. Mai cella per cella, mai un overlay che sparisce lasciando vedere i tagli. |
 
 ## Regole
 

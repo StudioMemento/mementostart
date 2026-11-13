@@ -1,5 +1,5 @@
 /* Surface is selected before paint and never changes when the bridge connects. */
-html[data-memento-surface="opaque"]{background-color:#121212}
+html[data-memento-surface="opaque"]{background-color:#020202}
 html[data-memento-surface="transparent"]{background-color:transparent}
 /* Page spacing is independent of the V12 blur renderer. */
 :root{--memento-content-edge-space:clamp(180px,26dvh,300px)}

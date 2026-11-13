@@ -144,12 +144,52 @@ export interface Arch extends CellNetwork {
   face: Float32Array;
   /** Per vertex: ridge light of the edges opposite vertex 0, 1, 2 (same on the three vertices of a face). */
   edge: Float32Array;
+  /** Per rendered vertex: height within its block of obsidian, 0 in the crack between blocks .. 1 at its crest. */
+  rock: Float32Array;
   centroid: Float32Array;
   depth: Float32Array;
   zNear: number; zFar: number;
   /** Edges with one face only: the outer border of the sheet, all of it off screen. */
   open: number;
   border: number;
+}
+
+/**
+ * Blocks of obsidian on the sheet: a cellular field over the sampled points. A share of the points become the centres of
+ * blocks a few cells wide; every point takes its height from the two nearest centres, measured in local cells (so blocks
+ * keep their size in cells at every depth): 0 on the crack between two blocks, 1 on the crest. Each block has its own
+ * height and leans its own way, so its facets turn to different angles and catch the light one by one.
+ */
+export function rockField(pts: ArrayLike<number>, cellAt: (s: number) => number, seed: number) {
+  const [spacing, profile, lean] = VFX.background.rock;
+  const n = pts.length / 2, rnd = mulberry(seed ^ 0x6f0c);
+  const centres: { s: number; y: number; h: number; tx: number; ty: number }[] = [];
+  const share = 1 / (spacing * spacing * 0.95);
+  for (let i = 0; i < n; i++) if (rnd() < share) {
+    const a = rnd() * 6.283;
+    centres.push({ s: pts[i * 2], y: pts[i * 2 + 1], h: 0.55 + 0.9 * rnd(), tx: Math.cos(a) * lean * rnd(), ty: Math.sin(a) * lean * rnd() });
+  }
+  centres.sort((a, b) => a.s - b.s);
+  const lift = new Float32Array(n), rock = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const s = pts[i * 2], y = pts[i * 2 + 1], c = cellAt(s), win = c * spacing * 2.2;
+    let lo = 0, hi = centres.length;
+    while (lo < hi) { const m = (lo + hi) >> 1; if (centres[m].s < s - win) lo = m + 1; else hi = m; }
+    let d1 = Infinity, d2 = Infinity, best = -1;
+    for (let k = lo; k < centres.length && centres[k].s <= s + win; k++) {
+      const dy = centres[k].y - y;
+      if (Math.abs(dy) > win) continue;
+      const d = Math.hypot(centres[k].s - s, dy) / c;
+      if (d < d1) { d2 = d1; d1 = d; best = k; } else if (d < d2) d2 = d;
+    }
+    if (best < 0) continue;
+    if (!Number.isFinite(d2)) d2 = d1 + spacing;
+    const r = Math.pow(Math.min(1, (d2 - d1) / (d2 + d1) * 2.2), profile);
+    const b = centres[best], ds = (s - b.s) / c, dy = (y - b.y) / c;
+    rock[i] = r;
+    lift[i] = r * b.h * (1 + (ds * b.tx + dy * b.ty) * 0.5);
+  }
+  return { lift, rock };
 }
 
 /**
@@ -226,7 +266,8 @@ export function buildArch(aspect: number, viewH: number, seed = 20240611, scale 
   }
   const d = new Delaunator(Float64Array.from(pts));
   const tri = d.triangles, faces = tri.length / 3, points = pts.length / 2;
-  // lift to 3D and push along the sheet's normal: peaks and valleys
+  const height = rockField(pts, s => cellAt(zAt(uOf(Math.abs(s)))), seed);
+  // lift to 3D and push along the sheet's normal: blocks of obsidian standing out of the sheet, cracks between them
   const P = new Float32Array(points * 3);
   for (let i = 0; i < points; i++) {
     const s = pts[i * 2], y = pts[i * 2 + 1], side = Math.sign(s) || 1;
@@ -238,7 +279,9 @@ export function buildArch(aspect: number, viewH: number, seed = 20240611, scale 
     let nx = -tz / l, nz = tx / l;
     const x0 = side * u * z * T * aspect;
     if (nx * -x0 * side + nz * z < 0) { nx = -nx; nz = -nz; }
-    const relief = (rnd() - 0.45) * B.relief * cellAt(z);
+    // past the frame the blocks flatten out: off screen, they would only come close to the camera and loom
+    const taper = u > 1 ? Math.max(0.3, 1 - (u - 1) * 2.8) : 1;
+    const relief = (height.lift[i] + (rnd() - 0.5) * 0.08) * B.relief * cellAt(z) * taper;
     P[i * 3] = x0 + side * nx * relief; P[i * 3 + 1] = y + (rnd() - 0.5) * 0.2 * cellAt(z); P[i * 3 + 2] = -(z - nz * relief);
   }
   const t = tables(tri, faces, points);
@@ -271,6 +314,7 @@ export function buildArch(aspect: number, viewH: number, seed = 20240611, scale 
     return 0;
   };
   const position = new Float32Array(faces * 9), face = new Float32Array(faces * 12), edgeArr = new Float32Array(faces * 9);
+  const rock = new Float32Array(faces * 3);
   const vertexOf = new Uint32Array(faces * 3), depth = new Float32Array(faces), seeds = new Float32Array(faces);
   const cond = new Float32Array(faces), weight = new Float32Array(faces);
   const span = Math.log(zF / zN);
@@ -284,14 +328,14 @@ export function buildArch(aspect: number, viewH: number, seed = 20240611, scale 
     weight[f] = 0.3 + 0.7 * (1 - dn);   // every face can answer, the near ones first
     for (let k = 0; k < 3; k++) {
       const v = tri[f * 3 + k], o = f * 3 + k;
-      vertexOf[o] = v;
+      vertexOf[o] = v; rock[o] = height.rock[v];
       position.set([P[v * 3], P[v * 3 + 1], P[v * 3 + 2]], o * 3);
       face.set([sd, gloss, sheen, dn], o * 4);
       edgeArr.set(e, o * 3);
     }
   }
   return {
-    faces, points, position, face, edge: edgeArr, centroid: cen, depth, zNear: zN, zFar: zF, open: t.open, border: d.hull.length,
+    faces, points, position, face, edge: edgeArr, rock, centroid: cen, depth, zNear: zN, zFar: zF, open: t.open, border: d.hull.length,
     cx: new Float32Array(faces), cy: new Float32Array(faces), nbStart: t.nbStart, nb: t.nb, cond, weight, seed: seeds,
     vertexOf, pfStart: t.pfStart, pf: t.pf,
   };

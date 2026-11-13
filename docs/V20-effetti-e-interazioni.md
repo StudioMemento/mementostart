@@ -1,4 +1,4 @@
-# Memento START V20: effetti e interazioni
+# Memento START V21: effetti e interazioni
 
 Questa guida descrive cosa deve succedere sulla pagina START, stato per stato, senza entrare nel codice. Per ogni parte ci sono due liste:
 
@@ -39,16 +39,17 @@ Tutto il resto deriva da queste cinque regole.
 
 ## 3. Lo sfondo
 
-Lo sfondo è un foglio di triangoli di grafite curvato come un arco: vicino ai bordi dello schermo, lontano al centro. Il foglio non si muove mai: cambiano solo luce ed energia.
+Lo sfondo è un foglio d'ossidiana curvato come un arco: vicino ai bordi dello schermo, lontano al centro. Non è liscio: è fatto di blocchi sfaccettati di vetro nero, con fessure tra un blocco e l'altro. Il foglio, le luci e la camera non si muovono mai a riposo: cambiano solo con un gesto.
 
 ### 3.1 A riposo
 
 **Cosa vedi**
-- Tono generale **molto scuro**. Le facce sono quasi nere; la luce sta su poche creste sottili e su qualche faccia lucida.
+- Tono generale **molto scuro**. Le facce sono vetro nero con una grana fine di grafite: la forma dei blocchi si legge dai riflessi (lunghi e netti, che attraversano le facce), dai fili di luce sugli spigoli e dal buio delle fessure.
+- Luce **simmetrica**: le due pareti si rispondono, la luce viene dall'alto e dal fondo del tunnel.
 - **Ai bordi dello schermo** (primo piano): triangoli grandi e allungati in verticale, come schegge alte circa un terzo dello schermo. Qui ci sono i riflessi più netti.
 - **Verso il centro** i triangoli diventano sempre più piccoli e più fitti, in modo graduale: si legge come una struttura 3D vista in prospettiva.
 - **Il punto più scuro è il bordo della colonna dei contenuti** (dove inizia il testo).
-- **Dentro la colonna** lo sfondo è sfocato: dal bordo della colonna verso il centro perde fuoco poco a poco. Restano triangoli piccoli, appena visibili, morbidi.
+- **Dentro la colonna** lo sfondo è scuro e leggermente sfocato: la profondità la danno soprattutto la misura e il buio. Restano triangoli piccoli, appena visibili, morbidi.
 - Luce e buio dipendono solo dalla posizione orizzontale: si leggono come fasce verticali.
 
 **È un errore se**
@@ -57,6 +58,8 @@ Lo sfondo è un foglio di triangoli di grafite curvato come un arco: vicino ai b
 - C'è un taglio netto tra la parte nitida e quella sfocata (la sfocatura deve crescere in modo graduale).
 - Dietro il testo si vede una texture nitida e fitta che disturba la lettura.
 - Una faccia diventa bianca piena, piatta, senza sfumatura.
+- Le pareti sembrano piatte (solo linee su un fondo uniforme) invece che blocchi con volume.
+- Luci, riflessi o camera si muovono a pagina ferma.
 - Compaiono bande o gradini nel nero (scalini di colore nei gradienti scuri).
 
 **Nota sugli schermi.** Su un monitor largo (come il tuo 3440×1440) le pareti occupano molto spazio ai lati. Su schermi più stretti la colonna dei contenuti prende quasi tutta la larghezza, quindi le pareti si vedono solo in una striscia sottile ai bordi. È voluto.
@@ -66,7 +69,7 @@ Lo sfondo è un foglio di triangoli di grafite curvato come un arco: vicino ai b
 **Cosa vedi**
 - Il cursore lascia una **scia d'ambra** che corre negli spigoli dei triangoli vicini e si propaga ai vicini per qualche passo, poi si spegne. Più veloce muovi, più lunga la scia.
 - La reazione **continua anche dentro la colonna dei contenuti**: lì è più leggera (circa metà delle accensioni) e sfocata come lo sfondo, così non si interrompe di colpo al bordo della colonna.
-- Le facce grandi del primo piano non si riempiono d'ambra: l'energia corre sui loro spigoli e le scalda appena.
+- Le facce grandi del primo piano non si riempiono d'ambra: l'energia sale dalle fessure tra i blocchi, corre sui loro spigoli e le scalda appena.
 - Sopra una card lo sfondo non reagisce: il cursore appartiene alla card.
 
 **È un errore se**
@@ -94,7 +97,7 @@ Titoli grandi: "LET'S WORK TOGETHER", "SIAMO QUI", "CONTINUA IL VIAGGIO!". Ogni 
 ### 4.1 A riposo
 
 **Cosa vedi**
-- Sfumatura grigia dall'alto verso il basso: bianco in alto, grigio medio alla base dell'ultima riga.
+- La prima riga è bianca piena. La sfumatura grigia vive solo nella parte bassa dell'ultima riga: bianco in alto, grigio medio sulla linea di base.
 - È la **versione desaturata della sfumatura arancio dell'hover**: stessa luminosità, nessun colore.
 - Bordi dei caratteri nitidi.
 
@@ -106,7 +109,8 @@ Titoli grandi: "LET'S WORK TOGETHER", "SIAMO QUI", "CONTINUA IL VIAGGIO!". Ogni 
 ### 4.2 Cursore sul titolo: il blocco si scalda
 
 **Cosa vedi**
-- Entro circa un terzo di secondo l'intero blocco passa alla sua **sfumatura calda**: bianco caldo (leggermente pesca) in alto, pesca a metà, **arancio** alla base dell'ultima riga.
+- Entro circa un terzo di secondo l'intero blocco passa alla sua **sfumatura calda**: bianco caldo (leggermente pesca) in alto, pesca e **arancio** nella parte bassa dell'ultima riga.
+- Dentro tutte le lettere compare un **reticolo dorato** di piccoli triangoli, tenue lontano dal cursore e più fitto e acceso vicino. Attorno alle lettere, un bagliore ambra leggero.
 - Respira piano (variazione minima, lenta).
 
 **È un errore se**
@@ -133,11 +137,10 @@ Titoli grandi: "LET'S WORK TOGETHER", "SIAMO QUI", "CONTINUA IL VIAGGIO!". Ogni 
 ### 4.4 Il cursore se ne va
 
 **Cosa vedi**
-- Le celle accese si spengono una a una in circa un secondo.
-- La sfumatura calda del blocco torna grigia in circa mezzo secondo.
+- Tutto il blocco **si desatura** e torna grigio in un solo movimento (circa 0,6–1 s): sfumatura calda, giallo del range e reticolo insieme.
 
 **È un errore se**
-- Tutto si spegne nello stesso istante.
+- Si vedono i tagli triangolari delle celle mentre il colore se ne va.
 - Resta una zona colorata dopo qualche secondo.
 
 ---
@@ -149,7 +152,7 @@ Le card hanno un'immagine (busta, portatile, telefono, icone social), un'icona p
 ### 5.1 A riposo
 
 **Cosa vedi**
-- Card scure, cornice sottile, immagine in bianco e nero, testo e icona in **un solo colore** (grigio chiaro uniforme, perché a riposo la card ha un velo scuro).
+- Card in **nero void**, cornice sottile, immagine in bianco e nero, testo e icona in **un solo colore**.
 - Nessuna cella visibile, nessuna ambra.
 
 **È un errore se**
@@ -175,16 +178,18 @@ Esempio: il cursore nello spazio tra quattro card.
 ### 5.3 Cursore sulla card
 
 **Cosa vedi**
-- **Un solo insieme di celle**, più fitto lungo i bordi e più rado al centro. Le celle hanno visibilità diverse: alcune forti, alcune deboli, alcune appena percettibili, altre invisibili. Anche la saturazione cambia: alcune arancio pieno, altre quasi neutre.
+- **Un solo insieme di celle**, più fitto lungo i bordi e più rado al centro. Le celle compaiono **solo vicino al cursore e dove passa la reazione**, a zone, poi tornano al nero: nessun campo fermo di triangoli. Le visibilità e le saturazioni variano: alcune arancio pieno, altre quasi neutre.
 - Vicino al cursore le celle sono più accese. Le celle respirano piano, ognuna col suo ritmo.
 - La reazione a catena passa per **le stesse celle**, con lo stesso aspetto: non c'è uno strato fermo e uno che si muove.
-- L'immagine si **illumina dall'interno**: le parti chiare diventano ambra, i neri restano neri.
+- L'immagine si **illumina dall'interno**: le creste dell'oggetto diventano ambra, i neri restano neri, il centro non brucia mai in bianco.
 - Il bordo si accende a tratti.
 - Il **testo resta dello stesso colore e dello stesso spessore**. Vicino al cursore prende una tinta ambra chiara e molto diffusa.
 - Muovendo il cursore, qualche frammento si stacca dalle celle accese e scivola verso l'esterno della card.
 
 **È un errore se**
 - Si vedono due famiglie di triangoli diverse (per esempio una ferma e luminosa e un'altra che si muove con un altro colore).
+- Su tutta la card resta un tappeto fermo di triangoli che copre la reazione.
+- Si vede il bordo del riquadro dell'immagine o una zona grigia attorno all'oggetto.
 - Le linee lunghe dei triangoli grandi al centro sono più evidenti di quelle fitte sui bordi.
 - Il testo diventa più spesso in hover.
 - Il testo prende un arancio saturo o una sfumatura.
@@ -324,12 +329,24 @@ Per confrontare si può forzare il profilo aggiungendo all'indirizzo `?vfx=high`
 
 ---
 
-## 12. Colori di riferimento
+## 12. Grade finale
+
+**Cosa vedi**
+- Luci forti che si smorzano morbide invece di bruciare; testi con il loro colore esatto.
+- Angoli dello schermo appena più scuri; una grana finissima sulle superfici (non sul nero puro); un filo d'aberrazione cromatica solo sugli spigoli chiari vicino al bordo dello schermo; in hover, una leggera striatura orizzontale calda attorno alle luci.
+
+**È un errore se**
+- La grana si vede sul nero o sui testi a distanza normale.
+- L'aberrazione si vede al centro o sui titoli.
+- Compaiono bande o righe nei neri.
+
+## 13. Colori di riferimento
 
 | Elemento | Colore |
 | --- | --- |
-| Fondo | quasi nero |
-| Titoli a riposo | da bianco (#F2F2F2) a grigio medio (#838383) |
+| Fondo | quasi nero (#020202, anche prima che parta il WebGL) |
+| Card e pannelli | nero void opaco |
+| Titoli a riposo | bianco (#F2F2F2) fino alla parte alta dell'ultima riga, poi grigio medio (#838383) sulla linea di base |
 | Titoli in hover, alto | bianco caldo (#FBEFE8) |
 | Titoli in hover, base | arancio (#D9682F) |
 | Range sui titoli | giallo caldo (#FFDA8C), più chiaro in alto (#FFE6C4), più profondo in basso (#FFB45C) |

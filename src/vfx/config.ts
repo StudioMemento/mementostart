@@ -40,13 +40,18 @@ export const desaturate = (hex: string) => {
   return `#${v}${v}${v}`;
 };
 
-const TITLE_AMBER = [[0, '#fbefe8'], [0.4, '#f9e7dc'], [0.58, '#f0cbb4'], [0.76, '#e8a57c'], [0.88, '#e1844c'], [1, '#d9682f']] as const;
+/**
+ * One gradient over the whole title block (0 = cap line of the first line, 1 = baseline of the last). Light comes from
+ * above: the first line stays white, the shade only lives in the lower part of the last line.
+ */
+const TITLE_AMBER = [[0, '#fbefe8'], [0.56, '#fbefe8'], [0.68, '#f5d9c6'], [0.8, '#ecb28c'], [0.91, '#e2874f'], [1, '#d9682f']] as const;
 
 export const VFX = {
   color: {
     /** Surface black behind everything (sRGB 0..1). */
     base: [0.008, 0.008, 0.009] as const,
-    panel: [0.012, 0.012, 0.014, 0.94] as const,
+    /** Cards and panels: void black, opaque. Nothing of the sheet shows through, so no edge of an image can either. */
+    panel: [0.006, 0.006, 0.007, 1] as const,
     /** Amber scale: deep > mid > hot > core. `base` is the configurable reference tint. */
     amber: { base: '#FF7950', deep: '#9E2208', mid: '#FF5510', hot: '#FF8A1C', core: '#FFCB72' },
     /**
@@ -73,7 +78,16 @@ export const VFX = {
     stretch: 1.55,
     /** Size variation between neighbouring cells (0 = even): small, so size reads as distance, as on a wireframe. */
     irregular: 0.18,
-    relief: 0.9,          // peaks and valleys, × local cell size, along the sheet's normal
+    relief: 0.95,         // height of the obsidian blocks, × local cell size, along the sheet's normal
+    /** Blocks: spacing of their centres (cells), crest profile (<1 rounder, 1 pyramid), how far each one leans. */
+    rock: [2.3, 0.8, 0.45] as [number, number, number],
+    /**
+     * Obsidian: the faces are black glass that reflects a still studio. Overhead softbox (light from above, like the
+     * type), the far light at the end of the tunnel (the centre), Fresnel F0, surface flecks (graphite grain).
+     */
+    env: [5, 2.5, 0.06, 0.4] as [number, number, number, number],
+    /** A soft light from above (camera-space direction, strength): crests lit, undersides dark, like the type. */
+    key: [0, 0.8, 0.55, 0.1] as [number, number, number, number],
     fog: 0.55,            // darkness with depth, on top of the light's own falloff
     falloff: 0.05,        // light intensity / (1 + falloff·d²): near is bright, deep is dark
     /** Point lights, camera space (x, y, z, intensity): one close to the viewer lifts the foreground, two inside rake along the walls. */
@@ -88,17 +102,17 @@ export const VFX = {
     levels: [0.035, 0.07] as [number, number],
     /** Depth of field behind the column: share of the column half-width over which focus is lost. */
     focus: 0.55,
-    /** Blur widths (half-size texels): a little out of focus, then fully. */
-    blur: { med: [1] as readonly number[], big: [2, 3] as readonly number[] },
+    /** Blur widths (half-size texels): a little out of focus, then softly (a light depth of field: scale and darkness do the rest). */
+    blur: { med: [1] as readonly number[], big: [1.5, 2] as readonly number[] },
     /** Pointer ignitions on the sheet behind the column, × those in the side padding. */
     columnRate: 0.5,
   },
   chain: {
     /** Cards: irregular cells of mixed sizes, fine along the outline and large in the middle; a slow, controlled reaction. */
     card: { spacing: 62, edgeSpacing: 15, edgeReach: 120, topoArea: 230000, margin: 30, zone: 170, maxGen: 6, spread: 0.74, carry: 0.86, rate: 0.5,
-      /** Reach of the pointer over the cells (px): under it, from outside (a neighbour in range); share lit across the card;
-       *  strength from outside. */
-      wake: [250, 190, 0.2, 1.35] as [number, number, number, number],
+      /** Reach of the pointer over the cells (px): under it, from outside (a neighbour in range); share lit across the card
+       *  (0: no still field of triangles, cells show where the reaction passes and near the pointer); strength from outside. */
+      wake: [150, 150, 0, 1.2] as [number, number, number, number],
       /** Type near the pointer: warmth, reach (px), share when the card is only in range. */
       inkWarm: [0.75, 280, 0.45] as [number, number, number],
       delay: [0.12, 0.28] as const, release: [0.9, 1.7] as const, refractory: [0.9, 1.5] as const, attack: 0.2 },
@@ -148,6 +162,13 @@ export const VFX = {
   /** Structural cells (loading and scroll tessellation): smaller and of mixed sizes. */
   cells: { card: 21, titleEm: 0.075 },
   bloom: { scale: 0.5, strength: 0.95 },
+  /**
+   * The final grade, one pass over the whole frame: highlights roll off above `shoulder` instead of clipping (the type
+   * below it keeps its exact colour), a horizontal streak drawn from the bloom (anamorphic, warm, only where there is
+   * energy), vignette at the corners, fine film grain (none on pure black, 24 steps a second), chromatic aberration
+   * toward the frame (px at the corners), dithering against banding in the blacks.
+   */
+  post: { shoulder: 0.84, streak: 0.2, vignette: 0.26, grain: 0.016, aberration: 1.4 },
   quality: {
     high: { dpr: 2, bloom: true, particles: 1, cellScale: 1 },
     medium: { dpr: 1.5, bloom: true, particles: 0.6, cellScale: 1.25 },

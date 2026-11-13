@@ -23,6 +23,7 @@
 - Gli hover restano, attenuati al 60%.
 - Le fasce dello scroll non frammentano.
 - Il caricamento è immediato: la pagina appare composta.
+- La grana della pellicola è ferma.
 
 ## Profili di qualità
 

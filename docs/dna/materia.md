@@ -1,12 +1,12 @@
 # Materia
 
-La materia di Memento è un unico foglio di **grafite cristallina**: triangoli irregolari, facce opache, spigoli che catturano la luce. È la stessa ovunque. Cambiano solo la scala e quanta ne vediamo.
+La materia di Memento è un unico foglio di **ossidiana**: blocchi sfaccettati di vetro nero con una grana di grafite, spigoli lucidi, riflessi netti. È molto scura: la forma si legge dai riflessi e dagli spigoli, non da superfici grigie. È la stessa ovunque. Cambiano solo la scala e quanta ne vediamo.
 
 ## La cella
 
 - **Topologia:** triangolazione di Delaunay su punti irregolari, la cui densità segue un rumore lento. Celle vicine hanno misure diverse ma entro una banda stretta: ogni livello ha una sua scala riconoscibile e la differenza tra un livello e l'altro è proporzionata, così l'insieme si legge come il wireframe di una struttura vista in prospettiva. Mai un reticolo regolare, mai esagoni o quadrati.
-- **Superficie:** faccia piatta grafite (`grafite`) con un riflesso ampio e, su alcune facce, uno lucido e stretto. La luce scorre dalla cresta più luminosa verso l'interno della faccia.
-- **Spigolo:** linea sottile che si accende solo dove la luce la colpisce (`cresta`). Le valli restano scure.
+- **Superficie:** vetro nero (ossidiana) con una grana fine di grafite. Ogni faccia è lucida, alcune sono specchi. Riflette uno studio fermo e simmetrico: un softbox lungo in alto, due strip sottili attraverso il tunnel (linee nette che scorrono sulle facce e ne disegnano il gradiente interno) e la luce in fondo al tunnel. Il riflesso cresce verso gli angoli radenti (Fresnel). Una luce morbida dall'alto modella ogni blocco: creste chiare, lati in basso scuri, come i titoli.
+- **Spigolo:** filo di vetro sottile che si accende solo dove prende un riflesso o la luce (`cresta`). Le fessure restano scure.
 
 ## Le scale
 
@@ -19,23 +19,32 @@ La materia di Memento è un unico foglio di **grafite cristallina**: triangoli i
 | Glifi (reazione) | 0,2 em | porta la reazione lungo la frase |
 | Glifi (micro-faccette) | 0,075–0,095 em | si accendono solo nel range |
 
+## I blocchi: topologia 3D
+
+- Il foglio non è liscio: è fatto di **blocchi d'ossidiana** larghi circa 2,3 celle, che escono dal foglio verso chi guarda. Tra un blocco e l'altro c'è una **fessura**.
+- Ogni blocco ha la sua altezza e si inclina per conto suo, così le sue facce girano ad angoli diversi e prendono la luce una alla volta.
+- Le fessure tengono il buio (occlusione): la luce arriva prima sulle creste. È anche da lì che sale l'energia (vedi `energia.md`).
+- Oltre il bordo dello schermo i blocchi si appiattiscono, così le schegge al bordo non incombono sulla camera.
+
 ## Lo sfondo: un piano inarcato e immobile
 
 - È un foglio 3D inarcato con l'asse verticale parallelo allo schermo. Al bordo è vicino e frontale, verso il centro gira e si allontana fino a 20 volte la distanza iniziale.
 - È **immobile**: si muovono solo luce ed energia.
-- È **scuro**: corpo quasi nero, luce solo su poche creste nette del primo piano e su qualche faccia lucida. Le altre facce si leggono appena.
+- È **molto scuro**: corpo quasi nero; la luce sta sulle facce che riflettono lo studio, sulle creste e sui fili degli spigoli. Le altre facce si leggono appena.
 - La luce dipende solo dalla posizione orizzontale, quindi si leggono **fasce verticali**. Il gradiente parte dal bordo dello schermo, attraversa il padding laterale e tocca il punto più scuro sul bordo della colonna dei contenuti (3,5% della luminanza del bordo).
-- Dal bordo della colonna verso il centro il foglio **va fuori fuoco** con gradualità (profondità di campo). Dietro i contenuti restano celle piccole e appena visibili, sfocate: struttura percepita, mai texture che compete con il testo.
-- **Luci:** una vicina a chi guarda solleva il primo piano; due dentro il tunnel radono le pareti. L'intensità cala con la distanza: vicino è chiaro, lontano è scuro.
+- Verso il centro la profondità la danno **la scala e il buio**; dal bordo della colonna una **sfocatura leggera** (profondità di campo) completa l'effetto. Dietro i contenuti restano celle piccole e appena visibili: struttura percepita, mai texture che compete con il testo.
+- **Luci simmetriche e centrali:** tutte sull'asse del tunnel. Una vicina a chi guarda solleva il primo piano, due dentro il tunnel radono le pareti, lo studio riflesso è simmetrico. L'intensità cala con la distanza: vicino è chiaro, lontano è scuro.
+- **Fermo:** a riposo luci, riflessi e camera non si muovono. Cambia qualcosa solo con un gesto.
 
 ## Le card
 
-- Pannello nero al 94%, angoli tagliati (`taglio-card`), cornice sottile con sfumatura.
+- Pannello **nero void, opaco** (`pannello`), angoli tagliati (`taglio-card`), cornice sottile con sfumatura. Dietro una card non traspare nulla, quindi non si vede mai dove finisce un'immagine.
 - La rete di celle esiste anche a riposo ma **non si vede**. Compare solo come topologia in hover (vedi `energia.md`).
 - Le card grandi (pannelli FAQ, legal, mappa) hanno una topologia più rada, in proporzione all'area.
 
 ## Cosa non fare
 
 - Non mettere texture o rumore fotografico al posto delle celle.
-- Non far muovere il foglio dello sfondo (niente onde, niente parallasse della geometria).
+- Non far muovere il foglio dello sfondo (niente onde, niente parallasse della geometria), né la camera o le luci a riposo.
+- Non schiarire il corpo delle facce per far leggere la forma: la forma la danno riflessi, spigoli e fessure.
 - Non usare celle della stessa misura su tutto lo schermo: perde la scala.

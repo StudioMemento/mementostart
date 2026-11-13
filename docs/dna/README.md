@@ -1,19 +1,19 @@
 # Memento — VFX DNA
 
-Il DNA visivo e di comportamento degli effetti di mementostudio.it: una sola materia, una sola energia, una sola luce, con regole precise su quando e quanto si mostrano. La pagina START (V20, `mementostart.vercel.app`) è l'implementazione di riferimento; navigation, servizi, Portfolio e levelup la seguiranno con le stesse regole e le stesse costanti.
+Il DNA visivo e di comportamento degli effetti di mementostudio.it: una sola materia, una sola energia, una sola luce, con regole precise su quando e quanto si mostrano. La pagina START (V21, `mementostart.vercel.app`) è l'implementazione di riferimento; navigation, servizi, Portfolio e levelup la seguiranno con le stesse regole e le stesse costanti.
 
 Questo sistema serve a tre lettori. Il designer ci trova principi, palette, stati e la tavola master. Lo sviluppatore ci trova le costanti e dove vivono nel codice (`codice.md`). Un agente che costruisce una nuova pagina parte da qui, poi legge le sezioni nell'ordine sotto.
 
 ## Manifesto
 
-**Dal nero alla materia.** Tutto nasce dal nero e torna al nero. Una rete di celle triangolari diventa grafite, poi contenuto. L'ambra è l'energia che il gesto accende nella materia: arriva, corre negli spigoli e si esaurisce. Nessun effetto esiste "giusto per": ognuno risponde a una di queste tre domande. Dove sono (struttura)? Cosa posso toccare (energia)? Cosa conta (luce)?
+**Dal nero alla materia.** Tutto nasce dal nero e torna al nero. Una rete di celle triangolari diventa ossidiana, poi contenuto. L'ambra è l'energia che il gesto accende nella materia: arriva, corre negli spigoli e si esaurisce. Nessun effetto esiste "giusto per": ognuno risponde a una di queste tre domande. Dove sono (struttura)? Cosa posso toccare (energia)? Cosa conta (luce)?
 
 ## Le tre sostanze
 
 | Sostanza | Ruolo | Dove vive | Mai |
 | --- | --- | --- | --- |
 | **Nero** | il vuoto, il riposo, la pagina | sfondo, pannelli, il centro dello sfondo | grigio piatto, sfumature colorate |
-| **Grafite** | la materia: celle triangolari irregolari, lucide sugli spigoli | pareti dello sfondo, card, glifi, frammenti | texture fotografiche, rumore senza struttura |
+| **Ossidiana** | la materia: blocchi sfaccettati di vetro nero con una grana di grafite, spigoli lucidi, riflessi netti | pareti dello sfondo, card, glifi, frammenti | texture fotografiche, rumore senza struttura, superfici piatte senza volume |
 | **Ambra** | l'energia: reazione a catena, incandescenza | solo dove c'è un gesto, un caricamento, una sorgente | a riposo, come colore decorativo, su grandi superfici piene |
 
 Il bianco caldo (`testo-luce`) è l'informazione: i testi. Non è una sostanza degli effetti.
@@ -33,7 +33,7 @@ Due corollari dalle tavole: *fermo non significa assente* (a cursore fermo c'è 
 
 ## Sezioni
 
-1. `materia.md`: il foglio di grafite, le celle, le luci, la prospettiva.
+1. `materia.md`: il foglio d'ossidiana, i blocchi, le celle, le luci, la prospettiva.
 2. `energia.md`: la reazione a catena, i tre livelli, il range, le sorgenti, il budget d'ambra.
 3. `luce-e-incandescenza.md`: luce dei bordi, glow dei testi, bloom.
 4. `tipografia.md`: gradiente di quiete, base attiva, range, interlinea.
@@ -49,7 +49,7 @@ Due corollari dalle tavole: *fermo non significa assente* (a cursore fermo c'è 
 
 ![Master visual](memento-vfx-dna-master-visual.jpg)
 
-La tavola `memento-vfx-dna-master-visual.jpg` è il riferimento visivo unico. Mostra la START in hover, la materia, l'energia su una card, l'incandescenza del titolo, la struttura dello scroll, la mappa come sorgente e la chiusura. Le immagini sono render reali dell'engine V19, non illustrazioni: in V20 sfondo, titoli, card e mappa sono cambiati (più scuri, ambra più arancio, profondità di campo dietro la colonna), quindi la tavola va rifatta dopo il deploy.
+La tavola `memento-vfx-dna-master-visual.jpg` è il riferimento visivo unico. Mostra la START in hover, la materia, l'energia su una card, l'incandescenza del titolo, la struttura dello scroll, la mappa come sorgente e la chiusura. Le immagini sono render reali dell'engine V19, non illustrazioni: in V20 e V21 sfondo, titoli e card sono cambiati (sfondo in blocchi d'ossidiana, gradiente dei titoli solo in basso, reticolo dorato in hover, grade filmico), quindi la tavola va rifatta dopo il deploy.
 
 ## Da fare e da evitare
 
@@ -72,5 +72,5 @@ La tavola `memento-vfx-dna-master-visual.jpg` è il riferimento visivo unico. Mo
 ## Fonti
 
 - Tavole del concept: `x.zip`, 200 tavole, novembre 2026. La sezione `tavole.md` dice quali restano valide.
-- Implementazione: `memento-start` V20, `src/vfx/` (config, shader, engine).
+- Implementazione: `memento-start` V21, `src/vfx/` (config, shader, engine).
 - Font: Inter (licenza SIL OFL 1.1), file variabile in `fonts/`.

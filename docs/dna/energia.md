@@ -34,6 +34,10 @@ Sullo sfondo, a cursore fermo:
 
 Mentre il cursore si muove, lascia una scia proporzionale alla velocità. La reazione non si ferma al bordo della colonna: dietro i contenuti continua con metà delle accensioni e meno luce, fuori fuoco come lo sfondo. Sopra una card il puntatore appartiene alla card.
 
+## Le fessure dello sfondo
+
+Sullo sfondo l'energia **sale dalle fessure** tra i blocchi d'ossidiana e corre sui loro spigoli: le facce si scaldano appena, le fessure brillano. È la stessa reazione a catena, letta dalla materia.
+
 ## Sorgenti
 
 Una superficie può avere una **sorgente**: un punto da cui l'energia parte da sola durante l'hover. Sulla mappa la sorgente è lo studio: un impulso ogni 1,6 s attraversa le celle della città. Una sorgente si usa solo quando ha un significato (dove siamo, cosa è attivo), mai come decorazione.
@@ -48,6 +52,6 @@ Una superficie può avere una **sorgente**: un punto da cui l'energia parte da s
 
 ## Card e un campo condiviso
 
-- **Un solo insieme di celle**: ogni cella ha la sua visibilità (forte, debole, appena percettibile, invisibile) e una sua saturazione, più dense verso il contorno. Il puntatore le sveglia dove si trova; la reazione a catena passa per le stesse celle e le accende con lo stesso materiale. Mai uno strato fermo e uno che si muove.
+- **Un solo insieme di celle**: ogni cella ha la sua visibilità (forte, debole, appena percettibile, invisibile) e una sua saturazione, più dense verso il contorno. Il puntatore le sveglia solo vicino a sé (circa 150 px); la reazione a catena passa per le stesse celle e le accende a zone con lo stesso materiale. **Nessun campo fermo di triangoli** sulla card: dove la reazione è passata, le celle tornano al nero. Mai uno strato fermo e uno che si muove.
 - Le card vicine al cursore (il **campo condiviso**) accendono la luce del bordo per segmenti dal lato più vicino, svegliano le celle interne sul lato rivolto al cursore e scaldano appena l'immagine.
 - Testi e icone delle card hanno **un solo colore** e lo stesso peso in ogni stato: vicino al cursore prendono una tinta ambra chiara e molto diffusa.

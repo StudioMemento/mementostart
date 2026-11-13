@@ -132,12 +132,13 @@ in vec3 bary;
 in vec4 face;                 // seed, gloss, sheen edge, depth
 in vec3 edge;                 // ridge light of the three edges
 in vec2 energy;               // face, smoothed vertex
+in float rock;                // height within its block: 0 in the crack, 1 on the crest
 uniform mat4 modelViewMatrix;
 uniform mat4 projectionMatrix;
-out vec3 vPos; out vec3 vBary; flat out vec4 vFace; flat out vec3 vEdge; flat out float vE; out float vEv;
+out vec3 vPos; out vec3 vBary; flat out vec4 vFace; flat out vec3 vEdge; flat out float vE; out float vEv; out float vRock;
 void main(){
   vec4 mv=modelViewMatrix*vec4(position,1.);   // the sheet is still: only light moves on it
-  vPos=mv.xyz; vBary=bary; vFace=face; vEdge=edge; vE=energy.x; vEv=energy.y;
+  vPos=mv.xyz; vBary=bary; vFace=face; vEdge=edge; vE=energy.x; vEv=energy.y; vRock=rock;
   gl_Position=projectionMatrix*mv;
 }`;
 
@@ -155,8 +156,20 @@ uniform float uFall;          // light falloff with distance
 uniform vec4 uGloss;          // broad sheen: strength, exponent, share on the ridge lines; faint level of every edge
 uniform vec4 uBand;           // drawing-buffer width (px), layout column half-width (0..0.5 of the width), level at the column edge, far cells behind it
 uniform vec3 uRim;            // foreground ridge highlights: strength, depth reach, selectivity
-in vec3 vPos; in vec3 vBary; flat in vec4 vFace; flat in vec3 vEdge; flat in float vE; in float vEv;
+uniform vec4 uEnv;            // obsidian: overhead softbox and strips, far light at the end of the tunnel, Fresnel F0, surface flecks
+uniform vec4 uKey;            // a soft light from above (direction, camera space; strength): it shapes every block, crest lit, underside dark
+in vec3 vPos; in vec3 vBary; flat in vec4 vFace; flat in vec3 vEdge; flat in float vE; in float vEv; in float vRock;
 out vec4 o;
+/*
+ * The still studio the black glass reflects, symmetric about the tunnel's axis: a long softbox overhead, two thin strip
+ * lights across the tunnel (crisp lines that sweep across the facets), the light at the far end of the tunnel.
+ */
+float studio(vec3 r){
+  float top=smoothstep(.04,.6,r.y)*(.55+.45*smoothstep(.6,.9,r.y));
+  float strips=exp(-pow((r.y-.3)/.04,2.))+.55*exp(-pow((r.y+.2)/.03,2.));
+  float far=pow(max(-r.z,0.),5.);
+  return (top*.45+strips*smoothstep(-.3,.5,-r.z))*uEnv.x+far*uEnv.y;
+}
 void main(){
   vec3 n=normalize(cross(dFdx(vPos),dFdy(vPos)));
   vec3 v=normalize(-vPos);
@@ -164,32 +177,44 @@ void main(){
   float seed=vFace.x, gloss=vFace.y;
   float h1=h11(seed*3.1), h2=h11(seed*5.7), h3=h11(seed*13.3);
   float depth=clamp(log(max(-vPos.z,1e-3)/uZ.x)/log(uZ.y/uZ.x),0.,1.);
-  // grazing light: point lights inside the tunnel rake along the walls; flat faces turn it into sheens and edges
+  float calm=1.-smoothstep(.3,.8,depth);
+  // the cracks between blocks hold the dark: light reaches them last (occlusion), the crests first
+  float occ=mix(.28,1.,smoothstep(0.,.42,vRock));
+  // point lights inside the tunnel, on its axis: they rake along the walls, symmetric
   float spec=0., diff=0., hi=0., broad=0.;
   for(int k=0;k<3;k++){
     vec3 L=uLight[k].xyz-vPos; float d=length(L); L/=d;
     float fall=uLight[k].w/(1.+d*d*uFall);
     diff+=max(dot(n,L),0.)*fall;
     float nh=max(dot(n,normalize(L+v)),0.);
-    float s=pow(nh,mix(18.,90.,k==0?h1:h2))*fall;
+    float s=pow(nh,mix(40.,220.,k==0?h1:h2))*fall;           // obsidian: sharp, small highlights
     spec+=s; hi=max(hi,s); broad+=pow(nh,uGloss.y)*fall;
   }
   float be=vFace.z<.5?vBary.x:(vFace.z<1.5?vBary.y:vBary.z);
   float sweep=exp(-be*mix(2.2,6.5,h3));                    // light raking off the brightest ridge into the face
-  // graphite: a dull body, a broad sheen that shapes every facet, a sharp gloss on some of them
-  // deep in the centre the sheet is seen edge-on: its facets turn to thin slivers, so gloss and ridge lines fade out
-  // there and only the graphite remains; behind the content the field is calm
-  float calm=1.-smoothstep(.3,.8,depth);
-  // graphite, dark: a dull body, a strong sheen on the few glossy facets (raking off their brightest ridge),
-  // a faint broad sheen that shapes the others. Deep in the centre the facets turn edge-on: gloss and lines fade out
-  float g=uShade.x*(.35+.65*h3*h3)+uShade.y*diff*(.4+.6*h2)
-         +(uShade.z*spec*gloss*gloss+uGloss.x*broad*(.5+.5*h1))*(.12+.88*sweep)*mix(.2,1.,calm);
+  // surface: black glass with a graphite grain. Flecks and fine conchoidal marks break the reflections up a little
+  vec3 wp=vPos*(64./(1.+depth*3.));
+  float fleck=vnoise(wp.xy+wp.z*1.7+seed*40.)*.45+vnoise(wp.yz*3.1+seed*13.)*.35+vnoise(wp.xz*7.3-seed*7.)*.2;
+  fleck=mix(1.,.6+.8*fleck,uEnv.w*calm);
+  // obsidian: what the faces reflect, stronger at grazing angles (Fresnel); every face is glossy, some are mirrors
+  float ndv=max(dot(n,v),0.);
+  float F=uEnv.z+(1.-uEnv.z)*pow(1.-ndv,4.);
+  vec3 r=reflect(-v,n);
+  float mirror=(.35+.65*gloss)*fleck;
+  float refl=studio(r)*F*mirror;
+  // graphite: a dull body and a broad sheen that shapes every facet; obsidian: sharp highlights on the glossy ones
+  float key=max(dot(n,normalize(uKey.xyz)),0.);
+  float g=uShade.x*(.35+.65*h3*h3)+uShade.y*diff*(.4+.6*h2)+uKey.w*key*key*(.6+.4*h1)
+         +(uShade.z*spec*gloss*gloss*fleck+uGloss.x*broad*(.5+.5*h1))*(.12+.88*sweep)*mix(.2,1.,calm)
+         +refl*mix(.35,1.,calm);
+  g*=occ;
   float l0=aa(vBary.x)*vEdge.x, l1=aa(vBary.y)*vEdge.y, l2=aa(vBary.z)*vEdge.z;
-  g+=(l0+l1+l2)*(uGloss.w*mix(.3,1.,calm)+uShade.w*(hi*(.35+.65*gloss)+broad*uGloss.z)*calm);   // ridges catch the light, valleys stay dark
+  // the edges of the blocks are glass: a thin line that lights where it catches a highlight or the studio
+  g+=(l0+l1+l2)*(uGloss.w*mix(.3,1.,calm)+uShade.w*(hi*(.35+.65*gloss)+broad*uGloss.z+refl*1.6)*calm)*occ;
   // foreground: only the sharpest ridges of the nearest faces light up, a thin cold line on a dark body
   float near=1.-smoothstep(0.,uRim.y,depth);
   float r0=aa(vBary.x)*pow(vEdge.x,uRim.z), r1=aa(vBary.y)*pow(vEdge.y,uRim.z), r2=aa(vBary.z)*pow(vEdge.z,uRim.z);
-  g+=(r0+r1+r2)*uRim.x*near*(.45+.55*sweep);
+  g+=(r0+r1+r2)*uRim.x*near*(.45+.55*sweep)*occ;
   g=1.-exp(-g);                                             // highlights roll off instead of clipping to flat white
   float fog=exp(-pow(depth*uFog,1.6));                      // smaller and darker with depth
   // vertical bands: bright at the frame, darkest at the edge of the layout column
@@ -197,27 +222,30 @@ void main(){
   fog*=fx>cb ? mix(uBand.z,1.,pow(smoothstep(cb,.5,fx),.85)) : uBand.z;
   float d=mix(1.-vFace.w,h2,.45);
   float appear=smoothstep(d-.12,d+.12,uLoad*1.25-.1);
-  vec3 col=vec3(g)*vec3(.96,.975,1.)*fog*appear;
+  // cool black glass: the reflections a touch colder than the body
+  vec3 col=vec3(g)*vec3(.955,.97,1.)*fog*appear;
   // behind the column: the small far cells, drawn faintly by their edges and a hint of their facets (then out of focus)
   float inner=fx<cb?smoothstep(cb,cb*.4,fx):0.;
   float mesh=min(aa(vBary.x)+aa(vBary.y)+aa(vBary.z),1.);
-  col+=vec3(.95,.97,1.)*uBand.w*inner*appear*(mesh*(.3+.7*h1)+.22*h3);
+  col+=vec3(.95,.97,1.)*uBand.w*inner*appear*(mesh*(.3+.7*h1)+.22*h3)*occ;
 
   vec3 em=vec3(0.);
   if(vE+vEv>.004){
-    // energy: the face inherits amber from its ridge and from its hottest corners; edges carry the brightest line
+    // energy: it comes up through the cracks between the blocks and runs along their edges; a face is only warmed
     float sw=exp(-be*3.);
     float lines=(aa(vBary.x)+aa(vBary.y)+aa(vBary.z));
     float x=clamp(.5*vE+.8*vEv,0.,1.);
+    float crack=1.-smoothstep(0.,.4,vRock);
     // a large near face never fills with amber: the energy runs along its edges and only warms the face (amber is an event)
-    em=ramp(x*(.5+.5*sw))*x*(.3+.62*sw)*1.6*mix(.35,1.,smoothstep(.05,.45,depth));
+    em=ramp(x*(.5+.5*sw))*x*(.22+.45*sw)*1.4*mix(.35,1.,smoothstep(.05,.45,depth))*mix(.45,1.,crack);
+    em+=ramp(.55+.4*vEv)*crack*crack*vEv*1.5;              // the glow of the cracks
     em+=ramp(.68+.32*vEv)*((l0+l1+l2)*1.5+lines*.45)*vEv*2.;
     em+=ramp(.3)*spec*gloss*vE*.5;
     em*=mix(.55,1.,fog)*appear;
     em*=mix(.45,1.,smoothstep(cb*.7,cb,fx));                // behind the layout column the reaction carries on, softer (and blurred)
   }
   if(uEmissive>.5){ o=vec4(em,1.); return; }
-  col+=uBase+em+(h21(gl_FragCoord.xy)-.5)/255.;
+  col+=uBase+em;                                            // dithering happens once, in the final grade
   if(uAlpha>.5){ float a=clamp(max(max(col.r,col.g),col.b)*7.,0.,1.); o=vec4(col*a,a); }
   else o=vec4(col,1.);
 }`;
@@ -291,7 +319,8 @@ void main(){
   float inside=uPanel>.5?1.-smoothstep(-.7,.3,sd):1.;
   vec4 col=uPanel>.5?vec4(uPanelCol.rgb,1.)*uPanelCol.a*inside:vec4(0.);
   vec3 ph=photo(p,inside);
-  col.rgb=mix(col.rgb,vec3(ph.x),ph.y);
+  // the photographs are objects on black: they light the void panel (the brighter of the two), so no box ever shows
+  col.rgb=max(col.rgb,vec3(ph.x)*ph.y);
   col.rgb*=1.-ph.z;
   if(uPanel>.5){
     float frame=1.-smoothstep(0.,1.,abs(sd+.7)-.15);
@@ -375,8 +404,9 @@ void main(){
   //     A neighbour in range warms a little, on the side facing the pointer
   float lift=clamp(uHover*.72+Ev*.8,0.,1.)*uGain+uNear*.32*exp(-dot(dp,dp)/(uWake.x*uWake.x*2.6));
   float gA=ia*min(lift*(1.+.35*uOwn),1.)*(1.-ph.z*.5)*smoothstep(.015,.12,lum);   // black stays black: no visible image box
-  float l=pow(lum,.9);
-  vec3 graded=ramp(clamp(l*1.45+.14,0.,1.))*(l*2.5);
+  // contained: the light lives on the crests of the object, its brightest core never burns out
+  float l=pow(lum,1.05);
+  vec3 graded=ramp(clamp(l*1.12+.1,0.,.84))*(l*1.7);
   graded*=1.+E*(.24*sweep-.08+.18*(h-.5));                 // each lit cell grades a little differently
   graded=mix(graded,phRGB*(.94+.3*E*sweep),uOwn);
 
@@ -389,9 +419,10 @@ void main(){
   vec2 dc=vCentre-uPointer.xy;
   float wake=uHover*uGain*(uWake.z+(1.-uWake.z)*exp(-dot(dc,dc)/(uWake.x*uWake.x)))+uNear*uWake.w*exp(-dot(dc,dc)/(uWake.y*uWake.y));
   float beat=.62+.38*sin(uTime*(.22+.3*h)+h2*6.283)*uMotion;
-  float L=clamp(vis*wake*beat*uTopo+E*(.3+.7*max(vis,.3)),0.,1.);
+  // no still field of triangles: they show where the reaction passes and close to the pointer, nowhere else
+  float L=clamp(vis*wake*beat*uTopo+E*(.45+.8*max(vis,.35)),0.,1.);
   float sat=.3+.7*h2;                                        // some cells deep amber, others close to neutral
-  float fA=inside*L*(.05+.24*h)*(.3+.7*sweep)*(1.-ia*.4);
+  float fA=inside*L*(.05+.24*h)*(.3+.7*sweep)*(1.-ia*.4*smoothstep(.04,.3,lum));   // the object, not its box
   vec3 facet=ramp(.24+.44*L*sweep);
   facet=mix(vec3(dot(facet,vec3(.3333))),facet,sat)*(.45+.9*sweep);
   float edges=aa(vBary.x)*step(.45,h2)+aa(vBary.y)*step(.45,h3)+aa(vBary.z)*step(.45,h);
@@ -409,7 +440,7 @@ void main(){
   c.rgb+=wire;
   // type and icons are drawn once, by the content pass: light never covers them (and never thickens them)
   c*=(1.-ink.a)*vFade;
-  if(uEmissive>.5){ o=vec4((graded*gA*smoothstep(.3,.85,lum)*.85+facet*fA*.7+wire)*(1.-ink.a)*vFade+glow,0.); return; }
+  if(uEmissive>.5){ o=vec4((graded*gA*smoothstep(.4,.9,lum)*.4+facet*fA*.7+wire)*(1.-ink.a)*vFade+glow,0.); return; }
   o=vec4(c.rgb+glow,c.a);
 }`;
 
@@ -429,6 +460,7 @@ uniform float uGain;
 uniform float uHover;         // 0..1, eased
 uniform vec3 uPointer;        // local px, range of the pointer (px)
 uniform float uMicro;         // px, micro-lattice inside the glyphs
+uniform float uLoad;
 in vec2 vLocal; in vec3 vBary; flat in vec4 vCell; flat in float vE; in float vEv; in float vFade;
 out vec4 o;
 /* px from the nearest outline: negative inside a letter; beyond the texture, the distance to it is added */
@@ -447,12 +479,14 @@ vec3 amberOf(float lum){
 }
 void main(){
   vec2 p=vLocal;
-  // two levels: on hover the whole block takes its amber gradient (base); the cells the range reaches and the
-  // reaction they start go warm yellow, with orange facets and a lattice inside the letters (local). Never a disc
-  float base=uHover*uGain*(.96+.04*sin(uTime*.8+p.x*.0025)*uMotion);
+  // two levels: on hover the whole block takes its amber gradient (base) and a golden lattice inside the letters; the
+  // cells the range reaches and the reaction they start go warm yellow, the lattice denser there (local). Never a disc
+  float base=clamp(uHover*uGain,0.,1.)*(.96+.04*sin(uTime*.8+p.x*.0025)*uMotion);
   float local=clamp(vEv*1.12+vE*.32,0.,1.15);
-  float level=max(base,local);
-  if(level<.01) discard;
+  // the warmth of the block decides everything: leaving, the whole look desaturates back into the idle gradient as one
+  // piece (never cell by cell, never an overlay fading out). While the page builds, a few cells flash as they join
+  float W=max(base,local*clamp((1.-uLoad)*3.,0.,1.)*.8);
+  if(W<.004) discard;
   float sd=sdAt(p);
   if(sd>uRange) discard;
   vec2 uv=p/uSize;
@@ -464,28 +498,31 @@ void main(){
   // in range: warm yellow, paler at the top, deeper toward the base; it climbs from the base as the range grows
   float fill=smoothstep(t-.3,t+.06,local*1.05);
   vec3 hot=t>.5?mix(uHot[1],uHot[0],(t-.5)*2.):mix(uHot[2],uHot[1],t*2.);
-  // micro-facets of mixed sizes inside the reached letters, switched on and off slowly: the orange accents
+  // micro-facets of mixed sizes inside the letters, switched on and off slowly: across the block on hover, denser and
+  // brighter where the range is
+  float reach=max(local,base*.5);
   Tri m=tri(toL(p,uMicro),vec2(.62,.42));
   float mh=h11(m.id*5.1), mh2=h11(m.id*9.7);
   float th=.18+.6*mh*mh+.05*sin(uTime*(.16+.4*mh2)+mh*40.)*uMotion;
-  float lit=smoothstep(th,th+.16,local)*step(.2,mh2);
-  vec3 facet=mix(ramp(.4+.22*local*mh),hot,.25+.3*h11(m.id*2.7))*(.8+.35*h11(m.id*4.3)-.15*m.b.y);
+  float lit=smoothstep(th,th+.16,reach)*step(.2,mh2);
+  vec3 facet=mix(ramp(.4+.22*reach*mh),hot,.25+.3*h11(m.id*2.7))*(.8+.35*h11(m.id*4.3)-.15*m.b.y);
   float wire=(1.-smoothstep(0.,1.,m.edge*uMicro*.8))*step(.45,h11(m.id*11.3));
-  vec3 col=mix(idle,amber,clamp(base,0.,1.));
+  vec3 col=amber;
   col=mix(col,hot,fill);
-  col=mix(col,facet,lit*.55);
+  col=mix(col,facet,lit*mix(.4,.55,clamp(local,0.,1.)));
   col=mix(col,vec3(1.,.9,.74),wire*lit*.3);
-  // the overlay replaces the base pass's type where it shows (never adds coverage: the weight stays the same)
-  float k=clamp(max(base,max(fill,lit*.85)),0.,1.)*vFade;
+  col=mix(idle,col,W);
+  // the overlay replaces the base pass's type wherever the ink is (never adds coverage: the weight stays the same)
+  float k=vFade;
   // warm light that follows each letter: a rim just inside the outline where the energy is, a soft glow outside
-  float g=clamp(local*1.1+base*.15,0.,1.)*vFade;
+  float g=clamp(local*1.1+base*.4,0.,1.)*vFade*W;
   float rim=a*exp(-max(-sd,0.)/(uEm*.02));
   float outer=(1.-a)*exp(-max(sd,0.)/(uEm*.045))*(1.-smoothstep(uRange*.5,uRange,sd));
-  vec3 rimC=ramp(.56+.2*g)*rim*local*vFade*.6;
-  vec3 glow=ramp(.42+.2*g)*outer*(.04+.17*g)*vFade;
-  // bloom: a touch of brilliance from the reached letters and their rim, held low
-  if(uEmissive>.5){ o=vec4((hot*a*fill*.09+facet*a*lit*.07)*vFade+rimC*.24+glow*.3,0.); return; }
-  o=vec4(col*a*k+rimC*k+glow,k*min(1.,a*8.)+outer*(.05+.18*g)*vFade);
+  vec3 rimC=ramp(.56+.2*g)*rim*local*vFade*.6*W;
+  vec3 glow=ramp(.42+.2*g)*outer*(.04+.17*g)*vFade*W;
+  // bloom: a touch of brilliance from the reached letters, the lattice and their rim, held low
+  if(uEmissive>.5){ o=vec4(((hot*a*fill*.09+facet*a*lit*.07)*vFade+rimC*.24+glow*.3)*W,0.); return; }
+  o=vec4(col*a*k+rimC*k+glow,k*min(1.,a*8.)+outer*(.05+.18*g)*vFade*W);
 }`;
 
 /* ------------------------------------------------------------------ particles */
@@ -563,4 +600,47 @@ void main(){
   float sharp=clamp(1.-2.*w,0.,1.), big=clamp(2.*w-1.,0.,1.), med=1.-sharp-big;
   if(uPass<.5){ o=vec4(0.,0.,0.,1.-sharp); return; }
   o=texture(uMed,vUv)*med+texture(uBig,vUv)*big;
+}`;
+
+/**
+ * The final grade: one pass from the HDR frame to the screen. Bloom and a warm horizontal streak are added where there is
+ * energy; highlights roll off above the shoulder (the type below it keeps its exact colour); a slight chromatic
+ * aberration toward the frame, vignette at the corners, fine film grain (none on pure black) and dithering last.
+ */
+export const GRADE_FRAG = /* glsl */ `
+precision highp float;
+uniform sampler2D uScene;
+uniform sampler2D uBloom;
+uniform sampler2D uStreak;
+uniform vec2 uRes;            // drawing buffer, px
+uniform vec4 uMix;            // bloom, streak, vignette, grain
+uniform vec2 uLens;           // chromatic aberration at the corners (px), shoulder
+uniform float uFrame;         // grain frame (24 steps a second), fixed with reduced motion
+in vec2 vUv; out vec4 o;
+float ign(vec2 p){ return fract(52.9829189*fract(dot(p,vec2(.06711056,.00583715)))); }
+float hash(vec2 p){ vec3 p3=fract(vec3(p.xyx)*.1031); p3+=dot(p3,p3.yzx+33.33); return fract((p3.x+p3.y)*p3.z); }
+vec3 shoulder(vec3 c){
+  float k=uLens.y;
+  vec3 over=max(c-k,0.);
+  return min(c,vec3(k))+(1.-k)*(1.-exp(-over/(1.-k)));
+}
+void main(){
+  vec2 c=vUv-.5, asp=vec2(uRes.x/uRes.y,1.);
+  float r=length(c*asp)/length(.5*asp);                  // 0 centre .. 1 corner
+  vec4 s=texture(uScene,vUv);
+  if(uLens.x>0.){
+    vec2 off=normalize(c+1e-6)*uLens.x*smoothstep(.45,1.,r)*r/uRes;
+    s.r=texture(uScene,vUv+off).r; s.b=texture(uScene,vUv-off).b;
+  }
+  vec3 col=s.rgb;
+  if(uMix.x>0.) col+=texture(uBloom,vUv).rgb*uMix.x;
+  if(uMix.y>0.) col+=texture(uStreak,vUv).rgb*vec3(1.,.82,.62)*uMix.y;
+  col=shoulder(col);
+  col*=1.-uMix.z*smoothstep(.42,1.05,r)*smoothstep(.42,1.05,r);
+  float l=dot(col,vec3(.299,.587,.114));
+  float grain=(hash(gl_FragCoord.xy+vec2(uFrame*17.31,uFrame*-9.73))-.5)*2.;
+  col+=(grain*uMix.w*smoothstep(.004,.12,l)*(1.-.6*l)+(ign(gl_FragCoord.xy+uFrame*5.588)-.5)/255.)*s.a;   // nothing on a transparent pixel
+  float a=s.a;
+  if(a<1.) a=clamp(max(a,max(col.r,max(col.g,col.b))),0.,1.);
+  o=vec4(max(col,0.),a);
 }`;
