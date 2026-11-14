@@ -82,13 +82,14 @@ export const VFX = {
     focus: { period: 1.7, damping: 0.72, defocusW: 1.15, hysteresis: 0.02, dwell: 0.12 },
     /** Glow of the cracks: low at rest (breathing: amp, period s, amp, period s), plus the light the reaction adds. */
     glow: { rest: 0.34, breathe: [0.1, 7.2, 0.04, 2.9] as [number, number, number, number], energy: 1.5 },
-    /** Neutral light on the faces, per plane (bg, mg, fg): the far centre stays dark behind the content. */
-    key: { gain: 0.85, tint: [1, 0.975, 0.95] as [number, number, number], layer: [0.3, 0.8, 0.78] as [number, number, number] },
-    glowLayer: [0.7, 0.95, 1] as [number, number, number],
+    /** Neutral light on the faces, per plane (bg, mg, fg). The far field already sinks into the dark in the plates (fog). */
+    key: { gain: 0.85, tint: [1, 0.975, 0.95] as [number, number, number], layer: [0.75, 0.85, 0.75] as [number, number, number] },
+    glowLayer: [0.9, 1, 0.95] as [number, number, number],
     /** Shards near the pointer lift a little (magnification per plane) within this radius (tan). */
     lift: { amount: [0.006, 0.013, 0.024] as [number, number, number], radius: 0.13 },
-    /** Scroll: per plane dolly and drift (bg, mg, fg); the rest focus slides this far toward the background. */
-    scroll: { dolly: [0.035, 0.065, 0.11] as [number, number, number], shift: [0.008, 0.02, 0.042] as [number, number, number], focusDeeper: 0.55 },
+    /** Scroll: per plane dolly toward the vanishing point and drift (bg, mg, fg): the camera moves into the field;
+     *  the rest focus slides this far toward the background. */
+    scroll: { dolly: [0.03, 0.07, 0.12] as [number, number, number], shift: [0.004, 0.01, 0.02] as [number, number, number], focusDeeper: 0.55 },
     motes: { high: 110, medium: 60, low: 30, rot: 0.26 },
     glints: { energyBoost: 1.4 },
     /** The background chain reaction: screen-space cells (px), margin, zone size, energy map resolution; rate behind the column. */

@@ -4,7 +4,7 @@ import {
   Scene, Sphere, UnsignedByteType, Vector2, Vector3, WebGLRenderer, WebGLRenderTarget, ZeroFactor, type IUniform, type TextureDataType,
 } from 'three';
 import { VFX } from '../config';
-import { hexTaps, plateSetFor, scrollFocus, springStep, tapCount, viewHalf, type BkgQuality, type PlateSetName } from './math';
+import { hexTaps, plateSetFor, screenToPlate, scrollFocus, springStep, tapCount, viewHalf, type BkgQuality, type PlateSetName } from './math';
 import { disposePlate, frontAt, loadManifest, loadPlateSet, type Manifest, type PlateSet } from './plate';
 import {
   BKG_COMPOSITE_FRAG, BKG_ENERGY_FRAG, BKG_ENERGY_VERT, BKG_FS_VERT, BKG_GATHER_FRAG, BKG_GLINT_FRAG, BKG_GLINT_VERT,
@@ -79,6 +79,8 @@ export class BkgRenderer {
   private viewPx = new Vector2(1, 1);
   private viewCss = new Vector2(1, 1);
   private half = new Vector2(VFX.bkg.viewLongHalf, 0.3);
+  /** Vanishing point of the plates (tan): centre of the scroll dolly. */
+  private foe = new Vector2();
   private cursor = new Vector2();
   private cursorS = new Vector2();
   private w = 0; private v = 0; private target = 0;
@@ -119,7 +121,7 @@ export class BkgRenderer {
       tBlur0: { value: null }, tBlur1: { value: null }, tBlur2: { value: null },
       tDepth: { value: null }, tEnergy: { value: this.energyRT.texture },
       uHalf: { value: this.half }, uPlateExt: { value: new Vector2(0.56, 0.42) },
-      uDolly: { value: new Vector3(1, 1, 1) }, uShiftY: { value: new Vector3() },
+      uDolly: { value: new Vector3(1, 1, 1) }, uFoe: { value: this.foe }, uShiftY: { value: new Vector3() },
       uCursor: { value: this.cursorS }, uCursorR: { value: B.lift.radius }, uLift: { value: new Vector3() },
       uFocusW: { value: 0 }, uCocKBlur: { value: 1 },
       uKeyLayer: { value: new Vector3(...B.key.layer) }, uGlowLayer: { value: new Vector3(...B.glowLayer) },
@@ -171,6 +173,7 @@ export class BkgRenderer {
     this.loading ??= (async () => {
       this.manifest = await loadManifest(this.base);
       this.mComp.uniforms.uEncC.value = this.manifest.encC;   // shared with the prep pass
+      this.foe.set(...(this.manifest.foe ?? [0, 0]));
       await this.ensureSet();
     })();
     return this.loading;
@@ -298,7 +301,8 @@ export class BkgRenderer {
     else if (inp.defocus) target = F.defocusW;
     else if (inp.present) {
       const dz = (u.uDolly.value as Vector3).y, sy = (u.uShiftY.value as Vector3).y, ext = p.info.ext;
-      const c = frontAt(p, this.cursor.x / dz / (2 * ext[0]) + 0.5, (this.cursor.y / dz + sy) / (2 * ext[1]) + 0.5);
+      const [px, py] = screenToPlate(this.cursor.x, this.cursor.y, [this.foe.x, this.foe.y], dz, sy);
+      const c = frontAt(p, px / (2 * ext[0]) + 0.5, py / (2 * ext[1]) + 0.5);
       if (c > 0) {
         if (Math.abs(c - this.candidate) > F.hysteresis) { this.candidate = c; this.candidateSince = t; }
         target = t - this.candidateSince > F.dwell || Math.abs(this.candidate - this.target) < F.hysteresis ? this.candidate : this.target;
@@ -442,7 +446,7 @@ export class BkgRenderer {
     this.moteData = pos;
     this.motes = this.sprite(BKG_MOTE_VERT, BKG_MOTE_FRAG, {
       uHalf: { value: this.half }, uViewPx: { value: this.viewPx }, uFocusW: { value: 0 }, uCocKPx: { value: 1 }, uMaxCocPx: { value: 30 },
-      uTime: { value: 0 }, uDollyAmt: { value: 0 }, tDepth: { value: p.depth }, tKGA1: { value: p.kga[1] }, tKGA2: { value: p.kga[2] },
+      uTime: { value: 0 }, uDollyAmt: { value: 0 }, uFoe: { value: this.foe }, tDepth: { value: p.depth }, tKGA1: { value: p.kga[1] }, tKGA2: { value: p.kga[2] },
       uPlateExt: { value: new Vector2(...ext) }, uRot: { value: VFX.bkg.motes.rot }, uReveal: { value: 0 },
     }, n, pos, vr);
   }
@@ -458,7 +462,7 @@ export class BkgRenderer {
     const u = this.mComp.uniforms;
     this.glints = this.sprite(BKG_GLINT_VERT, BKG_GLINT_FRAG, {
       uHalf: { value: this.half }, uViewPx: { value: this.viewPx }, uFocusW: { value: 0 }, uCocKPx: { value: 1 }, uTime: { value: 0 },
-      uDolly: u.uDolly, uShiftY: u.uShiftY, tEnergy: { value: this.energyRT.texture }, uEnergyBoost: { value: VFX.bkg.glints.energyBoost },
+      uDolly: u.uDolly, uShiftY: u.uShiftY, uFoe: { value: this.foe }, tEnergy: { value: this.energyRT.texture }, uEnergyBoost: { value: VFX.bkg.glints.energyBoost },
       uReveal: { value: 0 },
     }, n, pos, vr);
   }

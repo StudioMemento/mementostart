@@ -28,7 +28,7 @@ La materia di Memento è un unico foglio di **ossidiana**: blocchi sfaccettati d
 
 ## Lo sfondo (V22)
 
-Lo sfondo non è più un piano inarcato generato in tempo reale: è il **mondo d'ossidiana**, una conca di schegge renderizzata in Blender su tre piani e ricomposta con una profondità di campo vera. La materia è la stessa (vetro nero, spigoli lucidi, fessure); scala, luce, fuoco e movimento sono in `sfondo.md`.
+Lo sfondo non è più un piano inarcato generato in tempo reale: è il **mondo d'ossidiana**, un campo di piramidi visto di taglio, renderizzato in Blender su tre piani e ricomposta con una profondità di campo vera. La materia è la stessa (vetro nero, spigoli lucidi, fessure); scala, luce, fuoco e movimento sono in `sfondo.md`.
 
 ## Le card
 

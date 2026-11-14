@@ -134,7 +134,8 @@ uniform sampler2D tDepth;
 uniform sampler2D tEnergy;
 uniform vec2 uHalf;          // visible half extents, tan
 uniform vec2 uPlateExt;      // plate half extents, tan
-uniform vec3 uDolly;         // per plane zoom (scroll)
+uniform vec3 uDolly;         // per plane zoom (scroll), toward the vanishing point
+uniform vec2 uFoe;           // vanishing point, tan
 uniform vec3 uShiftY;        // per plane vertical shift (scroll), tan
 uniform vec2 uCursor;        // tan
 uniform float uCursorR;
@@ -163,7 +164,7 @@ vec2 layerUV(vec2 T,int L){
   float dz=L==0?uDolly.x:(L==1?uDolly.y:uDolly.z);
   float sh=L==0?uShiftY.x:(L==1?uShiftY.y:uShiftY.z);
   float lf=L==0?uLift.x:(L==1?uLift.y:uLift.z);
-  vec2 P=T/dz+vec2(0.,sh), d=P-uCursor;
+  vec2 P=uFoe+(T-uFoe)/dz+vec2(0.,sh), d=P-uCursor;
   P=uCursor+d*(1.-lf*exp(-dot(d,d)/(uCursorR*uCursorR)));
   return P/(2.*uPlateExt)+.5;
 }
@@ -224,14 +225,14 @@ in vec4 iPos;                // x, y (tan), disparity, size (px)
 in vec4 iVar;                // brightness, phase, twinkle speed, kind
 uniform vec2 uHalf; uniform vec2 uViewPx;
 uniform float uFocusW; uniform float uCocKPx; uniform float uMaxCocPx;
-uniform float uTime; uniform float uDollyAmt;
+uniform float uTime; uniform float uDollyAmt; uniform vec2 uFoe;
 uniform sampler2D tDepth; uniform sampler2D tKGA1; uniform sampler2D tKGA2;
 uniform vec2 uPlateExt;
 uniform float uReveal;
 out vec2 vQ; out float vI; out float vCoc; out float vKind;
 void main(){
   float w=iPos.z, coc=clamp(abs(w-uFocusW)*uCocKPx,0.,uMaxCocPx), size=max(coc,iPos.w);
-  vec2 T=iPos.xy*(1.+uDollyAmt*w*2.);
+  vec2 T=uFoe+(iPos.xy-uFoe)*(1.+uDollyAmt*w*2.);
   vec2 puv=T/(2.*uPlateExt)+.5;
   vec3 dep=texture(tDepth,puv).rgb;
   float a1=texture(tKGA1,puv).b, a2=texture(tKGA2,puv).b;
@@ -269,7 +270,7 @@ in vec4 iPos;                // x, y (tan), disparity, plane
 in vec4 iVar;                // strength, phase, period, size
 uniform vec2 uHalf; uniform vec2 uViewPx;
 uniform float uFocusW; uniform float uCocKPx; uniform float uTime;
-uniform vec3 uDolly; uniform vec3 uShiftY;
+uniform vec3 uDolly; uniform vec3 uShiftY; uniform vec2 uFoe;
 uniform sampler2D tEnergy;
 uniform float uEnergyBoost;
 uniform float uReveal;
@@ -277,7 +278,7 @@ out vec2 vQ; out float vI;
 void main(){
   int L=int(iPos.w+.5);
   float dz=L==0?uDolly.x:(L==1?uDolly.y:uDolly.z), sh=L==0?uShiftY.x:(L==1?uShiftY.y:uShiftY.z);
-  vec2 T=(iPos.xy-vec2(0.,sh))*dz;
+  vec2 T=uFoe+(iPos.xy-vec2(0.,sh)-uFoe)*dz;
   float inFocus=1.-smoothstep(1.,3.5,abs(iPos.z-uFocusW)*uCocKPx);
   float ph=fract(uTime/iVar.z+iVar.y);
   float flash=smoothstep(0.,.05,ph)*(1.-smoothstep(.05,.22,ph));

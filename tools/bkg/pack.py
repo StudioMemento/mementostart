@@ -1,6 +1,9 @@
 """Pack the three layer EXRs (square master, pinhole) into web plate sets.
 
-  python3 tools/bkg/pack.py out/bkg public/assets/bkg
+v2 (grazing view): the far field fades into the dark with the distance (FOG), and the manifest
+carries the vanishing point (`foe`), the centre of the scroll dolly.
+
+  python3 tools/pack.py out/final web/public/plate
 
 Per layer: RGB image  R = enc(key*a)  G = enc(glow*a)  B = alpha
 Shared   : RGB image  R/G/B = normalised disparity of bg/mg/fg (holes filled)
@@ -18,7 +21,9 @@ sys.path.insert(0, os.path.dirname(__file__))
 from exrtool import load, split  # noqa: E402
 
 MASTER_HALF = 0.56
-ZNEAR, ZFAR = 2.0, 16.0
+ZNEAR, ZFAR = 1.0, 400.0
+FOG_START, FOG_K = 6.0, 0.07   # exp(-k * (z - start)): the far field sinks into the black
+FOE = (0.0, 0.3057)            # vanishing point (tan): camera pitched down 17 deg (blender/field.py)
 ENC_C = 0.6
 LAYERS = ["bg", "mg", "fg"]
 
@@ -127,13 +132,19 @@ def main():
     for L in LAYERS:
         d = load(os.path.join(src, f"{L}.exr"))
         key, glow, a = split(d["rgba"])
-        data[L] = dict(key=key, glow=glow, a=a, w=disparity(d["z"], a))
+        z = np.where(d["z"] < 1e6, d["z"], 1e3)
+        fog = np.exp(-FOG_K * np.clip(z - FOG_START, 0, None))
+        data[L] = dict(key=key * fog, glow=glow * fog, a=a, w=disparity(d["z"], a))
         print(L, "key max", key.max(), "glow max", glow.max(), "cover", a.mean())
     N = data["bg"]["a"].shape[0]
     planes = {}
+    # medians over the 16:9 desktop frame: the rest focus lands where most screens look
+    ppt = N / 2 / MASTER_HALF
+    yy, xx = np.mgrid[0:N, 0:N]
+    frame = (np.abs(xx - N / 2) < 0.52 * ppt) & (np.abs(N / 2 - yy) < 0.29 * ppt)
     for L in LAYERS:
         a, w = data[L]["a"], data[L]["w"]
-        m = a > 0.9
+        m = (a > 0.9) & frame
         planes[L] = round(float(np.median(w[m])), 4)
     print("planes", planes)
     gl = []
@@ -150,7 +161,7 @@ def main():
     poster(data, N, os.path.join(dst, "poster.jpg"))
     with open(os.path.join(dst, "glints.json"), "w") as f:
         json.dump(gl, f)
-    manifest = {"version": 1, "znear": ZNEAR, "zfar": ZFAR, "encC": ENC_C, "planes": planes, "sets": {}}
+    manifest = {"version": 2, "znear": ZNEAR, "zfar": ZFAR, "encC": ENC_C, "planes": planes, "foe": list(FOE), "sets": {}}
     total = {}
     for name, (ext, width) in SETS.items():
         nbytes = 0

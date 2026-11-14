@@ -15,11 +15,11 @@ Il foglio di grafite si può piegare in modi diversi. Le tavole ne esplorano div
 
 | Pagina | Scena proposta | Sorgente proposta | Perché |
 | --- | --- | --- | --- |
-| **START** (fatta, V22) | la conca d'ossidiana: lastre ai bordi, fondo lontano al centro | lo studio sulla mappa | invita a entrare; il centro è per il contatto |
+| **START** (fatta, V22) | il campo d'ossidiana visto di taglio: cornice a V di lastre in primo piano, il campo che si perde nel buio | lo studio sulla mappa | invita a entrare: lo scroll avanza nel campo |
 | **Servizi** | pieghe geodetiche o superficie a sella: il foglio si piega dietro la griglia dei servizi | la card del servizio in hover | i servizi come facce dello stesso solido |
 | **Portfolio** | scaglie sospese ai margini, più rade, perché i lavori sono immagini piene | il progetto aperto | la materia incornicia, non compete con le immagini |
 | **Levelup** | portale: il foglio si apre in una soglia luminosa al centro | la soglia | è un passaggio di livello |
-| **Navigation** | la stessa conca della START, inquadrata più in profondità | nessuna: solo luce sugli spigoli al passaggio | è il corridoio tra le pagine |
+| **Navigation** | lo stesso campo della START, inquadrato più in profondità | nessuna: solo luce sugli spigoli al passaggio | è il corridoio tra le pagine |
 
 Queste scelte sono proposte. Il criterio per scegliere è che la forma della scena dica cosa fa la pagina.
 

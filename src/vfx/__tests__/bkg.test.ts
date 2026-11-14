@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { VFX } from '../config';
-import { decode, encode, hexTaps, nsoft, plateSetFor, ringCover, scrollFocus, springStep, tapCount, viewHalf } from '../bkg/math';
-import { frontAt } from '../bkg/plate';
+import { decode, encode, hexTaps, nsoft, plateSetFor, ringCover, screenToPlate, scrollFocus, springStep, tapCount, viewHalf } from '../bkg/math';
+import { frontAt, type Manifest } from '../bkg/plate';
+import manifestJson from '../../../public/assets/bkg/manifest.json';
+
+const FOE = (manifestJson as unknown as Manifest).foe ?? [0, 0];
 
 const EXT = { landscape: [0.56, 0.42], landscape_m: [0.56, 0.42], portrait: [0.42, 0.56] } as const;
 
@@ -56,12 +59,21 @@ describe('background: framing', () => {
         const set = plateSetFor(w, h, q), ext = EXT[set];
         const [hx, hy] = viewHalf(w, h, VFX.bkg.viewLongHalf, VFX.bkg.viewShortCap);
         for (let s = 0; s <= 1; s += 0.05) for (let L = 0; L < 3; L++) {
-          const dz = 1 + s * S.dolly[L];
-          expect(hx / dz).toBeLessThanOrEqual(ext[0] + 1e-9);
-          expect(hy / dz + s * S.shift[L]).toBeLessThanOrEqual(ext[1] + 1e-9);
+          for (const [cx, cy] of [[-hx, -hy], [hx, -hy], [-hx, hy], [hx, hy]]) {
+            const [px, py] = screenToPlate(cx, cy, FOE, 1 + s * S.dolly[L], -s * S.shift[L]);
+            expect(Math.abs(px)).toBeLessThanOrEqual(ext[0] + 1e-9);
+            expect(Math.abs(py)).toBeLessThanOrEqual(ext[1] + 1e-9);
+          }
         }
       }
     }
+  });
+
+  it('the scroll dolly moves toward the vanishing point, which stays put', () => {
+    expect(FOE[1]).toBeGreaterThan(0);
+    expect(screenToPlate(FOE[0], FOE[1], FOE, 1.1, 0)).toEqual([FOE[0], FOE[1]]);
+    const [x, y] = screenToPlate(0.4, -0.3, FOE, 1.1, 0);
+    expect(Math.hypot(x - FOE[0], y - FOE[1])).toBeCloseTo(Math.hypot(0.4 - FOE[0], -0.3 - FOE[1]) / 1.1, 9);
   });
 
   it('only an orientation change (or the quality) swaps the plate', () => {

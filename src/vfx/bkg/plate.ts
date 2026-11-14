@@ -31,6 +31,8 @@ export interface Manifest {
   encC: number;
   /** Median disparity of each plane: the rest focus is the midground. */
   planes: { bg: number; mg: number; fg: number };
+  /** Vanishing point (tan) of the grazing view: the scroll dolly moves toward it. Absent in v1 plates (the centre). */
+  foe?: [number, number];
   sets: Record<PlateSetName, PlateSetInfo>;
 }
 

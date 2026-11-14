@@ -53,6 +53,14 @@ export function viewHalf(w: number, h: number, longHalf: number, shortCap = 0.4)
   return [hx * k, hy * k];
 }
 
+/**
+ * Screen (tan) to plate (tan) for one plane: the scroll dolly moves toward the vanishing point `foe` of the grazing view,
+ * then the plane drifts by `shift`. Mirrors `layerUV` in the composite shader (without the lift near the pointer).
+ */
+export function screenToPlate(x: number, y: number, foe: readonly [number, number], dolly: number, shift: number): [number, number] {
+  return [foe[0] + (x - foe[0]) / dolly, foe[1] + (y - foe[1]) / dolly + shift];
+}
+
 /** The plate set for a viewport and quality. Only an orientation change swaps it: resizes never re-render content. */
 export function plateSetFor(w: number, h: number, quality: BkgQuality): PlateSetName {
   if (w < h) return 'portrait';
