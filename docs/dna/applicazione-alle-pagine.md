@@ -6,7 +6,7 @@ Ogni pagina usa **lo stesso engine, le stesse costanti e la stessa materia**. Da
 
 - Palette, scala delle celle, reazione a catena, tre livelli di saturazione, luce del bordo, incandescenza dei testi.
 - Fasce 15/70/15, caricamento in sei fasi, deriva allo stop.
-- Lo sfondo è lo stesso mondo d'ossidiana (`sfondo.md`): cambiano inquadratura e fuoco di riposo, il centro dietro i contenuti resta il più scuro.
+- Nessuno sfondo: pagina e pannelli in nero vero (`#000`), vedi `sfondo.md`.
 - Prima e ultima schermata composte secondo `struttura-e-scroll.md`.
 
 ## Cosa può cambiare: la scena
@@ -15,7 +15,7 @@ Il foglio di grafite si può piegare in modi diversi. Le tavole ne esplorano div
 
 | Pagina | Scena proposta | Sorgente proposta | Perché |
 | --- | --- | --- | --- |
-| **START** (fatta, V22) | il campo d'ossidiana visto di taglio: cornice a V di lastre in primo piano, il campo che si perde nel buio | lo studio sulla mappa | invita a entrare: lo scroll avanza nel campo |
+| **START** (fatta, V23) | nessuna scena: nero vero, la materia vive solo sulle superfici | nessuna (la mappa è Google Maps incorporato) | il contatto in primo piano, senza distrazioni |
 | **Servizi** | pieghe geodetiche o superficie a sella: il foglio si piega dietro la griglia dei servizi | la card del servizio in hover | i servizi come facce dello stesso solido |
 | **Portfolio** | scaglie sospese ai margini, più rade, perché i lavori sono immagini piene | il progetto aperto | la materia incornicia, non compete con le immagini |
 | **Levelup** | portale: il foglio si apre in una soglia luminosa al centro | la soglia | è un passaggio di livello |

@@ -48,10 +48,11 @@ const TITLE_AMBER = [[0, '#fbefe8'], [0.56, '#fbefe8'], [0.68, '#f5d9c6'], [0.8,
 
 export const VFX = {
   color: {
-    /** Surface black behind everything (sRGB 0..1). */
-    base: [0.008, 0.008, 0.009] as const,
-    /** Cards and panels: void black, opaque. Nothing of the sheet shows through, so no edge of an image can either. */
-    panel: [0.006, 0.006, 0.007, 1] as const,
+    /**
+     * Cards and panels: void black, opaque, the same true black as the page (#000). A uniform black that is not zero
+     * shows the 1-level rounding steps of the navigation's progressive blur as horizontal bands; zero cannot step.
+     */
+    panel: [0, 0, 0, 1] as const,
     /** Amber scale: deep > mid > hot > core. `base` is the configurable reference tint. */
     amber: { base: '#FF7950', deep: '#9E2208', mid: '#FF5510', hot: '#FF8A1C', core: '#FFCB72' },
     /**
@@ -66,45 +67,12 @@ export const VFX = {
     /** Type and icons on cards: one colour, no gradient. */
     cardInk: '#f2f0ec',
   },
-  /**
-   * The background (V22): the obsidian world, pre-rendered in Blender as three depth planes (public/assets/bkg) and recomposed
-   * in the frame with a real depth of field. 90% carbon black, 10% warm amber. Plates and their pipeline: docs/V22-background.md.
-   */
-  bkg: {
-    base: 'assets/bkg',
-    /** The long side of the viewport always shows this half extent (tan): the scale ramp reaches the edge on every screen. */
-    viewLongHalf: 0.52,
-    /** The short side never shows more than this (tan): the plates keep a margin for the scroll drift. */
-    viewShortCap: 0.4,
-    /** Circle of confusion, as a share of the viewport's long side per unit of disparity (foreground at rest ≈ 1.4%), and its cap. */
-    coc: { relPerW: 0.052, maxRel: 0.024 },
-    /** Focus: a slow spring with a slight overshoot; a virtual plane nearer than everything puts it all out of focus. */
-    focus: { period: 1.7, damping: 0.72, defocusW: 1.15, hysteresis: 0.02, dwell: 0.12 },
-    /** Glow of the cracks: low at rest (breathing: amp, period s, amp, period s), plus the light the reaction adds. */
-    glow: { rest: 0.34, breathe: [0.1, 7.2, 0.04, 2.9] as [number, number, number, number], energy: 1.5 },
-    /** Neutral light on the faces, per plane (bg, mg, fg). The far field already sinks into the dark in the plates (fog). */
-    key: { gain: 0.85, tint: [1, 0.975, 0.95] as [number, number, number], layer: [0.75, 0.85, 0.75] as [number, number, number] },
-    glowLayer: [0.9, 1, 0.95] as [number, number, number],
-    /** Shards near the pointer lift a little (magnification per plane) within this radius (tan). */
-    lift: { amount: [0.006, 0.013, 0.024] as [number, number, number], radius: 0.13 },
-    /** Scroll: per plane dolly toward the vanishing point and drift (bg, mg, fg): the camera moves into the field;
-     *  the rest focus slides this far toward the background. */
-    scroll: { dolly: [0.03, 0.07, 0.12] as [number, number, number], shift: [0.004, 0.01, 0.02] as [number, number, number], focusDeeper: 0.55 },
-    motes: { high: 110, medium: 60, low: 30, rot: 0.26 },
-    glints: { energyBoost: 1.4 },
-    /** The background chain reaction: screen-space cells (px), margin, zone size, energy map resolution; rate behind the column. */
-    energy: { spacing: 64, margin: 40, zone: 320, scale: 0.25, columnRate: 0.5 },
-    quality: {
-      high: { blurScale: 0.5, rings: 6 },
-      medium: { blurScale: 0.25, rings: 4 },
-      low: { blurScale: 0.25, rings: 3 },
-    },
-    /** ms the engine waits for the first plate before going live (the sheet then joins when it arrives). */
-    loadTimeout: 2500,
-  },
   chain: {
-    /** Cards: irregular cells of mixed sizes, fine along the outline and large in the middle; a slow, controlled reaction. */
-    card: { spacing: 62, edgeSpacing: 15, edgeReach: 120, topoArea: 230000, margin: 30, zone: 170, maxGen: 6, spread: 0.74, carry: 0.86, rate: 0.5,
+    /**
+     * Cards: one scale of irregular cells across the whole card (median ~25 px, sizes mixed within ~16–36 px, the same
+     * scale as the scroll structure), visible more often near the outline (`edgeReach`); a slow, controlled reaction.
+     */
+    card: { spacing: 22, edgeSpacing: 22, edgeReach: 120, topoArea: 230000, margin: 30, zone: 170, maxGen: 6, spread: 0.74, carry: 0.86, rate: 0.5,
       /** Reach of the pointer over the cells (px): under it, from outside (a neighbour in range); share lit across the card
        *  (0: no still field of triangles, cells show where the reaction passes and near the pointer); strength from outside. */
       wake: [150, 150, 0, 1.2] as [number, number, number, number],
@@ -114,8 +82,6 @@ export const VFX = {
     /** Large type: medium cells carry the reaction, a finer lattice of mixed sizes lights inside the glyphs. */
     title: { spacingEm: 0.2, marginEm: 0.16, zoneEm: 1.1, maxGen: 9, spread: 0.82, carry: 0.9, microEm: 0.095, rate: 0.9,
       delay: [0.14, 0.32] as const, release: [1.2, 2.2] as const, refractory: [0.8, 1.3] as const, attack: 0.24 },
-    background: { maxGen: 7, spread: 0.8, carry: 0.86,
-      delay: [0.1, 0.24] as const, release: [1.0, 1.9] as const, refractory: [1.2, 2] as const, attack: 0.16 },
     delay: [0.05, 0.15] as [number, number],       // s, from a lit cell to its neighbour
     refractory: [0.5, 1.0] as [number, number],    // s before a cell can light again
     release: [0.35, 0.8] as [number, number],      // s, energy of a cell falls below 2%

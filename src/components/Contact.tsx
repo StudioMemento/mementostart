@@ -7,8 +7,9 @@ function Legibility() {
   return <span className="card-legibility" aria-hidden="true"><span /><span /><span /></span>;
 }
 
-function Label({ className, children }: { className: string; children: ReactNode }) {
-  return <span className={`${className} contact-title`}>{children}</span>;
+function Label({ className, children, phone }: { className: string; children: ReactNode; phone?: boolean }) {
+  // the phone number balances over two lines on the narrowest cards (V13: .channel-title[data-phone-label])
+  return <span className={`${className} contact-title`} {...(phone ? { 'data-phone-label': '' } : {})}>{children}</span>;
 }
 
 function EmailCard({ id, address, image, priority }: { id: string; address: string; image: string; priority?: boolean }) {
@@ -38,7 +39,7 @@ function Channel({ id, href, label, aria, image, icon, external }: ChannelProps)
       <Icon name="chevron-down" className="card-chevron" />
       <span className="contact-copy channel-copy">
         <Icon name={icon} />
-        <span className="channel-labels"><Label className="channel-title">{label}</Label></span>
+        <span className="channel-labels"><Label className="channel-title" phone={icon === 'phone'}>{label}</Label></span>
       </span>
     </a>
   );

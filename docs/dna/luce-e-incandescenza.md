@@ -10,11 +10,13 @@ La luce segue tre regole:
 
 - Il contorno di una card è diviso in **96 segmenti**. Ognuno si accende quando una cella vicina al bordo è accesa, quando il cursore è vicino a quel lato o quando una scheggia lo attraversa.
 - Ogni segmento decade da solo: il bordo si accende **per tratti**, non tutto insieme.
-- Saturazione uguale a quella degli spigoli dello sfondo (rampa ambra al 50–86%).
+- Saturazione: rampa ambra al 50–86%.
 
 ## Incandescenza dei testi
 
 *Il contorno resta nitido. La materia reagisce.*
+
+- Quando un titolo si scalda, l'overlay prende la sua quota del testo con la **stessa copertura** del glifo, e il passaggio base cede esattamente quella quota: il bordo antialias resta intatto e nulla dietro viene cancellato (niente alone scuro). Bordo interno e bagliore sono solo luce aggiunta, senza copertura.
 
 - Ogni titolo ha un **campo di distanza** dei suoi glifi, calcolato una volta per layout. Da lì nascono due luci che seguono la sagoma esatta di ogni lettera:
   - **bordo interno:** una linea luminosa appena dentro il contorno, larga circa 0,02 em, solo dove c'è energia (range);
@@ -29,15 +31,10 @@ La luce segue tre regole:
 - Se non c'è energia nella scena, il bloom non viene calcolato.
 - Nel profilo `low` è spento.
 
-## Profondità di campo dello sfondo
-
-- Dal V22 è una **profondità di campo vera** sui tre piani del mondo d'ossidiana, con bokeh esagonale. A riposo il fuoco è sul piano intermedio; il cursore lo sposta sulla superficie che ha sotto; dietro titoli e card tutto va fuori fuoco (vedi `sfondo.md`).
-- Si ricalcola solo quando il fuoco si muove, in spazio plate: il resize non la ricalcola.
-
 ## Esposizione
 
-- Lo sfondo non supera mai il bianco dei titoli. Il corpo della grafite resta quasi nero; i riflessi forti hanno una spalla morbida e non diventano mai bianco piatto.
-- Il frame si compone in alta precisione (half float, multisample) e si quantizza una volta sola, nel grade finale, con il dithering: niente bande nei neri, niente giunzioni tra sfondo nitido e sfocato.
+- Nessuna superficie supera il bianco dei titoli. Il corpo della grafite resta quasi nero; i riflessi forti hanno una spalla morbida e non diventano mai bianco piatto.
+- Il frame si compone in alta precisione (half float, multisample) e si quantizza una volta sola, nel grade finale, con il dithering: niente bande nei neri. La pagina è nero vero (`#000`): vedi `sfondo.md` per le bande della navigazione.
 
 ## Il grade finale
 

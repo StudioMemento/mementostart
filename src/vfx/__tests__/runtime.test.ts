@@ -153,21 +153,28 @@ describe('type glow and card topology', () => {
     expect(e[32 * w + 32]).toBe(0); expect(e[0]).toBe(255);
   });
 
-  it('card cells are fine along the outline and large in the middle', () => {
-    const W = 640, H = 330, m = buildNetwork(W, H, 62, 30, 170, 5, { spacing: 15, reach: 120 });
-    const edge: number[] = [], mid: number[] = [];
+  it('card cells share one scale across the card, with mixed sizes', () => {
+    const C = VFX.chain.card, W = 640, H = 330;
+    const m = buildNetwork(W, H, C.spacing, C.margin, C.zone, 5, { spacing: C.edgeSpacing, reach: C.edgeReach });
+    const edge: number[] = [], mid: number[] = [], all: number[] = [];
     for (let f = 0; f < m.faces; f++) {
       const o = f * 6, x = m.cx[f], y = m.cy[f];
       if (x < 0 || y < 0 || x > W || y > H) continue;
-      const area = Math.abs((m.position[o + 2] - m.position[o]) * (m.position[o + 5] - m.position[o + 1]) - (m.position[o + 4] - m.position[o]) * (m.position[o + 3] - m.position[o + 1])) / 2;
+      const side = (a: number, b: number) => Math.hypot(m.position[o + a] - m.position[o + b], m.position[o + a + 1] - m.position[o + b + 1]);
+      const size = (side(0, 2) + side(2, 4) + side(4, 0)) / 3;
       const d = Math.min(x, y, W - x, H - y);
-      if (d < 30) edge.push(area); else if (d > 120) mid.push(area);
+      all.push(size);
+      if (d < 30) edge.push(size); else if (d > 120) mid.push(size);
       const k = m.cell[f * 12 + 3];
       expect(k).toBeGreaterThanOrEqual(0); expect(k).toBeLessThanOrEqual(1);
     }
-    const median = (a: number[]) => a.sort((x, y) => x - y)[Math.floor(a.length / 2)];
-    expect(edge.length).toBeGreaterThan(mid.length);
-    expect(median(mid)).toBeGreaterThan(median(edge) * 4);
+    const q = (a: number[], t: number) => [...a].sort((x, y) => x - y)[Math.floor(t * (a.length - 1))];
+    // the same scale at the outline and in the middle (it used to be 15 px against 62 px)
+    expect(q(mid, 0.5) / q(edge, 0.5)).toBeLessThan(1.35);
+    expect(q(mid, 0.5) / q(edge, 0.5)).toBeGreaterThan(0.75);
+    // sizes still vary between neighbours, within a band
+    expect(q(all, 0.9) / q(all, 0.1)).toBeGreaterThan(1.6);
+    expect(q(all, 0.9) / q(all, 0.1)).toBeLessThan(3.2);
   });
 });
 

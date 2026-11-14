@@ -3,7 +3,11 @@
 
 .vfx-canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; pointer-events: none; }
 main { z-index: 1; }
-html { background: #020202; }
+/*
+ * True black, no background (V23). A uniform near-black (#020202) shows the navigation's progressive blur as
+ * horizontal bands: its eight masked layers round to one level darker at every step. Zero cannot be rounded down.
+ */
+html { background: #000; }
 html[data-memento-surface='transparent'] { background: transparent; }
 
 /* Before the engine is live the page waits in black (failsafe in index.html: 3 s). */
@@ -18,6 +22,7 @@ html.vfx-live [data-vfx],
 html.vfx-live [data-vfx] *:not(iframe):not(.map-frame):not(input) {
   color: transparent !important;
   -webkit-text-fill-color: transparent !important;
+  text-decoration-color: transparent !important;
   background-color: transparent !important;
   background-image: none !important;
   border-color: transparent !important;
@@ -30,11 +35,25 @@ html.vfx-live [data-vfx] *:not(iframe):not(.map-frame):not(input) {
 html.vfx-live [data-vfx] img { visibility: hidden !important; }
 /* Colours and positions are read by the engine at rest: no transition or animation may be half-way when it measures. */
 html.vfx-ready [data-vfx],
-html.vfx-ready [data-vfx] * { transition: none !important; animation: none !important; }
+html.vfx-ready [data-vfx] *:not(iframe),
+html.vfx-ready [data-vfx]::before,
+html.vfx-ready [data-vfx]::after { transition: none !important; animation: none !important; }
+/*
+ * Pseudo-elements of a surface are drawn by the engine too (frame, dividers, the card veil). The surface's own ::after
+ * matters most: the black veil of the contact cards sits above the canvas, so left in the DOM it stayed behind as a dark
+ * card-shaped zone while the cells of the card left with scroll. The engine draws it (--vfx-veil) and it leaves with them.
+ */
 html.vfx-live [data-vfx]::before,
+html.vfx-live [data-vfx]::after,
 html.vfx-live [data-vfx] *::before,
 html.vfx-live [data-vfx] *::after { opacity: 0 !important; }
 html.vfx-live [data-vfx] ::selection { background: rgba(255, 255, 255, 0.22); }
+/* The embedded map is DOM above the canvas: its frame stays in the DOM, over the map, as in the plain page. */
+html.vfx-live .location-map[data-vfx]:has(iframe)::before { opacity: 1 !important; }
+
+/* Rest veil of the contact cards, the same values as their ::after (start.css, artwork.css): the engine reads it. */
+.contact-section a { --vfx-veil: .5; }
+@media (hover: none) { .contact-section a { --vfx-veil: .12; } }
 
 /* A focused control is never left inside a transition band. */
 main :focus-visible { scroll-margin-block: 20vh; }
@@ -49,35 +68,12 @@ main :focus-visible { scroll-margin-block: 20vh; }
   --category-gradient: linear-gradient(0deg, #838383 0%, #9c9c9c 9%, #bfbfbf 20%, #dfdfdf 32%, #f2f2f2 44%, #f2f2f2 100%);
   --frame-gradient: linear-gradient(135deg, #d6d5d2c7 0%, #a3a29f66 27%, #6b6a6857 62%, #7b7a7875 83%, #b9b8b5cc 100%);
 }
-/* Titles: tighter lines, so one gradient runs over the whole block (light above, shade at the base). */
-.hero-line, .explore-line { line-height: .9; }
 .hero-title, .explore-words { background-image: var(--category-gradient); }
+
+/*
+ * Typography, line height, padding and vertical rhythm are the plain page's (V13, start.css): the effects work on
+ * that layout and do not change it.
+ */
 
 @media print { .vfx-canvas { display: none; } }
 @media (forced-colors: active) { .vfx-canvas { display: none; } }
-
-/*
- * Vertical rhythm tied to the scroll bands (VFX.scroll.band: 15% of the viewport at the top and at the bottom).
- * First screen: the title sits in the middle of the reading band; the next section arrives in the entry band, already
- * fragmenting, with its text still below the fold. Last screen: the closing call to action sits in the reading band
- * while what came before leaves through the exit band. Every section opens with at least a band of air.
- */
-:root { --vfx-band: 15vh; }
-@supports (height: 100svh) { :root { --vfx-band: 15svh; } }
-.hero {
-  min-height: calc(100vh - var(--vfx-band));
-  min-height: calc(100svh - var(--vfx-band));
-  display: flex; flex-direction: column; justify-content: center;
-  padding-top: var(--vfx-band); padding-bottom: 0;
-}
-.explore-section {
-  min-height: calc(100vh - var(--vfx-band));
-  min-height: calc(100svh - var(--vfx-band));
-  display: flex; flex-direction: column; justify-content: center;
-  padding-top: 0; padding-bottom: var(--vfx-band);
-}
-.explore-chevron { width: min(40cqw, 440px, 18vh); width: min(40cqw, 440px, 18svh); }
-.location-section, .faq-section { padding-top: max(64px, var(--vfx-band)); }
-/* a phone number is one word: it never breaks, it gets a touch smaller on the narrowest cards instead */
-#mm-phone-link .channel-title { white-space: nowrap; letter-spacing: -.02em; }
-@media (max-width: 420px) { #mm-phone-link .channel-title { font-size: min(15px, 3.7vw); } }

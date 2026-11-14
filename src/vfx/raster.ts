@@ -109,18 +109,21 @@ export function collect(root: HTMLElement): Collected {
   return { ops, box, fontSize };
 }
 
+/** The painted area: its origin (client px, on the device-pixel grid) and its size in canvas pixels. */
+export interface PaintFrame { x: number; y: number; w: number; h: number }
+
 /**
  * Paints collected ops into `canvas` (premultiplied RGBA). Resolves once icons are decoded.
  * Titles get the idle gradient (light above, shade at the base); with `solid`, type and icons take one colour.
+ * The canvas covers `frame` (from a pixel-aligned origin slightly before the box), so glyphs keep their exact positions.
  */
-export async function paint(canvas: HTMLCanvasElement, { ops, box }: Collected, scale: number, solid?: string) {
+export async function paint(canvas: HTMLCanvasElement, { ops, box }: Collected, scale: number, frame: PaintFrame, solid?: string) {
   const urls = [...new Set(ops.filter(o => o.type === 'icon').map(o => (o as Extract<Op, { type: 'icon' }>).url))];
   const loaded = new Map<string, HTMLImageElement | null>();
   await Promise.all(urls.map(async u => { loaded.set(u, await loadIcon(u)); }));
-  const cw = Math.max(2, Math.ceil(box.width * scale)), ch = Math.max(2, Math.ceil(box.height * scale));
-  canvas.width = cw; canvas.height = ch;
+  canvas.width = frame.w; canvas.height = frame.h;
   const ctx = canvas.getContext('2d')!;
-  ctx.setTransform(scale, 0, 0, scale, -box.left * scale, -box.top * scale);
+  ctx.setTransform(scale, 0, 0, scale, -frame.x * scale, -frame.y * scale);
   ctx.textBaseline = 'alphabetic';
   const gradients = new Map<string, CanvasGradient | string>();
   const gradient = (c: CanvasRenderingContext2D, top: number, bottom: number): CanvasGradient | string => {
@@ -174,7 +177,7 @@ export async function paint(canvas: HTMLCanvasElement, { ops, box }: Collected, 
   const ascale = 0.25, aw = Math.max(1, Math.round(box.width * ascale)), ah = Math.max(1, Math.round(box.height * ascale));
   const small = document.createElement('canvas'); small.width = aw; small.height = ah;
   const sc = small.getContext('2d', { willReadFrequently: true })!;
-  sc.drawImage(canvas, 0, 0, aw, ah);
+  sc.drawImage(canvas, (box.left - frame.x) * scale, (box.top - frame.y) * scale, box.width * scale, box.height * scale, 0, 0, aw, ah);
   const px = sc.getImageData(0, 0, aw, ah).data, alpha = new Uint8Array(aw * ah);
   for (let i = 0; i < alpha.length; i++) alpha[i] = px[i * 4 + 3];
   return { alpha, aw, ah, ascale };

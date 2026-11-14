@@ -4,7 +4,6 @@ import {
   InstancedInterleavedBuffer, InterleavedBufferAttribute, LinearFilter, Mesh, NoColorSpace, PerspectiveCamera,
   NoBlending, RawShaderMaterial, RedFormat, Scene, Sphere, Texture, UnsignedByteType, Vector2, Vector3, Vector4, WebGLRenderer, WebGLRenderTarget, type IUniform,
 } from 'three';
-import { BkgRenderer } from './bkg/renderer';
 import { BorderLight, outline } from './border';
 import { ChainField } from './chain';
 import { VFX, gradientRange, hexToRgb, titleRamp, type ChainProfile, type QualityName } from './config';
@@ -41,6 +40,8 @@ interface Surface {
   img: Texture | null; imgSrc: string;
   alpha: { alpha: Uint8Array; aw: number; ah: number; ascale: number } | null;
   fontSize: number;
+  /** Rest veil of a card (CSS --vfx-veil, the DOM's ::after) and how far hover or focus has lifted it (0..1). */
+  veilRest: number; lift: number;
   hover: number; near: number; inside: boolean; debt: number; budget: number; hot: boolean;
   version: number;
   ready: boolean;
@@ -61,8 +62,8 @@ const barycentric = (triangles: number) => {
 /**
  * VFX engine: one persistent WebGL context, one update loop (the GSAP ticker).
  *
- * One material, one energy. The background is the obsidian world (V22: pre-rendered depth planes with a real depth of
- * field, `bkg/`); every surface of the page
+ * One material, one energy. There is no background (V23): the page is true black and only its surfaces are drawn.
+ * Every surface of the page
  * (titles, cards with their photographs and labels) has a monochrome representation for structure and an overlay for
  * energy. Energy is the same thing everywhere: amber light carried by a chain reaction across a network of cells,
  * started by pointer, touch, focus and loading, ending on its own. Scroll moves the structure, never the light.
@@ -87,17 +88,7 @@ export class VfxEngine {
   private post = new Scene();
   private camera = new PerspectiveCamera(52, 1, 0.02, 400);
   private globals: Uniforms;
-  /** The obsidian world: plates, depth of field, motes. Its chain reaction runs on screen-space cells (`bgNet`). */
-  private bkg: BkgRenderer;
-  private bkgLoad: Promise<void>;
-  private bgNet: SurfaceNetwork | null = null;
-  private bgChain: ChainField | null = null;
-  private bgEnergy: BufferAttribute | null = null;
-  private col = 0.4;
-  private transparent = false;
-  private readonly coarse = matchMedia('(pointer: coarse)').matches;
   private lastScroll = 0;
-  private bgKey = ''; private bgDebt = 0; private bgHot = false; private bgStage = 0;
   private still = 0;
   private parts = new Particles();
   private partGeo = new InstancedBufferGeometry();
@@ -153,10 +144,6 @@ export class VfxEngine {
       uBand: { value: 120 }, uBandK: { value: new Vector2(0, 0) }, uLoad: { value: 0 },
       uDrift: { value: new Vector3(0, VFX.scroll.drift, VFX.scroll.fade) },
     };
-
-    // background: the obsidian world, drawn first into the frame; its plates load in parallel with the content
-    this.bkg = new BkgRenderer(renderer, this.quality);
-    this.bkgLoad = this.bkg.load().catch(error => console.warn('Memento BKG unavailable:', error));
 
     // particles
     const corner = new Float32Array([0, -1, 0.9, 0.62, -0.9, 0.62]);
@@ -216,7 +203,6 @@ export class VfxEngine {
     this.scroll.destroy();
     this.surfaces.forEach(s => this.dropSurface(s));
     this.surfaces.clear();
-    this.bkg.dispose();
     this.partGeo.dispose(); (this.partMesh.material as RawShaderMaterial).dispose();
     this.fsMesh.geometry.dispose(); this.blur.dispose(); this.grade.dispose();
     [this.rtMain, this.rtE, this.rtA, this.rtB, this.rtS1, this.rtS2].forEach(t => t.dispose());
@@ -238,8 +224,6 @@ export class VfxEngine {
     if (this.destroyed) return;
     this.layout();
     await Promise.race([this.whenPainted(first), wait(400)]);
-    // the world joins with the page when its first plate is on the GPU; a slow network does not hold the page back
-    await Promise.race([this.bkgLoad, wait(VFX.bkg.loadTimeout)]);
     if (this.destroyed || this.lost) return;
     this.goLive();
     if (this.reduced) { this.load.value = 1; this.loaded = true; return; }
@@ -273,7 +257,7 @@ export class VfxEngine {
     }, passive);
     // a lifted finger leaves one local impulse that travels and decays; a cancelled gesture leaves none
     addEventListener('pointerup', e => { if (e.pointerType !== 'mouse') { this.pulseAt(e.clientX, e.clientY + scrollY, 1, 5); input.leave(); } }, passive);
-    addEventListener('pointercancel', () => { input.cancel(); this.surfaces.forEach(s => s.chain?.quench()); this.bgChain?.quench(); }, passive);
+    addEventListener('pointercancel', () => { input.cancel(); this.surfaces.forEach(s => s.chain?.quench()); }, passive);
     addEventListener('blur', () => input.leave(), passive);
     root().addEventListener('mouseleave', () => input.leave(), passive);
     document.addEventListener('pointerover', e => { if ((e.target as Element)?.tagName === 'IFRAME') input.leave(); }, passive);
@@ -336,19 +320,12 @@ export class VfxEngine {
     const gl = this.renderer.getContext();
     this.rtMain.setSize(gl.drawingBufferWidth, gl.drawingBufferHeight);
     (this.grade.uniforms.uRes.value as Vector2).set(gl.drawingBufferWidth, gl.drawingBufferHeight);
-    // the world: resizes only re-frame it (no content is re-rendered); an orientation change swaps its plate
-    this.bkg.setQuality(this.quality);
-    this.bkg.viewport(gl.drawingBufferWidth, gl.drawingBufferHeight, w, h);
     this.parts.limit = Math.round(VFX.particles.pool * q.particles);
     this.scroll.measure(h);
     (this.globals.uView.value as Vector2).set(w, h);
     this.globals.uBand.value = this.scroll.bandPx;
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
-    const bgKey = `${w}x${h}|${this.quality}`;
-    if (bgKey !== this.bgKey) { this.bgKey = bgKey; this.buildBackground(w, h); }
-    const column = document.querySelector('.content-width')?.getBoundingClientRect();
-    this.col = column ? Math.min(0.5, column.width / 2 / w) : 0.4;
 
     // DOM colours and opacities are read in their normal state, then the GPU representation takes over again
     const live = this.live;
@@ -369,21 +346,6 @@ export class VfxEngine {
     this.surfaces.forEach((s, el) => { if (!seen.has(el)) { this.dropSurface(s); this.surfaces.delete(el); } });
     this.byIndex = [];
     this.surfaces.forEach(s => { this.byIndex[s.index] = s; });
-    this.transparent = root().dataset.mementoSurface === 'transparent';
-  }
-
-  /**
-   * The background's chain reaction: irregular screen-space cells (client px) over the viewport. Its energy is drawn into
-   * the world's energy map and lights the cracks of the plates cell by cell; it never forms a disc.
-   */
-  private buildBackground(w: number, h: number) {
-    const E = VFX.bkg.energy;
-    const net = buildNetwork(w, h, E.spacing * this.profile().cellScale, E.margin, E.zone, 20240611);
-    const energy = new BufferAttribute(new Float32Array(net.faces * 6), 2);
-    energy.setUsage(DynamicDrawUsage);
-    this.bgNet = net; this.bgEnergy = energy; this.bgHot = false;
-    this.bgChain = new ChainField(net, VFX.chain.background);
-    this.bkg.setEnergyNetwork(net.position, energy);
   }
 
   private addSurface(el: HTMLElement, opt: SurfaceOptions): Surface {
@@ -391,7 +353,7 @@ export class VfxEngine {
     const u: Uniforms = {
       uOrigin: { value: new Vector2() }, uSize: { value: new Vector2(1, 1) }, uPush: { value: 30 },
       uPanel: { value: title ? 0 : 1 }, uCut: { value: new Vector2() }, uPanelCol: { value: new Vector4(...VFX.color.panel) },
-      uInk: { value: null }, uHasInk: { value: 0 },
+      uInk: { value: null }, uHasInk: { value: 0 }, uInkMap: { value: new Vector4(0, 0, 1, 1) }, uVeil: { value: 0 },
       uImg: { value: null }, uHasImg: { value: 0 }, uImgBox: { value: new Vector4(0, 0, 1, 1) }, uImgFit: { value: new Vector4(0, 0, 1, 1) }, uImgStyle: { value: [1, 0, 0] },
       uHover: { value: 0 }, uGain: { value: 1 }, uBins: { value: new Float32Array(VFX.border.bins) },
       uGray: { value: new Vector2(...gradientRange()) }, uMicro: { value: 12 },
@@ -409,6 +371,7 @@ export class VfxEngine {
     return { el, opt, index, u, content, overlay, x: 0, y: 0, w: 0, h: 0, cellKey: '', netKey: '',
       net: null, chain: null, energy: null, border: title ? null : new BorderLight(), edgeCells: [], born: null, delays: null,
       canvas: document.createElement('canvas'), ink: null, dist: null, sourceDebt: 0, img: null, imgSrc: '', alpha: null, fontSize: 16,
+      veilRest: 0, lift: 0,
       hover: 0, near: 0, inside: false, debt: 0, budget: 0, hot: false, version: 0, ready: false };
   }
 
@@ -455,8 +418,11 @@ export class VfxEngine {
     (u.uOrigin.value as Vector2).set(s.x, s.y);
     (u.uSize.value as Vector2).set(s.w, s.h);
     if (!title) {
-      const cut = s.opt.cut === 'none' ? 0 : parseFloat(getComputedStyle(el).getPropertyValue('--cut')) || 16;
+      const cs = getComputedStyle(el);
+      const cut = s.opt.cut === 'none' ? 0 : parseFloat(cs.getPropertyValue('--cut')) || 16;
       (u.uCut.value as Vector2).set(cut, s.opt.cut === 'tl' ? 0 : cut);
+      // the black veil the DOM draws over a card at rest (::after) is drawn here instead, so it leaves with the cells
+      s.veilRest = clamp(parseFloat(cs.getPropertyValue('--vfx-veil')) || 0, 0, 1);
     }
 
     // photograph: the element's own <img>, with its fit, position and opacity
@@ -476,11 +442,15 @@ export class VfxEngine {
       u.uImg.value = s.img; u.uHasImg.value = 1;
     } else if (!img) u.uHasImg.value = 0;
 
-    // glyphs, icons and dividers
+    // glyphs, icons and dividers: painted at the frame's own pixel ratio, from an origin on the device-pixel grid, and
+    // mapped exactly (uInkMap), so every texel lands on a screen pixel and the type keeps the sharpness of the DOM
     const area = Math.max(1, s.w * s.h);
-    const scale = Math.min(Math.min(devicePixelRatio || 1, 2), Math.sqrt(1.5e6 / area));
+    const scale = Math.min(this.renderer.getPixelRatio(), Math.sqrt(4e6 / area));
+    const bx = found.box.left, by = found.box.top;
+    const ox = Math.floor((bx + scrollX) * scale) / scale - scrollX, oy = Math.floor((by + scrollY) * scale) / scale - scrollY;
+    const frame = { x: ox, y: oy, w: Math.max(2, Math.ceil((bx - ox + found.box.width) * scale)), h: Math.max(2, Math.ceil((by - oy + found.box.height) * scale)) };
     const version = ++s.version;
-    void paint(s.canvas, found, scale, s.opt.kind === 'title' ? undefined : VFX.color.cardInk).then(alpha => {
+    void paint(s.canvas, found, scale, frame, s.opt.kind === 'title' ? undefined : VFX.color.cardInk).then(alpha => {
       if (s.version !== version || this.destroyed) return;
       s.ink?.dispose();
       const t = new CanvasTexture(s.canvas);
@@ -488,9 +458,10 @@ export class VfxEngine {
       this.renderer.initTexture(t);
       s.ink = t; s.alpha = alpha;
       u.uInk.value = t; u.uHasInk.value = 1;
+      (u.uInkMap.value as Vector4).set(bx - ox, by - oy, scale / frame.w, scale / frame.h);
       if (title) {
-        // the glow of large type follows each letter: a signed distance field of the painted glyphs
-        const f = distanceField(s.canvas, s.w, s.h, u.uRange.value as number);
+        // the glow of large type follows each letter: a signed distance field of the painted glyphs (mapped like the ink)
+        const f = distanceField(s.canvas, frame.w / scale, frame.h / scale, u.uRange.value as number);
         s.dist?.dispose();
         const d = new DataTexture(f.data, f.w, f.h, RedFormat, UnsignedByteType);
         d.minFilter = LinearFilter; d.magFilter = LinearFilter; d.flipY = false; d.generateMipmaps = false; d.needsUpdate = true;
@@ -638,6 +609,8 @@ export class VfxEngine {
     let busy = false;
     const attack = 1 - Math.exp(-dt / P.attack), ease = 1 - Math.exp(-dt * 3.5);
     const still = input.still > 0.6;
+    // the card veil lifts like the DOM's (opacity .5 s, expo-out) on hover and on keyboard focus
+    const veilEase = 1 - Math.exp(-dt / 0.12), focused = document.activeElement;
 
     for (const s of this.surfaces.values()) {
       const ch = s.chain, net = s.net;
@@ -690,6 +663,12 @@ export class VfxEngine {
       if (s.hover < 0.002) s.hover = 0;
       s.u.uHover.value = this.reduced ? s.hover * 0.6 : s.hover;
       s.u.uGain.value = inside ? 1 : Math.max(P.neighbour, s.hover);
+      if (s.veilRest > 0) {
+        const lifted = inside || (focused === s.el && s.el.matches(':focus-visible'));
+        s.lift += ((lifted ? 1 : 0) - s.lift) * veilEase;
+        if (Math.abs(s.lift - (lifted ? 1 : 0)) < 0.002) s.lift = lifted ? 1 : 0; else busy = true;
+        s.u.uVeil.value = s.veilRest * (1 - s.lift);
+      } else s.u.uVeil.value = 0;
       // a neighbour in range: its cells nearest the pointer wake, eased like the hover
       s.near += (prox - s.near) * (prox > s.near ? attack : ease);
       if (s.near < 0.002) s.near = 0;
@@ -721,14 +700,6 @@ export class VfxEngine {
       if (d < 14) s.border.add(o, opacity * Math.min(1, life * 2) * (1 - d / 14) * 0.9, 1.4);
     });
 
-    this.driveBackground(dt, hovered, present, px, input.y);
-    if (this.bgChain?.active || this.bgHot) busy = true;
-    this.bkg.update({
-      dt, time: this.clock, x: px, y: input.y, present: present && this.live, touch: this.coarse || input.touch, speed: input.speed,
-      defocus: !!hovered, scroll: sc.progress, load: this.live ? this.load.value : 0, reduced: this.reduced,
-    });
-    if (this.bkg.animating) busy = true;
-
     this.parts.step(dt);
     this.partGeo.instanceCount = this.parts.count;
     this.partMesh.visible = this.parts.count > 0;
@@ -757,43 +728,12 @@ export class VfxEngine {
     if (busy || (!this.reduced && this.frame % 2 === 0)) this.render(busy);
   };
 
-  /**
-   * The background answers where it is visible: margins and around the type, not behind an opaque card.
-   * A moving pointer leaves a trail; when it stops, one impulse travels outward and dies, a lighter echo follows
-   * after a while, then nothing until it moves again.
-   */
-  private driveBackground(dt: number, hovered: Surface | null, present: boolean, clientX: number, clientY: number) {
-    const ch = this.bgChain, input = this.input, P = VFX.pointer;
-    if (!this.bgNet || !ch || !this.bgEnergy) return;
-    ch.propagate = !this.reduced;
-    // the sheet answers in the side padding, where it is seen; over the layout column the content owns the pointer
-    // behind the layout column it carries on, softer: out of focus there, it never competes with the type
-    const W = root().clientWidth;
-    const inColumn = Math.abs(clientX / W - 0.5) < this.col;
-    const over = hovered?.opt.kind === 'card' ? 0 : (hovered ? 0.45 : 1) * (inColumn ? VFX.bkg.energy.columnRate : 1);
-    if (present && over > 0 && this.live) {
-      if (input.still < 0.05) {
-        this.bgStage = 0;
-        this.bgDebt += input.speed * P.moveRate * 1.2 * dt;
-        while (this.bgDebt >= 1) { this.bgDebt -= 1; ch.igniteAt(clientX, clientY, input.radius * 0.22, rand(0.7, 1) * over); }
-      } else if (this.bgStage === 0 && input.still > 0.25) {
-        this.bgStage = 1;
-        for (let i = 0; i < 4; i++) ch.igniteAt(clientX, clientY, input.radius * 0.18, rand(0.85, 1) * over);
-      } else if (this.bgStage === 1 && input.still > 2.6) {
-        this.bgStage = 2;
-        for (let i = 0; i < 2; i++) ch.igniteAt(clientX, clientY, input.radius * 0.15, rand(0.4, 0.55) * over);
-      }
-    } else { this.bgDebt = 0; if (!present) this.bgStage = 0; }
-    if (ch.active) { ch.step(dt); ch.write(this.bgEnergy.array as Float32Array); this.bgEnergy.needsUpdate = true; this.bgHot = true; }
-    else if (this.bgHot) { (this.bgEnergy.array as Float32Array).fill(0); this.bgEnergy.needsUpdate = true; this.bgHot = false; }
-  }
-
   private render(emissive: boolean) {
     const r = this.renderer, g = this.globals, P = VFX.post;
     this.renderDirty = false;
     // off-screen surfaces are skipped entirely
     const top = this.scroll.y - 80, bottom = this.scroll.y + this.viewH + 80;
-    let energy = this.parts.count > 0 || !!this.bgChain?.active || this.bgHot;
+    let energy = this.parts.count > 0;
     this.surfaces.forEach(s => {
       const on = s.ready && s.w > 2 && s.y < bottom && s.y + s.h > top;
       s.content.visible = on;
@@ -802,17 +742,14 @@ export class VfxEngine {
     });
     const bloom = this.profile().bloom;
     g.uEmissive.value = 0;
-    // the energy map of the background reaction, then the frame in high precision: the world (with its depth of field
-    // and motes), then the content and its energy
-    this.bkg.drawEnergy(!!this.bgChain?.active || this.bgHot);
+    // the frame in high precision over true black (no background): the content and its energy
     r.setRenderTarget(this.rtMain);
     r.clear();
-    this.bkg.render(this.rtMain, { transparent: this.transparent });
     r.render(this.scene, this.camera);
     const glow = emissive && energy && bloom;
     if (glow) {
       g.uEmissive.value = 1;
-      r.setRenderTarget(this.rtE); r.clear(); this.bkg.render(this.rtE, { emissive: true }); r.render(this.scene, this.camera);
+      r.setRenderTarget(this.rtE); r.clear(); r.render(this.scene, this.camera);
       g.uEmissive.value = 0;
       // two separable passes, the second twice as wide: a smooth falloff with no stepped edges once scaled up
       this.blurPasses(this.rtE, [1, 2]);

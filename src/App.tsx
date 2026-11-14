@@ -10,18 +10,20 @@ import { VfxProvider } from './vfx/react';
 
 export function App() {
   const [policy, setPolicy] = useState<PolicyKind | null>(null);
+  // Google Maps is loaded by default; the preference applies to this visit only (as in V13).
+  const [mapEnabled, setMapEnabled] = useState(true);
   return (
     <VfxProvider>
       <a className="skip-link" href="#contatti">Vai ai contatti</a>
       <main id="memento-contact">
         <Hero />
         <Contact />
-        <Location />
+        <Location mapEnabled={mapEnabled} onLoadMap={() => setMapEnabled(true)} />
         <Faq />
         <Legal onPolicy={setPolicy} />
         <Explore />
       </main>
-      <PolicyDialog kind={policy} onClose={() => setPolicy(null)} />
+      <PolicyDialog kind={policy} onClose={() => setPolicy(null)} mapEnabled={mapEnabled} onMapChange={setMapEnabled} />
     </VfxProvider>
   );
 }

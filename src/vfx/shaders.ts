@@ -1,7 +1,7 @@
 /**
  * GLSL (ES 3.0) for the single WebGL context.
  * Content (monochrome, structure only) and overlays (energy: amber light carried by the chain reaction), with particles,
- * a selective bloom and the grade. The background (the obsidian world, V22) has its own programs in `bkg/shaders.ts`.
+ * a selective bloom and the grade. There is no background (V23): the frame starts from true black.
  */
 const COMMON = /* glsl */ `
 precision highp float;
@@ -25,9 +25,32 @@ vec3 ramp(float x){
 }
 `;
 
-/** Pixel-wide antialiased line on a barycentric coordinate. */
+/** Pixel-wide antialiased line on a barycentric coordinate; `hair` is the thin version (under half a pixel per side). */
 const AA = /* glsl */ `
 float aa(float b){ float w=fwidth(b); return 1.-smoothstep(w*.4,w*1.4,b); }
+float hair(float b){ float w=fwidth(b); return 1.-smoothstep(0.,w*.85,b); }
+`;
+
+/*
+ * Type, icons and dividers painted from the DOM. The canvas starts on the device-pixel grid and its size is rounded
+ * up, so it is mapped explicitly (uv = (p + offset) * scale): texels sit on screen pixels, the type is not resampled.
+ */
+const INK = /* glsl */ `
+uniform sampler2D uInk;
+uniform float uHasInk;
+uniform vec4 uInkMap;         // xy: local px of the surface → canvas origin offset, zw: 1 / canvas size in local px
+vec2 inkUv(vec2 p){ return (p+uInkMap.xy)*uInkMap.zw; }
+vec4 inkAt(vec2 p){
+  vec2 uv=inkUv(p);
+  return uHasInk*texture(uInk,clamp(uv,0.,1.))*step(0.,uv.x)*step(uv.x,1.)*step(0.,uv.y)*step(uv.y,1.);
+}
+`;
+
+/* The warmth of a title (its hover state, breathing): the content pass hands the type over to the overlay by it. */
+const WARMTH = /* glsl */ `
+uniform float uHover;
+uniform float uGain;
+float warmth(vec2 p){ return clamp(uHover*uGain,0.,1.)*(.96+.04*sin(uTime*.8+p.x*.0025)*uMotion); }
 `;
 
 /* Micro-lattice inside glyphs: stable ids from position, mixed sizes through 1:4 subdivision. */
@@ -137,7 +160,7 @@ uniform vec2 uOrigin;         // document px of the surface's top-left
 uniform float uPush;
 uniform float uSolid;         // 1: never taken apart by scroll (the map)
 uniform vec3 uDrift;          // s since the page stopped (0 while it moves), drift speed (px/s), fade time (s)
-out vec2 vLocal; out vec3 vBary; out float vGone; out float vTrans;
+out vec2 vLocal; out vec3 vBary; out float vGone; out float vTrans; out float vOv;
 vec2 curlAt(vec2 p){
   float e=.35, a=vnoise(p+vec2(0.,e)), b=vnoise(p-vec2(0.,e)), c=vnoise(p+vec2(e,0.)), d=vnoise(p-vec2(e,0.));
   vec2 v=vec2(a-b,-(c-d));
@@ -168,6 +191,9 @@ void main(){
   vec2 dv=position-cellCenter;
   dv=mat2(cos(rot),sin(rot),-sin(rot),cos(rot))*dv*(1.-.72*a)*(1.-.65*leaving*smoothstep(0.,uDrift.z,uDrift.x));
   vLocal=position; vBary=bary; vGone=gone; vTrans=4.*a*(1.-a);
+  // how present the overlay is at this point (the same formula as OVERLAY_VERT's vFade, at the rest position)
+  vec2 rd=uOrigin+position;
+  vOv=(1.-smoothstep(.02,.3,fragAt(rd.y-uScroll)*(1.-uSolid)))*(1.-loadAbs(delayAt(rd,.5)));
   gl_Position=clipOf(cd+dv+off);
 }`;
 
@@ -176,15 +202,15 @@ ${COMMON}
 ${AA}
 ${PANEL}
 ${PHOTO}
+${INK}
+${WARMTH}
 uniform float uPanel;         // 1 = cut-corner card with fill and border
 uniform vec4 uPanelCol;
-uniform sampler2D uInk;       // glyphs, icons, dividers: premultiplied colour
-uniform float uHasInk;
 uniform vec3 uPointer;        // local px of the pointer
-uniform float uHover;
 uniform float uNear;          // a neighbour in range: nearness of the pointer, 0..1
 uniform vec3 uInkWarm;        // type on a card near the pointer: warmth, reach (px), share when only in range
-in vec2 vLocal; in vec3 vBary; in float vGone; in float vTrans;
+uniform float uVeil;          // black veil over a card at rest (0..1), lifted on hover: it travels with the cells
+in vec2 vLocal; in vec3 vBary; in float vGone; in float vTrans; in float vOv;
 out vec4 o;
 void main(){
   vec2 p=vLocal;
@@ -201,14 +227,19 @@ void main(){
     float g=mix(mix(.74,.3,smoothstep(.1,.9,k)),.62,smoothstep(.75,1.,k));
     col=mix(col,vec4(vec3(g),1.),frame*.62);
   }
-  vec4 ink=uHasInk>.5?texture(uInk,p/uSize):vec4(0.);
+  vec4 ink=inkAt(p);
   if(uPanel>.5&&ink.a>.003){
     // type keeps its weight and its single colour; near the pointer it takes a light, very diffuse amber
     vec2 d=p-uPointer.xy;
     float k=exp(-dot(d,d)/(uInkWarm.y*uInkWarm.y))*max(uHover,uNear*uInkWarm.z)*uInkWarm.x;
     ink.rgb*=mix(vec3(1.),vec3(1.,.84,.68),k);
   }
+  // large type: as the block warms, the overlay draws that share of the type with the same coverage. The content pass
+  // gives it up instead of being covered, so nothing behind the anti-aliased edge is erased (no dark rim)
+  if(uPanel<.5) ink*=1.-warmth(p)*vOv;
   col=ink+col*(1.-ink.a);
+  // the rest veil of a card (black over panel, photograph, type and frame), inside its outline only
+  col.rgb*=1.-uVeil*inside;
   // structure stays monochrome: a cell in transition shows its own seams in grey, nothing lights up
   float seam=aa(min(vBary.x,min(vBary.y,vBary.z)));
   col.rgb=col.rgb*(1.-vTrans*.28)+vec3(.62)*seam*vTrans*col.a*.35;
@@ -244,8 +275,8 @@ ${COMMON}
 ${AA}
 ${PANEL}
 ${PHOTO}
-uniform sampler2D uInk;
-uniform float uHasInk;
+${INK}
+uniform float uVeil;          // the card's rest veil (see SURFACE_FRAG): the light under it is veiled too
 uniform float uHover;         // 0..1, eased
 uniform float uGain;          // 1 primary, lower for neighbours in range
 uniform float uNear;          // a neighbour in range: nearness of the pointer, 0..1, eased
@@ -264,9 +295,7 @@ void main(){
   float inside=1.-smoothstep(-.7,.3,sd);
   float E=vE, Ev=vEv, seed=vCell.x;
   float h=h11(seed*7.1), h2=h11(seed*3.3), h3=h11(seed*11.9);
-  vec2 uv=p/uSize;
-  float inRange=step(0.,uv.x)*step(uv.x,1.)*step(0.,uv.y)*step(uv.y,1.);
-  vec4 ink=uHasInk*inRange*texture(uInk,clamp(uv,0.,1.));
+  vec4 ink=inkAt(p);
   vec3 ph=photo(p,inside);
   float lum=ph.x, ia=ph.y;
   float be=vCell.z<.5?vBary.x:(vCell.z<1.5?vBary.y:vBary.z);
@@ -298,9 +327,10 @@ void main(){
   float fA=inside*L*(.05+.24*h)*(.3+.7*sweep)*(1.-ia*.4*smoothstep(.04,.3,lum));   // the object, not its box
   vec3 facet=ramp(.24+.44*L*sweep);
   facet=mix(vec3(dot(facet,vec3(.3333))),facet,sat)*(.45+.9*sweep);
-  float edges=aa(vBary.x)*step(.45,h2)+aa(vBary.y)*step(.45,h3)+aa(vBary.z)*step(.45,h);
+  // the seams: hairlines (under half a pixel per side, so a shared edge stays under a pixel), never summed at a corner
+  float edges=max(max(hair(vBary.x)*step(.45,h2),hair(vBary.y)*step(.45,h3)),hair(vBary.z)*step(.45,h));
   vec3 wc=ramp(.6+.32*L);
-  vec3 wire=mix(vec3(dot(wc,vec3(.3333))),wc,sat)*edges*L*(.12+.68*edgeK*edgeK)*inside;   // long seams of the large middle cells stay quiet
+  vec3 wire=mix(vec3(dot(wc,vec3(.3333))),wc,sat)*edges*L*(.34+.42*edgeK)*inside;   // one scale of cells: seams even, a little more along the outline
 
   // 3 · the outline lights by segment: a thin bright core and a soft local halo
   float Eb=bins(outlineAt(p));
@@ -313,24 +343,24 @@ void main(){
   c.rgb+=wire;
   // type and icons are drawn once, by the content pass: light never covers them (and never thickens them)
   c*=(1.-ink.a)*vFade;
-  if(uEmissive>.5){ o=vec4((graded*gA*smoothstep(.4,.9,lum)*.4+facet*fA*.7+wire)*(1.-ink.a)*vFade+glow,0.); return; }
-  o=vec4(c.rgb+glow,c.a);
+  float veil=1.-uVeil*inside;
+  if(uEmissive>.5){ o=vec4((graded*gA*smoothstep(.4,.9,lum)*.4+facet*fA*.7+wire)*(1.-ink.a)*vFade*veil+glow,0.); return; }
+  o=vec4(c.rgb*veil+glow,c.a);
 }`;
 
 export const OVERLAY_TITLE_FRAG = /* glsl */ `
 ${COMMON}
 ${AA}
 ${LATTICE}
+${INK}
+${WARMTH}
 uniform vec2 uSize;
-uniform sampler2D uInk;
-uniform sampler2D uDist;      // signed distance to the letters (0.5 on the outline, ±uRange px at 0 and 1)
+uniform sampler2D uDist;      // signed distance to the letters (0.5 on the outline, ±uRange px at 0 and 1), mapped like the ink
 uniform float uRange;         // px
 uniform float uEm;            // px, font size
 uniform vec2 uGray;           // luminance of the idle gradient at the base and at the top of the block
 uniform vec4 uTitle[6];       // the amber gradient, top to base: colour, luminance of its desaturated (idle) version
 uniform vec3 uHot[3];         // where the range reaches: top, middle, base
-uniform float uGain;
-uniform float uHover;         // 0..1, eased
 uniform vec3 uPointer;        // local px, range of the pointer (px)
 uniform float uMicro;         // px, micro-lattice inside the glyphs
 uniform float uLoad;
@@ -338,8 +368,8 @@ in vec2 vLocal; in vec3 vBary; flat in vec4 vCell; flat in float vE; in float vE
 out vec4 o;
 /* px from the nearest outline: negative inside a letter; beyond the texture, the distance to it is added */
 float sdAt(vec2 p){
-  vec2 uv=p/uSize, q=clamp(uv,0.,1.);
-  return (texture(uDist,q).r-.5)*2.*uRange+length((uv-q)*uSize);
+  vec2 uv=inkUv(p), q=clamp(uv,0.,1.);
+  return (texture(uDist,q).r-.5)*2.*uRange+length((uv-q)/uInkMap.zw);
 }
 /* The idle gradient is the amber one desaturated: its grey gives back the amber colour at the same height. */
 vec3 amberOf(float lum){
@@ -354,7 +384,7 @@ void main(){
   vec2 p=vLocal;
   // two levels: on hover the whole block takes its amber gradient (base) and a golden lattice inside the letters; the
   // cells the range reaches and the reaction they start go warm yellow, the lattice denser there (local). Never a disc
-  float base=clamp(uHover*uGain,0.,1.)*(.96+.04*sin(uTime*.8+p.x*.0025)*uMotion);
+  float base=warmth(p);
   float local=clamp(vEv*1.12+vE*.32,0.,1.15);
   // the warmth of the block decides everything: leaving, the whole look desaturates back into the idle gradient as one
   // piece (never cell by cell, never an overlay fading out). While the page builds, a few cells flash as they join
@@ -362,8 +392,7 @@ void main(){
   if(W<.004) discard;
   float sd=sdAt(p);
   if(sd>uRange) discard;
-  vec2 uv=p/uSize;
-  vec4 ink=texture(uInk,clamp(uv,0.,1.))*step(0.,uv.x)*step(uv.x,1.)*step(0.,uv.y)*step(uv.y,1.);
+  vec4 ink=inkAt(p);
   float a=ink.a;
   float lum=a>.003?dot(ink.rgb/a,vec3(.299,.587,.114)):1.;
   float t=clamp((lum-uGray.x)/(uGray.y-uGray.x),0.,1.);   // 0 at the base of the block, 1 at its top
@@ -384,10 +413,12 @@ void main(){
   col=mix(col,hot,fill);
   col=mix(col,facet,lit*mix(.4,.55,clamp(local,0.,1.)));
   col=mix(col,vec3(1.,.9,.74),wire*lit*.3);
-  col=mix(idle,col,W);
-  // the overlay replaces the base pass's type wherever the ink is (never adds coverage: the weight stays the same)
+  // the overlay takes over the share W of the type, with the type's own coverage: the content pass has given up exactly
+  // that share (SURFACE_FRAG), so the edges keep their anti-aliasing and nothing behind them is erased (no dark rim)
   float k=vFade;
-  // warm light that follows each letter: a rim just inside the outline where the energy is, a soft glow outside
+  float cov=a*k*W;
+  // warm light that follows each letter: a rim just inside the outline where the energy is, a soft glow outside.
+  // Both are light only (added, no coverage): they never darken what is around the letters
   float g=clamp(local*1.1+base*.4,0.,1.)*vFade*W;
   float rim=a*exp(-max(-sd,0.)/(uEm*.02));
   float outer=(1.-a)*exp(-max(sd,0.)/(uEm*.045))*(1.-smoothstep(uRange*.5,uRange,sd));
@@ -395,7 +426,7 @@ void main(){
   vec3 glow=ramp(.42+.2*g)*outer*(.04+.17*g)*vFade*W;
   // bloom: a touch of brilliance from the reached letters, the lattice and their rim, held low
   if(uEmissive>.5){ o=vec4(((hot*a*fill*.09+facet*a*lit*.07)*vFade+rimC*.24+glow*.3)*W,0.); return; }
-  o=vec4(col*a*k+rimC*k+glow,k*min(1.,a*8.)+outer*(.05+.18*g)*vFade*W);
+  o=vec4(col*cov+rimC*k+glow,cov);
 }`;
 
 /* ------------------------------------------------------------------ particles */

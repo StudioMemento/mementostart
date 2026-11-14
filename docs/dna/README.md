@@ -34,7 +34,7 @@ Due corollari dalle tavole: *fermo non significa assente* (a cursore fermo c'è 
 ## Sezioni
 
 1. `materia.md`: l'ossidiana, i blocchi, le celle, le luci, la prospettiva.
-2. `sfondo.md`: il mondo d'ossidiana (V22), plate, profondità di campo, fuoco, glow, scroll.
+2. `sfondo.md`: nessuno sfondo dalla V23, e perché la pagina è nero vero.
 3. `energia.md`: la reazione a catena, i tre livelli, il range, le sorgenti, il budget d'ambra.
 4. `luce-e-incandescenza.md`: luce dei bordi, glow dei testi, bloom.
 5. `tipografia.md`: gradiente di quiete, base attiva, range, interlinea.

@@ -26,17 +26,7 @@ L'energia è **ambra intensa, tendente all'arancio** e si comporta sempre allo s
 
 ## Fermo non significa assente
 
-Sullo sfondo, a cursore fermo:
-
-1. dopo 0,25 s parte un impulso (4 celle);
-2. a 2,6 s arriva un'eco più leggera (2 celle);
-3. poi silenzio.
-
-Mentre il cursore si muove, lascia una scia proporzionale alla velocità. La reazione non si ferma al bordo della colonna: dietro i contenuti continua con metà delle accensioni e meno luce, fuori fuoco come lo sfondo. Sopra una card il puntatore appartiene alla card.
-
-## Le fessure dello sfondo
-
-Sullo sfondo l'energia **sale dalle fessure** tra i blocchi d'ossidiana e corre sui loro spigoli: le facce si scaldano appena, le fessure brillano. È la stessa reazione a catena, letta dalla materia.
+A cursore fermo il range resta ancorato al puntatore sulla superficie sotto di lui. Lo sfondo, e con lui la sua scia, il suo impulso e la sua eco, non c'è più dalla V23.
 
 ## Sorgenti
 
@@ -47,11 +37,10 @@ Una superficie può avere una **sorgente**: un punto da cui l'energia parte da s
 - A riposo: **0%** dello schermo.
 - Durante un gesto: l'ambra piena (range) occupa al massimo una piccola parte dello schermo. La base attiva può scaldare tutta la superficie sotto il gesto, ma con saturazione contenuta.
 - Una faccia grande e vicina non si riempie mai d'ambra: l'energia corre sui suoi spigoli e la scalda appena.
-- Dietro la colonna dei contenuti l'energia dello sfondo è ridotta al 45% ed è sfocata.
 - Le superfici grandi (oltre ~230.000 px²) hanno una topologia d'hover proporzionalmente più rada.
 
 ## Card e un campo condiviso
 
-- **Un solo insieme di celle**: ogni cella ha la sua visibilità (forte, debole, appena percettibile, invisibile) e una sua saturazione, più dense verso il contorno. Il puntatore le sveglia solo vicino a sé (circa 150 px); la reazione a catena passa per le stesse celle e le accende a zone con lo stesso materiale. **Nessun campo fermo di triangoli** sulla card: dove la reazione è passata, le celle tornano al nero. Mai uno strato fermo e uno che si muove.
+- **Un solo insieme di celle**: ogni cella ha la sua visibilità (forte, debole, appena percettibile, invisibile) e una sua saturazione, più dense verso il contorno, tutte della stessa scala (misure miste, nessuna cella minuta al bordo e grande al centro). I loro spigoli sono fili sottili (meno di mezzo pixel per lato). Il puntatore le sveglia solo vicino a sé (circa 150 px); la reazione a catena passa per le stesse celle e le accende a zone con lo stesso materiale. **Nessun campo fermo di triangoli** sulla card: dove la reazione è passata, le celle tornano al nero. Mai uno strato fermo e uno che si muove.
 - Le card vicine al cursore (il **campo condiviso**) accendono la luce del bordo per segmenti dal lato più vicino, svegliano le celle interne sul lato rivolto al cursore e scaldano appena l'immagine.
 - Testi e icone delle card hanno **un solo colore** e lo stesso peso in ogni stato: vicino al cursore prendono una tinta ambra chiara e molto diffusa.

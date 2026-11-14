@@ -4,8 +4,8 @@
 
 | Gesto | Risposta |
 | --- | --- |
-| **Puntatore in movimento** | sulle superfici: reazione a catena nel range (raggio 230 px); le card vicine svegliano le celle sul lato rivolto al cursore. Sullo sfondo: una scia proporzionale alla velocità, più leggera e sfocata dietro la colonna dei contenuti. |
-| **Puntatore fermo** | il range resta ancorato al puntatore. Sullo sfondo: impulso, eco, silenzio. |
+| **Puntatore in movimento** | sulle superfici: reazione a catena nel range (raggio 230 px); le card vicine svegliano le celle sul lato rivolto al cursore. |
+| **Puntatore fermo** | il range resta ancorato al puntatore. |
 | **Ingresso su una superficie** | una piccola raffica di celle (5) nel punto d'ingresso, più la sorgente se c'è |
 | **Vicinanza** | le superfici vicine rispondono al 25%, dal lato più vicino |
 | **Touch** | raggio 110 px; il tocco è un impulso; nessuno stato di hover persistente |

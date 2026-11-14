@@ -14,7 +14,7 @@ La materia di Memento è un unico foglio di **ossidiana**: blocchi sfaccettati d
 | --- | --- | --- |
 | Sfondo, primo piano (al bordo dello schermo) | ~26% dell'altezza del viewport (96–470 px), allungata in verticale (×1,55) | schegge alte e vicine |
 | Sfondo, profondità | scende con la distanza da 3 a 12 volte, mai sotto 24 px | la misura dice la distanza, senza polvere |
-| Card (topologia in hover) | 15 px sul contorno, ~62 px al centro | più fitta verso i bordi |
+| Card (topologia in hover) | una scala: ~25 px di mediana, misure miste tra ~16 e ~36 px | uguale al bordo e al centro; più celle visibili verso il contorno |
 | Struttura dello scroll | ~21 px, misure miste | uguale per tutte le superfici |
 | Glifi (reazione) | 0,2 em | porta la reazione lungo la frase |
 | Glifi (micro-faccette) | 0,075–0,095 em | si accendono solo nel range |
@@ -26,9 +26,9 @@ La materia di Memento è un unico foglio di **ossidiana**: blocchi sfaccettati d
 - Le fessure tengono il buio (occlusione): la luce arriva prima sulle creste. È anche da lì che sale l'energia (vedi `energia.md`).
 - Oltre il bordo dello schermo i blocchi si appiattiscono, così le schegge al bordo non incombono sulla camera.
 
-## Lo sfondo (V22)
+## Lo sfondo
 
-Lo sfondo non è più un piano inarcato generato in tempo reale: è il **mondo d'ossidiana**, un campo di piramidi visto di taglio, renderizzato in Blender su tre piani e ricomposta con una profondità di campo vera. La materia è la stessa (vetro nero, spigoli lucidi, fessure); scala, luce, fuoco e movimento sono in `sfondo.md`.
+Nessuno dalla V23: la pagina è nero vero (`sfondo.md`). La materia vive sulle superfici.
 
 ## Le card
 
@@ -39,6 +39,6 @@ Lo sfondo non è più un piano inarcato generato in tempo reale: è il **mondo d
 ## Cosa non fare
 
 - Non mettere texture o rumore fotografico al posto delle celle.
-- Non far muovere la materia a caso: lo sfondo si muove solo con lo scroll (dolly e parallasse per piano) e con il fuoco; a riposo respirano solo le fessure.
+- Non far muovere la materia a caso: si muove solo con lo scroll (frammentazione) e con un gesto.
 - Non schiarire il corpo delle facce per far leggere la forma: la forma la danno riflessi, spigoli e fessure.
-- Non usare celle della stessa misura su tutto lo schermo: perde la scala.
+- Dentro una card non mescolare scale diverse (celle minute al bordo e grandi al centro): una scala, con misure miste.

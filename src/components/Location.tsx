@@ -1,36 +1,41 @@
-import type { CSSProperties } from 'react';
+import { useState } from 'react';
 import { config } from '../config';
 import { useSurface } from '../vfx/react';
 import { FitLine } from './FitLine';
 import { Icon } from './Icon';
-import { MAP_PLACES, MAP_STUDIO } from './locationMap';
 
-const walk = MAP_PLACES.map(p => `${p.name} ${p.minutes} minuti`).join(', ');
-const at = (x: number, y: number) => ({ '--x': x, '--y': y }) as CSSProperties;
-
-export function Location() {
+/**
+ * Siamo qui: Google Maps embedded as in the plain page (V13), with the address and opening hours beside it.
+ * The map is DOM above the canvas: its surface is `solid` (never taken apart by scroll), the engine draws its panel.
+ * The preference applies to this visit only (Preferenze cookie).
+ */
+export function Location({ mapEnabled, onLoadMap }: { mapEnabled: boolean; onLoadMap: () => void }) {
+  // Keep hover feedback stable when the pointer crosses into Google's document.
+  const [interacting, setInteracting] = useState(false);
   const heading = useSurface<HTMLDivElement>('title');
-  // the map is a night render of the town: at rest in grey like every photograph, on hover in its own light;
-  // the lit studio is its energy source
-  const map = useSurface<HTMLAnchorElement>('card', { cut: 'tl', gain: 0.45, source: '.map-source', ownColour: true });
+  const map = useSurface<HTMLDivElement>('card', { cut: 'tl', gain: 0.7, solid: true });
   const address = useSurface<HTMLAnchorElement>('card');
   const hours = useSurface<HTMLDivElement>('card');
   return (
     <section className="location-section content-width" aria-labelledby="location-title">
       <div ref={heading}><FitLine as="h2" className="section-heading category-gradient fit-heading reveal" id="location-title">SIAMO QUI</FitLine></div>
       <div className="location-board">
-        <a className="map-area location-map cut-frame reveal" id="mm-map-area" href={config.mapsUrl} target="_blank" rel="noopener noreferrer" ref={map}
-          aria-label={`Mappa di Maniago: Studio Memento in Piazzetta Trento. A piedi: ${walk}. Apri in Google Maps`}>
-          <img className="map-art" src="assets/images/location-map.webp" width={1672} height={941} alt="" decoding="async" />
-          <span className="map-labels" aria-hidden="true">
-            <span className="map-source" style={at(MAP_STUDIO.x, MAP_STUDIO.y)} />
-            <span className="map-label map-label--studio" style={at(MAP_STUDIO.x, MAP_STUDIO.y)}>Studio Memento<span>Piazzetta Trento</span></span>
-            {MAP_PLACES.map(p => (
-              <span key={p.id} className={`map-label map-label--${p.side}`} style={at(p.x, p.y)}>{p.name}<span>{p.minutes} min</span></span>
-            ))}
-          </span>
-          <span className="map-cta" aria-hidden="true">Apri in Google Maps <Icon name="arrow-up-right" /></span>
-        </a>
+        <div className={`map-area location-map cut-frame reveal${interacting ? ' is-interacting' : ''}`} id="mm-map-area" ref={map}
+          onMouseEnter={() => setInteracting(true)} onMouseLeave={() => setInteracting(false)}>
+          {mapEnabled ? (
+            <div className="map-frame" id="mm-map-frame">
+              <iframe title="Google Maps — Studio Memento, Maniago" src={config.mapsEmbedUrl} loading="lazy" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen />
+            </div>
+          ) : (
+            <div className="map-intro" id="mm-map-intro">
+              <Icon name="map-pin" />
+              <p>Maniago.</p>
+              <button className="quiet-link" type="button" id="mm-load-map" onClick={onLoadMap}>
+                Mostra Google Maps <Icon name="arrow-up-right" />
+              </button>
+            </div>
+          )}
+        </div>
         <a className="location-card location-address-card cut-frame reveal" id="mm-map-link" href={config.mapsUrl} target="_blank" rel="noopener noreferrer" ref={address}
           aria-label={`${config.addressLine}, ${config.addressCity} — Studio Memento su Google Maps`}>
           <img className="location-photo" src="assets/images/location-address.webp" width={800} height={800} alt="" loading="lazy" decoding="async" />
