@@ -121,6 +121,7 @@ float outlineAt(vec2 p){
 
 /* The photograph exactly as the DOM shows it: object-fit, object-position, opacity, the FAQ fade, the legibility shade. */
 const PHOTO = /* glsl */ `
+uniform float uPhotoColor;    // no-hover devices show photographs in full colour at rest
 uniform sampler2D uImg;
 uniform float uHasImg;
 uniform vec4 uImgBox;         // local px: x, y, w, h of the <img> box
@@ -220,7 +221,7 @@ void main(){
   vec4 col=uPanel>.5?vec4(uPanelCol.rgb,1.)*uPanelCol.a*inside:vec4(0.);
   vec3 ph=photo(p,inside);
   // the photographs are objects on black: they light the void panel (the brighter of the two), so no box ever shows
-  col.rgb=max(col.rgb,vec3(ph.x)*ph.y);
+  col.rgb=max(col.rgb,mix(vec3(ph.x),phRGB,uPhotoColor)*ph.y);
   col.rgb*=1.-ph.z;
   if(uPanel>.5){
     float frame=1.-smoothstep(0.,1.,abs(sd+.7)-.15);
@@ -522,9 +523,7 @@ void main(){
   if(uMix.y>0.) col+=texture(uStreak,vUv).rgb*vec3(1.,.82,.62)*uMix.y;
   col=shoulder(col);
   col*=1.-uMix.z*smoothstep(.42,1.05,r)*smoothstep(.42,1.05,r);
-  float l=dot(col,vec3(.299,.587,.114));
-  float grain=(hash(gl_FragCoord.xy+vec2(uFrame*17.31,uFrame*-9.73))-.5)*2.;
-  col+=(grain*uMix.w*smoothstep(.004,.12,l)*(1.-.6*l)+(ign(gl_FragCoord.xy+uFrame*5.588)-.5)/255.)*s.a;   // nothing on a transparent pixel
+  // V25: no film grain or animated dithering; the photographic/text grade stays clean.
   float a=s.a;
   if(a<1.) a=clamp(max(a,max(col.r,max(col.g,col.b))),0.,1.);
   o=vec4(max(col,0.),a);

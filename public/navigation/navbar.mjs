@@ -1,6 +1,7 @@
 import { STATIONS,DEFAULT_HUB,PUBLIC_ORIGIN,station,publicRouteURL } from './core.mjs?v=12.1.0';
 import { legacyHostLayoutCSS } from './styles.mjs?v=12.1.0';
 import { navMarkup } from './render.mjs?v=12.1.0';
+import { bindNavViewport } from './viewport.mjs?v=25.0.0';
 
 export const KIT_VERSION = '12.1.0';
 export function safeHub(input=DEFAULT_HUB) {
@@ -31,7 +32,8 @@ export class MementoNav extends HTMLElement {
       if(next!==undefined){event.preventDefault();links[next].focus();}
     });
   }
-  connectedCallback(){this.dataset.mementoKit=KIT_VERSION;this.update();}
+  connectedCallback(){this._viewportCleanup?.();this._viewportCleanup=bindNavViewport(this);this.dataset.mementoKit=KIT_VERSION;this.update();}
+  disconnectedCallback(){this._viewportCleanup?.();this._viewportCleanup=null;}
   attributeChangedCallback(){this.update();}
   update(){
     const active=station(this.getAttribute('active'))?.id||'memento';

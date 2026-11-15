@@ -129,7 +129,7 @@ export const VFX = {
    * energy), vignette at the corners, fine film grain (none on pure black, 24 steps a second), chromatic aberration
    * toward the frame (px at the corners), dithering against banding in the blacks.
    */
-  post: { shoulder: 0.84, streak: 0.2, vignette: 0.26, grain: 0.016, aberration: 1.4 },
+  post: { shoulder: 0.84, streak: 0.2, vignette: 0.26, grain: 0, aberration: 1.4 },
   quality: {
     high: { dpr: 2, bloom: true, particles: 1, cellScale: 1 },
     medium: { dpr: 1.5, bloom: true, particles: 1, cellScale: 1 },

@@ -1,3 +1,4 @@
+import { FIBER_LAYERS, layerCount } from './fiber-layers';
 /** Ghost Fibers by David Haz / React Bits. Memento: budgeted background rendering and host lifecycle. */
 'use client';
 
@@ -108,13 +109,6 @@ const RIBBON_LENGTH = 24;
 const HOVER_EFFECTS: Record<GhostFibersHoverEffect, number> = { focus: 0, part: 1, none: 2 };
 const FIBER_STYLES: Record<GhostFibersFiberStyle, number> = { dots: 0, dashes: 0.45, lines: 1 };
 const GRADIENTS: Record<GhostFibersGradient, number> = { depth: 0, along: 1, across: 2 };
-const RIBBON_TINT = [0, 0.75, 0.35];
-const PLACEMENTS = [
-  [0, 0, 0, 0],
-  [1.9, -4.6, -0.08, 2.4],
-  [-1.05, 2.0, 0.12, 4.1]
-];
-const RIBBON_GAIN = [1, 0.5, 0.55];
 const DEG = Math.PI / 180;
 const FOCAL = 1 / (2 * Math.tan(FOV / 2));
 
@@ -686,7 +680,7 @@ const GhostFibers = ({
     scale: clamp(scale, 0.3, 3),
     rotation: rotation * DEG,
     rollSpeed,
-    layers: clamp(Math.round(layers), 1, 3),
+    layers: layerCount(layers),
     waves: Math.max(0, waves),
     twist: Math.max(0, twist),
     threads: clamp(Math.round(threads), 6, 180),
@@ -819,7 +813,7 @@ const GhostFibers = ({
     };
 
     const centerLocal = (s: number, t: number, ribbon: number, waves: number) => {
-      const place = PLACEMENTS[ribbon];
+      const place = FIBER_LAYERS[ribbon].place;
       const ph = place[3];
       const x = s * RIBBON_LENGTH;
       const y =
@@ -958,11 +952,11 @@ const GhostFibers = ({
       gl.uniform1f(u.uGradient, s.gradient);
       gl.uniform1f(u.uFold, s.foldGlow);
       for (let ribbon = 0; ribbon < s.layers; ribbon += 1) {
-        const place = PLACEMENTS[ribbon];
+        const place = FIBER_LAYERS[ribbon].place;
         gl.uniform1f(u.uRibbon, ribbon);
         gl.uniform4f(u.uPlace, place[0], place[1], place[2], place[3]);
-        gl.uniform1f(u.uGain, RIBBON_GAIN[ribbon] * load);
-        gl.uniform1f(u.uTint, RIBBON_TINT[ribbon]);
+        gl.uniform1f(u.uGain, FIBER_LAYERS[ribbon].gain * load);
+        gl.uniform1f(u.uTint, FIBER_LAYERS[ribbon].tint);
         gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, s.threads * dotsPerFiber);
       }
 
@@ -1172,7 +1166,7 @@ const GhostFibers = ({
     });
     intersection.observe(container);
     window.addEventListener('pointermove', onPointerMove, { passive: true });
-    window.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('pointerdown', onPointerDown, { passive: true });
     document.documentElement.addEventListener('pointerleave', onPointerLeave);
     document.addEventListener('visibilitychange', onVisibility);
     resize();

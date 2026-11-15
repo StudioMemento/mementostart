@@ -6,9 +6,9 @@ export const overlayCSS = `
   --mm-top: max(var(--memento-overlay-top,16px),env(safe-area-inset-top,0px));
   --mm-bottom-gap: calc((var(--mm-rail) - 200px) / 8);
   --mm-accent: var(--memento-overlay-accent,#ff7950);
-  position:fixed; inset:0; z-index:var(--memento-overlay-z,1000); display:block;
+  position:fixed; top:0; right:0; bottom:auto; left:0; height:100vh; height:var(--memento-nav-height,100dvh); z-index:var(--memento-overlay-z,1000); display:block;
   pointer-events:none; color:#f5f4f2; font:10px/1.3 Inter,Arial,sans-serif;
-  background:transparent; opacity:1; filter:none; transform:none; isolation:auto; contain:none;
+  background:transparent; opacity:1; filter:none; transform:translate3d(0,0,0); isolation:isolate; contain:none; will-change:transform;
   -webkit-font-smoothing:antialiased;
 }
 :host([hidden]) { display:none !important; }

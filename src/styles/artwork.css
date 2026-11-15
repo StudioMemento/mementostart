@@ -12,7 +12,7 @@
   .faq-visual{width:100%;mask-image:linear-gradient(90deg,transparent,#000 42%)}
   .faq-photo{left:-35%;width:150%;max-width:none;object-fit:contain;object-position:center}
 }
-@media(hover:none){
-  .contact-section a>img,.location-photo{filter:grayscale(.3)}
+@media(hover:none),(pointer:coarse),(max-width:767px){
+  .contact-section a>img,.location-photo,.faq-photo{filter:none;transition:none}
   .contact-section a::after{opacity:.12}
 }

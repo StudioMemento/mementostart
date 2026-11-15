@@ -1,12 +1,12 @@
 {
   "name": "memento-start",
-  "version": "24.0.0",
+  "version": "25.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
     "typecheck": "tsc --noEmit",
-    "build": "tsc --noEmit && vite build && vite build --ssr src/entry-server.tsx --outDir .ssr && node scripts/prerender.mjs",
+    "build": "node scripts/build-navigation.mjs && tsc --noEmit && vite build && vite build --ssr src/entry-server.tsx --outDir .ssr && node scripts/prerender.mjs",
     "preview": "vite preview --port 4173",
     "test": "vitest run",
     "verify:preservation": "node scripts/verify-preservation.mjs"

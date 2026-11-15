@@ -1,20 +1,41 @@
-<!doctype html><html lang="it"><meta charset="utf-8"><title>Start V24 — verifiche locali</title>
+<!doctype html><html lang="it"><meta charset="utf-8"><title>Start V25 — verifiche locali</title>
 <style>body{background:#202124;color:#f3f3f3;font:14px system-ui;margin:20px}button{padding:10px 18px;margin:0 8px 12px 0}iframe{display:block;background:#000;border:1px solid #666;width:390px;height:844px}pre{white-space:pre-wrap}section{display:flex;gap:24px;align-items:flex-start}aside{max-width:470px}</style>
-<h1>Start V24 — verifiche locali</h1>
+<h1>Start V25 — verifiche locali</h1>
 <button data-width="390" data-height="844">Mobile 390 × 844</button><button data-width="360" data-height="740">Mobile 360 × 740</button><button data-width="768" data-height="1024">Tablet 768 × 1024</button><button data-width="1280" data-height="900">Desktop 1280 × 900</button><button id="run">Verifica navigazione</button>
 <section><iframe title="Anteprima responsive Start" src="/"></iframe><aside><pre id="report">Pronto. Il test usa la pagina reale.</pre></aside></section>
 <script type="module">
 const frame=document.querySelector('iframe'), out=document.querySelector('#report');
 for(const b of document.querySelectorAll('[data-width]'))b.onclick=()=>{frame.style.width=b.dataset.width+'px';frame.style.height=b.dataset.height+'px';out.textContent='Pronto: '+b.textContent};
+let initialNav=null;
+frame.addEventListener('load',()=>{const w=frame.contentWindow,d=w.document,nav=d.querySelector('memento-nav');const dock=nav?.shadowRoot?.querySelector('.mm-dock');if(dock){const r=dock.getBoundingClientRect();initialNav={top:r.top,bottom:r.bottom,height:w.innerHeight,scroll:w.scrollY,connected:nav.parentElement===d.body};}});
 const next=()=>new Promise(r=>setTimeout(r,100));
 document.querySelector('#run').onclick=async()=>{
+ document.querySelector('#run').disabled=true;
  const w=frame.contentWindow,d=w.document, lines=[];
  out.textContent='Caricamento della pagina…';
  for(let n=0;n<100&&!d.querySelector('#question-idea');n++)await new Promise(r=>setTimeout(r,100));
  await d.fonts.ready;
- if(!d.querySelector('#question-idea')){out.textContent='FAIL — pagina non pronta';return}
+ if(!d.querySelector('#question-idea')){out.textContent='FAIL — pagina non pronta';document.querySelector('#run').disabled=false;return}
  const check=(v,label)=>{lines.push(`${v?'PASS':'FAIL'} — ${label}`);out.textContent=lines.join('\n')};
  const originalY=w.scrollY;
+ w.scrollTo({top:0,behavior:'instant'});await next();
+ const navHost=d.querySelector('memento-nav'),dock=navHost.shadowRoot.querySelector('.mm-dock');
+ const rect=dock.getBoundingClientRect();
+ check(rect.top>=0&&rect.bottom<=w.innerHeight&&navHost.parentElement===d.body,'Navbar visibile prima di scorrere');
+ check(!initialNav||initialNav.top>=0&&initialNav.bottom<=initialNav.height&&initialNav.scroll===0,'Navbar nella viewport al caricamento iniziale');
+ const isTouch=w.matchMedia('(hover: none), (pointer: coarse), (max-width: 767px)').matches;
+ if(isTouch)check([...d.querySelectorAll('.contact-section a>img,.location-photo')].every(e=>w.getComputedStyle(e).filter==='none'),'Immagini a colori senza hover');
+ else lines.push('INFO — browser con mouse: controllo CSS mobile coperto dal preset e shader; verifica fisica touch ancora necessaria');
+ const px=20,py=w.innerHeight-140;
+ const event=type=>new w.PointerEvent(type,{pointerType:'touch',pointerId:7,clientX:px,clientY:py,bubbles:true,cancelable:true});
+ const down=event('pointerdown');d.body.dispatchEvent(down);
+ check(!down.defaultPrevented&&d.querySelectorAll('.touch-ripple').length===1,'Un solo impulso al contatto, evento non bloccato');
+ d.body.dispatchEvent(event('pointercancel'));d.body.dispatchEvent(event('pointerup'));
+ check(d.querySelectorAll('.touch-ripple').length===1,'Scroll/cancellazione non interrompono né duplicano l’impulso');
+ await new Promise(r=>setTimeout(r,800));
+ if(!w.__vfx)check(d.querySelector('#start-title').classList.contains('touch-lit'),'Impulso raggiunge il titolo distante nel fallback');
+ w.scrollTo({top:120,behavior:'instant'});await next();check(w.scrollY>100,'Scroll nativo disponibile durante il feedback');
+ w.scrollTo({top:0,behavior:'instant'});await next();
  check(d.documentElement.scrollWidth<=d.documentElement.clientWidth,'Nessun overflow orizzontale');
  check([...d.querySelectorAll('a[href^="mailto:"],a[href^="tel:"],a[href*="wa.me"]')].length>=5,'Collegamenti di contatto presenti');
  for(const id of ['existing','time','commit','idea']){
@@ -36,7 +57,10 @@ document.querySelector('#run').onclick=async()=>{
   const before={...w.__vfx.metrics};frame.style.height=(frame.clientHeight-72)+'px';await next();await new Promise(r=>setTimeout(r,200));
   check(w.__vfx.metrics.rasterizations===before.rasterizations,'Variazione sola altezza: zero rasterizzazioni');
   out.textContent+='\nMetriche VFX: '+JSON.stringify(w.__vfx.metrics);
- }else out.textContent+='\nNON VERIFICABILE: WebGL non disponibile in questo browser. Resa GPU e FPS da verificare su dispositivo reale.';
+ }else lines.push('NON VERIFICABILE: WebGL non disponibile in questo browser. Resa GPU e FPS da verificare su dispositivo reale.');
  w.scrollTo({top:originalY,behavior:'instant'});
+ await new Promise(r=>setTimeout(r,500));
+ check(d.querySelectorAll('.touch-ripple').length===0,'Elementi dell’impulso rimossi al termine');
+ document.querySelector('#run').disabled=false;
 };
 </script></html>

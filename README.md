@@ -1,73 +1,41 @@
-# Memento Start — V24 Ghost Fibers
+# Memento Start — V25 Touch / Ghost Fibers
 
-Aggiornamento della V23 allegata, pronto per Vercel. Nessuna pubblicazione eseguita.
+Aggiornamento della V24, pronto per un deploy di prova su Vercel.
 
-## Avvio
+## Avvio e deploy
 
-Richiede Node.js 22 o 24.
+Node.js 22 o 24. Estrarre lo ZIP nella cartella principale del progetto.
 
 ```sh
 npm ci
 npm run dev
-```
-
-Aprire l'indirizzo stampato dal server. Per i controlli responsive, aggiungere `/qa.html` all'indirizzo locale.
-
-## Build per Vercel
-
-```sh
-npm run build
-```
-
-La build genera `dist/` con HTML prerenderizzato. `vercel.json` contiene già framework, comando e directory di output. Importare il contenuto dello ZIP nella cartella principale del progetto Vercel.
-
-## Background
-
-Ghost Fibers originale di React Bits, con i parametri del file e dello screenshot forniti. Configurazione completa: `src/background/preset.ts`.
-
-- Tre layer, 160 fibre, stile dots, colore `#f97316`.
-- Onde 2.5, twist 1, volume 1.5, spread 2.5, scale 0.75.
-- Depth of field 2, fold glow 3, glow 0.5, grain 0.1.
-- Velocità 0.5, roll 0.1, hover focus; intro e click pulse spenti.
-- Fondo fisso sull'intera pagina, senza intercettare click o scroll.
-
-Il background dispone di un budget separato: limite di 30 disegni al secondo, DPR massimo 1 e risoluzione adattiva in caso di rallentamento persistente. Numero di fibre, densità, colori e parametri artistici restano invariati. La frequenza è un limite, non una promessa di FPS.
-
-## Ottimizzazioni e correzioni
-
-- Canvas degli effetti ancorato al documento e mosso dallo scroll nativo insieme alla mappa. Buffer con margine superiore/inferiore per evitare ritagli durante lo scorrimento.
-- Separazione tra resize dei buffer e ricostruzione delle texture. La barra del browser mobile non fa più ridisegnare tutti i testi.
-- Cache delle superfici; aggiornamento della sola FAQ, immagine o testo modificato.
-- Impulsi visivi indipendenti dalle richieste di layout.
-- Superfici lontane dalla viewport sospese e upload dei particellari solo quando servono.
-- Eliminati GSAP e ScrollTrigger: animazione di ingresso con la stessa curva, gestita nel ciclo nativo.
-- Listener della rotella passivo nella pagina autonoma; mantenuto il protocollo di navigazione con l'hub.
-- Spaziatura basata su `svh` per evitare spostamenti durante l'apertura della barra mobile.
-- FAQ controllate con un solo aggiornamento per attivazione.
-- Pulsanti legal stabili tra i render: chiusura dei dialog e ritorno del focus corretti.
-- Contenuto DOM disponibile se WebGL non si avvia; caricamento del background isolato dal contenuto principale.
-
-Palette, shader di superficie, catene luminose, geometrie, particelle, testi e asset della V23 sono conservati. La sola modifica agli shader di superficie riguarda la proiezione sul canvas che segue il documento. Bloom e scala delle celle restano attivi anche nei profili adattivi; varia la risoluzione.
-
-## Verifiche
-
-```sh
 npm test
 npm run verify:preservation
 npm run build
 ```
 
-- 28 test automatici: catene, geometrie, tipografia, particelle, registro, scroll e resize.
-- Verifica di integrità degli asset e del nucleo degli effetti rispetto alla V23.
-- Confronto automatico dei 27 parametri esplicitamente forniti nel file; gli altri valori sono riportati dallo screenshot.
-- Pagina locale `/qa.html` per FAQ, dialog, focus, preferenze mappa, navbar e scroll a quattro dimensioni.
+`vercel.json` usa `npm ci`, `npm run build` e la directory `dist`. La build include HTML prerenderizzato e la navbar già presente nel documento, prima del contenuto React. Nessuna pubblicazione è stata eseguita.
 
-**Limite della verifica:** il browser disponibile durante questa lavorazione ha WebGL disabilitato. Layout e navigazione sono stati controllati nel fallback DOM. Non sono certificati il rendering GPU, il confronto visivo finale o gli FPS su iPhone/Safari. Prima di sostituire il deploy live, ripetere la prova del video su un dispositivo con WebGL attivo, usando le istruzioni in `docs/V24-verifica.md`.
+## Modifiche V25
 
-## Fonti e licenze
+- **Background:** configurazione del link e di `BKG REACT 2.txt`, con **5 layer reali**. Il componente originale limita i layer a 3: sono stati aggiunti altri due piani con profondità e fase distinte. Preset completo in `src/background/preset.ts`.
+- **Configurazione:** glow rosso `#ef4444`, fibre ambra `#f97316`, rotazione 25°, spessore 0.75, velocità 0.1, roll 0.5, 160 fibre per layer, depth of field 2. Le proprietà omesse nel nuovo allegato tornano ai valori predefiniti React Bits, incluso waves 1. Intro attiva come nel nuovo codice allegato.
+- **Noise:** grain 0 nel background e nel compositing di tab/testi; rimosso anche il dithering animato del compositing. Conservati la forma delle fibre, il movimento e la struttura triangolare degli effetti.
+- **Navbar mobile:** dimensioni della viewport impostate subito, aggiornate quando varia la barra del browser o la pagina viene ripristinata. Layer di compositing separato, contenuto e icone già nell’HTML; nessuna attesa dello scroll o di WebGL. Lo script di build sincronizza markup iniziale, stile e bundle da un’unica sorgente.
+- **Immagini:** colore pieno già a riposo sui layout fino a 767 px e sui dispositivi senza hover/con puntatore touch. La regola vale sia per il DOM sia per lo shader; su desktop rimane l’interazione esistente.
+- **Touch:** un impulso per contatto, centrato nel punto toccato; attraversa il viewport e attiva la geometria luminosa delle card e dei testi che incontra. Continua durante lo scroll, termina da solo e non intercetta click o gesti. Massimo quattro onde contemporanee; gli elementi grafici vengono rimossi al termine.
+- **Fallback:** anche senza WebGL rimangono navbar, colori, anello di propagazione e accensione dei titoli. `prefers-reduced-motion` disattiva l’onda in movimento.
 
-- Ghost Fibers: https://reactbits.dev/backgrounds/ghost-fibers
-- Sorgente acquisita da https://reactbits.dev/r/GhostFibers-TS-CSS.json il 15 novembre 2026.
-- Licenza inclusa in `docs/ReactBits-LICENSE.md`; il componente è integrato in questo sito.
-- Licenze Inter e Tabler mantenute nella cartella `docs/`.
-- Il README precedente è conservato in `docs/V23-README.md` come documento storico.
+Rimangono le ottimizzazioni della V24: cache delle superfici, nessuna rasterizzazione per le sole variazioni di altezza, scroll nativo, aggiornamenti mirati, sospensione delle superfici fuori schermo. Ghost Fibers conserva il limite di 30 render/s e la risoluzione adattiva; il limite non è una misurazione degli FPS.
+
+## Verifica
+
+37 test automatici verificano anche la propagazione agli angoli, l’attivazione delle cellule dei titoli distanti, il rilascio dell’energia, il limite delle onde, i listener passivi e il dimensionamento iniziale della navbar. La verifica di conservazione confronta asset, moduli originali, shader e tutti i parametri risolti del nuovo preset.
+
+La pagina `/qa.html`, disponibile con `npm run dev`, verifica navbar, colori mobile, touch sintetici, FAQ, dialog, mappa, focus e scroll. Dettagli e limiti in `docs/V25-verifica.md`.
+
+**Limite:** l’ambiente browser di verifica non dispone di WebGL. Il comportamento DOM e gli eventi sono verificabili; resa GPU, FPS e inerzia di Safari richiedono una prova su dispositivo reale. I tocchi dentro l’iframe interattivo di Google Maps appartengono al documento Google e non si propagano alla pagina: l’interazione della mappa rimane nativa.
+
+## Fonti
+
+Ghost Fibers: https://reactbits.dev/backgrounds/ghost-fibers — sorgente originale acquisita il 15 novembre 2026 e adattata a cinque layer. Licenza in `docs/ReactBits-LICENSE.md`; mantenute le licenze Inter e Tabler. I documenti V23/V24 sono storici; per questo pacchetto fanno fede questo README e i file V25.

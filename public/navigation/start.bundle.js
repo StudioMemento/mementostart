@@ -109,9 +109,9 @@ const overlayCSS = `
   --mm-top: max(var(--memento-overlay-top,16px),env(safe-area-inset-top,0px));
   --mm-bottom-gap: calc((var(--mm-rail) - 200px) / 8);
   --mm-accent: var(--memento-overlay-accent,#ff7950);
-  position:fixed; inset:0; z-index:var(--memento-overlay-z,1000); display:block;
+  position:fixed; top:0; right:0; bottom:auto; left:0; height:100vh; height:var(--memento-nav-height,100dvh); z-index:var(--memento-overlay-z,1000); display:block;
   pointer-events:none; color:#f5f4f2; font:10px/1.3 Inter,Arial,sans-serif;
-  background:transparent; opacity:1; filter:none; transform:none; isolation:auto; contain:none;
+  background:transparent; opacity:1; filter:none; transform:translate3d(0,0,0); isolation:isolate; contain:none; will-change:transform;
   -webkit-font-smoothing:antialiased;
 }
 :host([hidden]) { display:none !important; }
@@ -255,7 +255,26 @@ function navMarkup(active='memento') {
     <nav class="mm-dock" aria-label="Navigazione Memento">${STATIONS.map(item=>`<a class="mm-link" data-id="${item.id}" data-view="page" href="${publicRouteURL({id:item.id,view:'page'})}" target="_top" aria-label="${item.label}"${item.id===active?' aria-current="page"':''}><span class="mm-tile" aria-hidden="true">${iconSVG(item.id)}</span></a>`).join('')}</nav>`;
 }
 
+// navigation/viewport.mjs
+// Fixed overlay dimensions are established before the content or GPU modules load.
+function syncNavViewport(nav, view = window.visualViewport) {
+  const height = Math.round(view && view.scale === 1 ? view.height : window.innerHeight);
+  if (height > 0) nav.style.setProperty('--memento-nav-height', height + 'px');
+}
+function bindNavViewport(nav) {
+  const controller = new AbortController(), signal = controller.signal;
+  let frame = 0;
+  const sync = () => { frame = 0; syncNavViewport(nav); };
+  const queue = () => { if (!frame) frame = requestAnimationFrame(sync); };
+  sync();
+  window.addEventListener('resize', queue, { passive: true, signal });
+  window.addEventListener('pageshow', sync, { passive: true, signal });
+  window.visualViewport?.addEventListener('resize', queue, { passive: true, signal });
+  return () => { controller.abort(); cancelAnimationFrame(frame); };
+}
+
 // navigation/navbar.mjs
+
 
 
 
@@ -288,7 +307,8 @@ class MementoNav extends HTMLElement {
       if(next!==undefined){event.preventDefault();links[next].focus();}
     });
   }
-  connectedCallback(){this.dataset.mementoKit=KIT_VERSION;this.update();}
+  connectedCallback(){this._viewportCleanup?.();this._viewportCleanup=bindNavViewport(this);this.dataset.mementoKit=KIT_VERSION;this.update();}
+  disconnectedCallback(){this._viewportCleanup?.();this._viewportCleanup=null;}
   attributeChangedCallback(){this.update();}
   update(){
     const active=station(this.getAttribute('active'))?.id||'memento';

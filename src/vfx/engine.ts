@@ -8,6 +8,7 @@ import { ChainField } from './chain';
 import { VFX, gradientRange, hexToRgb, titleRamp, type ChainProfile, type QualityName } from './config';
 import { buildNetwork, hashString, type SurfaceNetwork } from './geometry';
 import { PointerField } from './input';
+import { TouchPulseField } from './touch';
 import { GPU_STRIDE, Particles } from './particles';
 import { collect, distanceField, imageFit, paint } from './raster';
 import type { SurfaceOptions, SurfaceRegistry } from './registry';
@@ -72,9 +73,9 @@ const barycentric = (triangles: number) => {
  * (`html.vfx-live`) the DOM paint of registered surfaces is switched off, so nothing is drawn twice.
  */
 export class VfxEngine {
-  static create(canvas: HTMLCanvasElement, registry: SurfaceRegistry): VfxEngine | null {
+  static create(canvas: HTMLCanvasElement, registry: SurfaceRegistry, touches = new TouchPulseField()): VfxEngine | null {
     try {
-      return new VfxEngine(canvas, registry);
+      return new VfxEngine(canvas, registry, touches);
     } catch (error) {
       console.warn('Memento VFX disabled:', error);
       root().classList.remove('vfx-boot', 'vfx-live');
@@ -122,8 +123,9 @@ export class VfxEngine {
   private readonly abort = new AbortController();
   private cleanups: (() => void)[] = [];
   private nextIndex = 0;
+  private readonly touchOnly = matchMedia('(hover: none), (pointer: coarse), (max-width: 767px)');
 
-  private constructor(private canvas: HTMLCanvasElement, private registry: SurfaceRegistry) {
+  private constructor(private canvas: HTMLCanvasElement, private registry: SurfaceRegistry, private touches: TouchPulseField) {
     // the frame is drawn into a multisampled target and graded to the canvas: the canvas itself needs no depth or AA
     const renderer = new WebGLRenderer({ canvas, alpha: true, antialias: false, premultipliedAlpha: true, depth: false, stencil: false, powerPreference: 'high-performance' });
     if (!renderer.capabilities.isWebGL2) { renderer.dispose(); throw new Error('WebGL2 unavailable'); }
@@ -142,6 +144,7 @@ export class VfxEngine {
     const A = VFX.color.amber;
     this.globals = {
       uTime: { value: 0 }, uMotion: { value: this.reduced ? 0 : 1 },
+      uPhotoColor: { value: this.touchOnly.matches ? 1 : 0 },
       uAmb: { value: [...hexToRgb(A.deep), ...hexToRgb(A.mid), ...hexToRgb(A.hot), ...hexToRgb(A.core)] },
       uEmissive: { value: 0 },
       uView: { value: new Vector2(1, 1) }, uCanvas: { value: new Vector2(0, 1) }, uScroll: { value: 0 },
@@ -252,13 +255,11 @@ export class VfxEngine {
     const signal = this.abort.signal, passive = { passive: true, signal } as const;
     const input = this.input;
     addEventListener('pointermove', e => input.move(e.clientX, e.clientY, e.pointerType === 'touch'), passive);
-    addEventListener('pointerdown', e => {
-      input.move(e.clientX, e.clientY, e.pointerType === 'touch');
-      if (e.pointerType !== 'mouse') this.pulseAt(e.clientX, e.clientY + scrollY, 0.9, 4);
-    }, passive);
-    // a lifted finger leaves one local impulse that travels and decays; a cancelled gesture leaves none
-    addEventListener('pointerup', e => { if (e.pointerType !== 'mouse') { this.pulseAt(e.clientX, e.clientY + scrollY, 1, 5); input.leave(); } }, passive);
-    addEventListener('pointercancel', () => { input.cancel(); this.surfaces.forEach(s => s.chain?.quench()); }, passive);
+    addEventListener('pointerdown', e => input.move(e.clientX, e.clientY, e.pointerType === 'touch'), passive);
+    // A single viewport wave is started by the provider on contact, even before WebGL is ready.
+    // Native scrolling sends pointercancel: leave the pointer but let that wave finish.
+    addEventListener('pointerup', e => { if (e.pointerType !== 'mouse') input.leave(); }, passive);
+    addEventListener('pointercancel', () => input.cancel(), passive);
     addEventListener('blur', () => input.leave(), passive);
     root().addEventListener('mouseleave', () => input.leave(), passive);
     document.addEventListener('pointerover', e => { if ((e.target as Element)?.tagName === 'IFRAME') input.leave(); }, passive);
@@ -277,6 +278,10 @@ export class VfxEngine {
     addEventListener('afterprint', () => { if (this.loaded && !this.lost) this.goLive(); }, passive);
     const forced = matchMedia('(forced-colors: active)');
     forced.addEventListener('change', () => { if (forced.matches) this.goDom(); else if (this.loaded && !this.lost) this.goLive(); }, { signal });
+    this.touchOnly.addEventListener('change', () => {
+      this.globals.uPhotoColor.value = this.touchOnly.matches ? 1 : 0;
+      this.surfaces.forEach(s => { s.dirty = true; }); this.layoutDirty = true; this.renderDirty = true;
+    }, { signal });
     document.fonts.addEventListener?.('loadingdone', () => { this.surfaces.forEach(s => { s.dirty = true; }); this.layoutDirty = true; }, { signal });
     this.canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); this.lost = true; this.goDom(); }, { signal });
     this.canvas.addEventListener('webglcontextrestored', () => {
@@ -564,7 +569,7 @@ export class VfxEngine {
    */
   private driveRange(s: Surface, inside: boolean, lx: number, ly: number, R: number, dt: number) {
     const ch = s.chain!, net = s.net!, D = ch.drive, T = VFX.type;
-    if (!inside && ch.driveLevel < 0.003) { if (ch.driveLevel) { D.fill(0); ch.driveLevel = 0; } return; }
+    if (!inside && !this.touches.active && ch.driveLevel < 0.003) { if (ch.driveLevel) { D.fill(0); ch.driveLevel = 0; } return; }
     const rx = Math.max(R * T.range[0], s.fontSize * T.range[1]), ry = Math.max(R * T.range[2], s.fontSize * T.range[3]);
     const up = 1 - Math.exp(-dt / T.rise), down = 1 - Math.exp(-dt / T.fall);
     let lvl = 0;
@@ -575,7 +580,11 @@ export class VfxEngine {
         const d = Math.sqrt(dx * dx + dy * dy) / (0.7 + 0.6 * net.seed[f]);
         t = 1 - smoothstep(0.2, 1, d);
       }
-      let v = D[f] + (t - D[f]) * (t > D[f] ? up : down);
+      const wave = net.weight[f] > 0.05 ? this.touches.at(s.x + net.cx[f], s.y + net.cy[f] - this.scroll.y) : 0;
+      t = Math.max(t, wave);
+      // Fast enough to catch the travelling front; the existing slow release preserves the luminous tail.
+      const rise = wave > 0 ? 1 - Math.exp(-dt / .055) : up;
+      let v = D[f] + (t - D[f]) * (t > D[f] ? rise : down);
       if (v < 0.002) v = 0;
       D[f] = v; if (v > lvl) lvl = v;
     }
@@ -644,7 +653,7 @@ export class VfxEngine {
     this.tick(time, delta);
   };
 
-  private tick = (_time: number, deltaMs: number) => {
+  private tick = (time: number, deltaMs: number) => {
     if (this.destroyed || this.lost || document.hidden) return;
     if ((window as { __TIDE_VISIBLE__?: boolean }).__TIDE_VISIBLE__ === false && this.loaded) return;
     const dt = Math.min(0.05, deltaMs / 1000);       // a long frame slows the motion instead of skipping it
@@ -661,6 +670,7 @@ export class VfxEngine {
     const g = this.globals, sc = this.scroll, input = this.input, P = VFX.pointer;
     sc.update(this.reduced);
     input.update(dt);
+    this.touches.update(time);
 
     const R = input.radius, px = input.x, py = input.y + sc.y, present = input.present;
     let hovered: Surface | null = null;
@@ -682,6 +692,7 @@ export class VfxEngine {
       const inView = s.y < sc.y + this.viewH + this.pad && s.y + s.h > sc.y - this.pad;
       if (!inView) {
         if (ch.active) ch.quench();
+        if (ch.driveLevel) { ch.drive.fill(0); ch.driveLevel = 0; }
         if (s.hot) { (s.energy!.array as Float32Array).fill(0); s.energy!.needsUpdate = true; s.hot = false; }
         s.hover = s.near = s.lift = 0; s.inside = false; s.overlay.visible = false;
         continue;
@@ -715,7 +726,9 @@ export class VfxEngine {
         while (s.debt >= 1) { s.debt -= 1; ch.igniteAt(clamp(lx, 0, s.w), clamp(ly, 0, s.h), R * 0.12, (0.2 + 0.2 * prox) * (s.opt.gain ?? 1)); }
       } else s.debt = 0;
       s.inside = inside;
-      if (s.opt.kind === 'title') this.driveRange(s, inside, lx, ly, R, dt);
+      const wave = this.reduced ? 0 : this.touches.across(s.x, s.y - sc.y, s.w, s.h);
+      // The same front drives card topology and glyph topology, even far from the finger.
+      if (s.opt.kind === 'title' || this.touches.active || ch.driveLevel > .003) this.driveRange(s, s.opt.kind === 'title' && inside, lx, ly, R, dt);
       // loading: cells light up as they join, sparsely
       if (loadingNow && s.delays && s.born) {
         const L = this.load.value * 1.3 - 0.15;
@@ -730,12 +743,13 @@ export class VfxEngine {
       else if (s.hot) { (s.energy!.array as Float32Array).fill(0); s.energy!.needsUpdate = true; s.hot = false; }
       // hover state of the surface: quick in, eased out (type breathes in and out more slowly)
       const slow = s.opt.kind === 'title';
-      s.hover += ((inside ? 1 : 0) - s.hover) * (inside ? (slow ? 1 - Math.exp(-dt / 0.35) : attack) : (slow ? 1 - Math.exp(-dt * 1.6) : ease));
+      const targetHover = Math.max(inside ? 1 : 0, wave * .95);
+      s.hover += (targetHover - s.hover) * (targetHover > s.hover ? (wave > 0 ? 1 - Math.exp(-dt / .06) : slow ? 1 - Math.exp(-dt / .35) : attack) : (slow ? 1 - Math.exp(-dt * 1.6) : ease));
       if (s.hover < 0.002) s.hover = 0;
       s.u.uHover.value = this.reduced ? s.hover * 0.6 : s.hover;
-      s.u.uGain.value = inside ? 1 : Math.max(P.neighbour, s.hover);
+      s.u.uGain.value = inside || wave > 0 ? 1 : Math.max(P.neighbour, s.hover);
       if (s.veilRest > 0) {
-        const lifted = inside || (focused === s.el && s.el.matches(':focus-visible'));
+        const lifted = inside || wave > .05 || (focused === s.el && s.el.matches(':focus-visible'));
         s.lift += ((lifted ? 1 : 0) - s.lift) * veilEase;
         if (Math.abs(s.lift - (lifted ? 1 : 0)) < 0.002) s.lift = lifted ? 1 : 0; else busy = true;
         s.u.uVeil.value = s.veilRest * (1 - s.lift);
@@ -794,7 +808,7 @@ export class VfxEngine {
       this.frames = 0; this.slow = 0;
     }
 
-    busy = busy || this.parts.count > 0 || !this.loaded || this.renderDirty || present;
+    busy = busy || this.touches.active || this.parts.count > 0 || !this.loaded || this.renderDirty || present;
     // at rest only the slow wave moves: every other frame is enough, and none at all with reduced motion
     if (busy || (!this.reduced && this.frame % 2 === 0)) this.render(busy);
   };
