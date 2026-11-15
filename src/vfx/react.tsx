@@ -9,13 +9,12 @@ const VfxContext = createContext<SurfaceRegistry | null>(null);
 export function VfxProvider({ children }: { children: ReactNode }) {
   const [registry] = useState(() => new SurfaceRegistry());
   const canvas = useRef<HTMLCanvasElement>(null);
-  const touchLayer = useRef<HTMLDivElement>(null);
   const [touchField] = useState(() => new TouchPulseField());
 
   useEffect(() => {
     let dispose = () => {};
     let cancelled = false;
-    const stopTouch = touchLayer.current ? installTouchFeedback(touchField, touchLayer.current) : () => {};
+    const stopTouch = installTouchFeedback(touchField);
     import('./engine').then(({ VfxEngine }) => {
       if (cancelled || !canvas.current || matchMedia('(forced-colors: active)').matches) return;
       const engine = VfxEngine.create(canvas.current, registry, touchField);
@@ -27,7 +26,6 @@ export function VfxProvider({ children }: { children: ReactNode }) {
   return (
     <VfxContext.Provider value={registry}>
       <div className="vfx-layer" aria-hidden="true"><canvas className="vfx-canvas" ref={canvas} /></div>
-      <div className="touch-feedback" aria-hidden="true" ref={touchLayer} />
       {children}
     </VfxContext.Provider>
   );

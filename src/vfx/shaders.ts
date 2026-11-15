@@ -366,6 +366,7 @@ uniform vec3 uHot[3];         // where the range reaches: top, middle, base
 uniform vec3 uPointer;        // local px, range of the pointer (px)
 uniform float uMicro;         // px, micro-lattice inside the glyphs
 uniform float uLoad;
+uniform float uTouch;        // local short-lived chain; never warms the entire title
 in vec2 vLocal; in vec3 vBary; flat in vec4 vCell; flat in float vE; in float vEv; in float vFade;
 out vec4 o;
 /* px from the nearest outline: negative inside a letter; beyond the texture, the distance to it is added */
@@ -390,7 +391,8 @@ void main(){
   float local=clamp(vEv*1.12+vE*.32,0.,1.15);
   // the warmth of the block decides everything: leaving, the whole look desaturates back into the idle gradient as one
   // piece (never cell by cell, never an overlay fading out). While the page builds, a few cells flash as they join
-  float W=max(base,local*clamp((1.-uLoad)*3.,0.,1.)*.8);
+  float W0=max(base,local*clamp((1.-uLoad)*3.,0.,1.)*.8);
+  float W=max(W0,clamp(local,0.,1.)*uTouch);
   if(W<.004) discard;
   float sd=sdAt(p);
   if(sd>uRange) discard;
@@ -418,7 +420,7 @@ void main(){
   // the overlay takes over the share W of the type, with the type's own coverage: the content pass has given up exactly
   // that share (SURFACE_FRAG), so the edges keep their anti-aliasing and nothing behind them is erased (no dark rim)
   float k=vFade;
-  float cov=a*k*W;
+  float cov=a*k*W0;
   // warm light that follows each letter: a rim just inside the outline where the energy is, a soft glow outside.
   // Both are light only (added, no coverage): they never darken what is around the letters
   float g=clamp(local*1.1+base*.4,0.,1.)*vFade*W;
@@ -428,7 +430,8 @@ void main(){
   vec3 glow=ramp(.42+.2*g)*outer*(.04+.17*g)*vFade*W;
   // bloom: a touch of brilliance from the reached letters, the lattice and their rim, held low
   if(uEmissive>.5){ o=vec4(((hot*a*fill*.09+facet*a*lit*.07)*vFade+rimC*.24+glow*.3)*W,0.); return; }
-  o=vec4(col*cov+rimC*k+glow,cov);
+  // Touch changes existing ink by its colour delta, preserving anti-aliased coverage.
+  o=vec4(col*cov+(col-idle)*a*k*(W-W0)+rimC*k+glow,cov);
 }`;
 
 /* ------------------------------------------------------------------ particles */

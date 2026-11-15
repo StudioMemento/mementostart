@@ -1,0 +1,35 @@
+
+import {bindStartEmbed} from './framer-start.mjs';
+const frame=document.querySelector('iframe'),out=document.querySelector('#out'),button=document.querySelector('#run');
+const pause=()=>new Promise(r=>setTimeout(r,120));
+let stop=null;
+button.onclick=async()=>{
+ button.disabled=true;stop?.();stop=null;await pause();
+ const d=frame.contentDocument,w=frame.contentWindow;
+ for(let n=0;n<100&&!d.querySelector('#question-idea');n++)await pause();
+ const dock=()=>d.querySelector('memento-nav').shadowRoot.querySelector('.mm-dock').getBoundingClientRect();
+ const lines=[];const check=(v,label)=>{lines.push(`${v?'PASS':'FAIL'} — ${label}`);out.textContent=lines.join('\n')};
+ const oldHeight=innerHeight,visible=oldHeight-100;
+ w.scrollTo({top:0,behavior:'instant'});await pause();
+ check(dock().bottom>visible,'Riprodotto: navbar oltre viewport visibile con iframe 100vh');
+ const view=Object.assign(new EventTarget(),{height:visible,scale:1});
+ stop=bindStartEmbed(frame,view);await pause();
+ check(Math.abs(frame.getBoundingClientRect().height-visible)<=1,'Embed adeguato alla viewport visibile del genitore');
+ check(dock().top>=0&&dock().bottom<=visible&&w.scrollY===0,`Navbar subito: bottom=${dock().bottom.toFixed(1)}, visible=${visible}, scroll=${w.scrollY}`);
+ view.height=oldHeight-35;view.dispatchEvent(new Event('resize'));await pause();
+ check(Math.abs(frame.getBoundingClientRect().height-view.height)<=1&&dock().bottom<=view.height,`Navbar al cambio barra: bottom=${dock().bottom.toFixed(1)}, visible=${view.height}, frame=${frame.getBoundingClientRect().height}`);
+ w.scrollTo({top:d.documentElement.scrollHeight,behavior:'instant'});await pause();
+ window.scrollTo({top:100,behavior:'instant'});await pause();
+ check(w.scrollY>100&&window.scrollY===0,'Fondo pagina: un solo scroll, genitore fermo');
+ w.scrollTo({top:0,behavior:'instant'});await pause();
+ check(w.scrollY===0&&dock().bottom<=view.height,'Ritorno in alto: navbar sempre nella viewport');
+ view.height=oldHeight-150;view.dispatchEvent(new Event('resize'));await pause();
+ check(Math.abs(frame.getBoundingClientRect().height-view.height)<=1,`Riduzione ulteriore: frame=${frame.getBoundingClientRect().height}, visible=${view.height}`);
+ const style=d.querySelector('memento-nav').shadowRoot.querySelector('style').textContent;
+ const top=d.querySelector('memento-nav').shadowRoot.querySelector('.mm-edge--top');
+ check(w.getComputedStyle(top).transform==='none'&&style.includes('height:clamp(90px,18%,160px)'),'Blur limitato in altezza e senza rotazione del backdrop');
+ check(w.getComputedStyle(top.firstElementChild).maskImage.includes('12%'),'Bordo interno del blur trasparente prima del taglio');
+ stop();stop=null;await pause();
+ check(!document.documentElement.hasAttribute('data-mm-start-host')&&Math.abs(frame.getBoundingClientRect().height-oldHeight)<=1,'Uscita: layout originale ripristinabile');
+ stop=bindStartEmbed(frame,view);await pause();button.disabled=false;
+};

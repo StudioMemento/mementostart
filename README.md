@@ -1,41 +1,40 @@
-# Memento Start — V25 Touch / Ghost Fibers
+# Memento Start — V26
 
-Aggiornamento della V24, pronto per un deploy di prova su Vercel.
+Correzione dell’impulso touch e della navbar nel sito Framer. Progetto completo per Vercel, con build prerenderizzata e asset originali.
 
-## Avvio e deploy
+## Installazione
 
-Node.js 22 o 24. Estrarre lo ZIP nella cartella principale del progetto.
+**Sono necessari due passaggi:** aggiornare il progetto Vercel e aggiungere `FRAMER_START_FIX.html` al Custom Code della pagina Start di Framer, in fondo al body. Istruzioni in `INSTALLAZIONE.md`. Lo script agisce sulla pagina ospitante: inserirlo nel documento dell’iframe non risolve la misura errata del genitore.
+
+Nessun deploy pubblico è stato eseguito.
+
+## Modifiche
+
+- Eliminati cerchio, bordo e layer DOM dell’impulso.
+- Il touch accende 2–5 punti separati per superficie visibile. Il segnale viaggia lungo brevi catene di cellule vicine, con percorsi, intensità e tempi differenti. Le singole cellule decadono in circa 180–340 ms; la propagazione resta limitata a tre generazioni. Non viene più illuminata una fascia di triangoli su tutta la card.
+- Un dito fermo non alimenta l’hover continuo. Scroll e click restano nativi; rilascio e `pointercancel` non creano un secondo impulso. Pool massimo di quattro contatti, nessun nuovo canvas o contesto WebGL.
+- Nei testi reagiscono le cellule raggiunte. L’overlay modifica il colore dell’inchiostro senza duplicare la copertura dei bordi. In assenza di WebGL il fallback accende brevemente i titoli raggiunti, senza cerchi.
+- L’embed Framer usa l’altezza visibile del browser, aggiornata anche quando cambiano le barre. Il documento esterno non aggiunge un secondo scroll. La navbar interna ha inoltre un limite CSS di altezza, immediato anche prima del listener di resize.
+- Blur superiore senza rotazione; altezza contenuta e primo tratto verso il contenuto completamente trasparente, per eliminare lo stacco rettangolare.
+
+Conservati: Ghost Fibers con cinque layer, preset rosso/ambra, grain 0, foto già a colori su mobile, interazione desktop, immagini, impaginazione e testi. Rimangono cache delle superfici, sospensione fuori schermo, scroll nativo e risoluzione adattiva. Il limite di rendering dello sfondo è 30 render/s, non una promessa di FPS sul dispositivo.
+
+## Sviluppo e verifica
+
+Node.js 22 o 24.
 
 ```sh
 npm ci
 npm run dev
 npm test
-npm run verify:preservation
 npm run build
+npm run verify:preservation
 ```
 
-`vercel.json` usa `npm ci`, `npm run build` e la directory `dist`. La build include HTML prerenderizzato e la navbar già presente nel documento, prima del contenuto React. Nessuna pubblicazione è stata eseguita.
+`vercel.json` installa con `npm ci`, compila e pubblica `dist`. Il modulo pubblico per Framer ha un header CORS dedicato: può essere caricato dalla pagina ospitante.
 
-## Modifiche V25
+`/qa.html` e `/qa-embed.html` sono pagine di verifica locali disponibili con `npm run dev`. La seconda riproduce il problema di `100vh` rispetto a una viewport visibile più corta e applica il modulo reale di correzione. Esiti e limiti in `docs/V26-verifica.md`.
 
-- **Background:** configurazione del link e di `BKG REACT 2.txt`, con **5 layer reali**. Il componente originale limita i layer a 3: sono stati aggiunti altri due piani con profondità e fase distinte. Preset completo in `src/background/preset.ts`.
-- **Configurazione:** glow rosso `#ef4444`, fibre ambra `#f97316`, rotazione 25°, spessore 0.75, velocità 0.1, roll 0.5, 160 fibre per layer, depth of field 2. Le proprietà omesse nel nuovo allegato tornano ai valori predefiniti React Bits, incluso waves 1. Intro attiva come nel nuovo codice allegato.
-- **Noise:** grain 0 nel background e nel compositing di tab/testi; rimosso anche il dithering animato del compositing. Conservati la forma delle fibre, il movimento e la struttura triangolare degli effetti.
-- **Navbar mobile:** dimensioni della viewport impostate subito, aggiornate quando varia la barra del browser o la pagina viene ripristinata. Layer di compositing separato, contenuto e icone già nell’HTML; nessuna attesa dello scroll o di WebGL. Lo script di build sincronizza markup iniziale, stile e bundle da un’unica sorgente.
-- **Immagini:** colore pieno già a riposo sui layout fino a 767 px e sui dispositivi senza hover/con puntatore touch. La regola vale sia per il DOM sia per lo shader; su desktop rimane l’interazione esistente.
-- **Touch:** un impulso per contatto, centrato nel punto toccato; attraversa il viewport e attiva la geometria luminosa delle card e dei testi che incontra. Continua durante lo scroll, termina da solo e non intercetta click o gesti. Massimo quattro onde contemporanee; gli elementi grafici vengono rimossi al termine.
-- **Fallback:** anche senza WebGL rimangono navbar, colori, anello di propagazione e accensione dei titoli. `prefers-reduced-motion` disattiva l’onda in movimento.
+L’ambiente browser usato per i controlli non dispone di WebGL. Sono verificati DOM, eventi, logica delle catene e compilazione/link degli shader con EGL software. Resa GPU, fluidità e barre del browser su telefono fisico richiedono la prova sul dispositivo. I tocchi dentro Google Maps appartengono all’iframe Google e conservano la navigazione nativa della mappa.
 
-Rimangono le ottimizzazioni della V24: cache delle superfici, nessuna rasterizzazione per le sole variazioni di altezza, scroll nativo, aggiornamenti mirati, sospensione delle superfici fuori schermo. Ghost Fibers conserva il limite di 30 render/s e la risoluzione adattiva; il limite non è una misurazione degli FPS.
-
-## Verifica
-
-37 test automatici verificano anche la propagazione agli angoli, l’attivazione delle cellule dei titoli distanti, il rilascio dell’energia, il limite delle onde, i listener passivi e il dimensionamento iniziale della navbar. La verifica di conservazione confronta asset, moduli originali, shader e tutti i parametri risolti del nuovo preset.
-
-La pagina `/qa.html`, disponibile con `npm run dev`, verifica navbar, colori mobile, touch sintetici, FAQ, dialog, mappa, focus e scroll. Dettagli e limiti in `docs/V25-verifica.md`.
-
-**Limite:** l’ambiente browser di verifica non dispone di WebGL. Il comportamento DOM e gli eventi sono verificabili; resa GPU, FPS e inerzia di Safari richiedono una prova su dispositivo reale. I tocchi dentro l’iframe interattivo di Google Maps appartengono al documento Google e non si propagano alla pagina: l’interazione della mappa rimane nativa.
-
-## Fonti
-
-Ghost Fibers: https://reactbits.dev/backgrounds/ghost-fibers — sorgente originale acquisita il 15 novembre 2026 e adattata a cinque layer. Licenza in `docs/ReactBits-LICENSE.md`; mantenute le licenze Inter e Tabler. I documenti V23/V24 sono storici; per questo pacchetto fanno fede questo README e i file V25.
+Licenze originali in `docs/ReactBits-LICENSE.md`, `docs/Inter-OFL.txt` e `docs/Tabler-LICENSE.txt`. I documenti V23–V25 sono storici; per questa versione fanno fede questo README, `INSTALLAZIONE.md` e `docs/V26-verifica.md`.

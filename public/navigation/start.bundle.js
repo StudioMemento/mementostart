@@ -84,17 +84,19 @@ function navigationLink(href,base,hub=DEFAULT_HUB) {
 // The gradient changes the radius spatially by blending adjacent levels.
 // It never paints a black gradient over the page.
 const FRAMER_BLUR_RADII = Object.freeze([0.0546875,0.109375,0.21875,0.4375,0.875,1.75,3.5,7]);
-function blurMask(index) {
+function blurMask(index, edge = 'bottom') {
   if (!Number.isInteger(index) || index < 0 || index > 7) throw new RangeError('Blur level: 0–7');
-  const stops = [`transparent ${index * 12.5}%`, `#000 ${(index + 1) * 12.5}%`];
-  if (index < 7) stops.push(`#000 ${(index + 2) * 12.5}%`);
-  if (index < 6) stops.push(`transparent ${(index + 3) * 12.5}%`);
-  return `linear-gradient(to bottom,${stops.join(',')})`;
+  // The first 12% facing the content is completely clear, before the element's boundary.
+  const at = n => 12 + n * 11;
+  const stops = [`transparent ${at(index)}%`, `#000 ${at(index + 1)}%`];
+  if (index < 7) stops.push(`#000 ${at(index + 2)}%`);
+  if (index < 6) stops.push(`transparent ${at(index + 3)}%`);
+  return `linear-gradient(to ${edge === 'top' ? 'top' : 'bottom'},${stops.join(',')})`;
 }
 function edgeMarkup(edge) {
   if (!['top','bottom'].includes(edge)) throw new TypeError('Unknown edge');
   const layers = FRAMER_BLUR_RADII.map((radius, index) => {
-    const mask = blurMask(index);
+    const mask = blurMask(index, edge);
     return `<div class="mm-filter" style="z-index:${index+1};--mm-radius:calc(var(--memento-overlay-blur,7px) / ${2 ** (7-index)});-webkit-mask-image:${mask};mask-image:${mask}"></div>`;
   }).join('');
   return `<div class="mm-edge mm-edge--${edge}" aria-hidden="true">${layers}</div>`;
@@ -109,15 +111,15 @@ const overlayCSS = `
   --mm-top: max(var(--memento-overlay-top,16px),env(safe-area-inset-top,0px));
   --mm-bottom-gap: calc((var(--mm-rail) - 200px) / 8);
   --mm-accent: var(--memento-overlay-accent,#ff7950);
-  position:fixed; top:0; right:0; bottom:auto; left:0; height:100vh; height:var(--memento-nav-height,100dvh); z-index:var(--memento-overlay-z,1000); display:block;
+  position:fixed; top:0; right:0; bottom:auto; left:0; height:100vh; height:var(--memento-nav-height,100dvh); max-height:100%; z-index:var(--memento-overlay-z,1000); display:block;
   pointer-events:none; color:#f5f4f2; font:10px/1.3 Inter,Arial,sans-serif;
-  background:transparent; opacity:1; filter:none; transform:translate3d(0,0,0); isolation:isolate; contain:none; will-change:transform;
+  background:transparent; opacity:1; filter:none; isolation:isolate; contain:none;
   -webkit-font-smoothing:antialiased;
 }
 :host([hidden]) { display:none !important; }
 *,*::before,*::after { box-sizing:border-box; }
-.mm-edge { position:absolute; inset-inline:0; height:20%; z-index:0; overflow:hidden; pointer-events:none; background:transparent; }
-.mm-edge--top { top:-1px; transform:rotate(180deg); }
+.mm-edge { position:absolute; inset-inline:0; height:clamp(90px,18%,160px); z-index:0; pointer-events:none; background:transparent; }
+.mm-edge--top { top:-1px; }
 .mm-edge--bottom { bottom:-1px; }
 .mm-filter { position:absolute; inset:0; border-radius:0; pointer-events:none; opacity:1; background:transparent;
   -webkit-backdrop-filter:blur(var(--mm-radius)); backdrop-filter:blur(var(--mm-radius));

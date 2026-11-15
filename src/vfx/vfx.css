@@ -84,8 +84,5 @@ main :focus-visible { scroll-margin-block: 20vh; }
 @media print { .vfx-layer, .start-background { display: none; } }
 @media (forced-colors: active) { .vfx-layer, .start-background { display: none; } }
 
-.touch-feedback { position: fixed; inset: 0; z-index: 900; overflow: hidden; pointer-events: none; }
-.touch-ripple { position: absolute; display: block; border: 1.5px solid #ffb67b; border-radius: 50%; box-shadow: 0 0 18px #ff795075, inset 0 0 12px #ff795040; pointer-events: none; will-change: transform, opacity; }
 html:not(.vfx-live) .touch-lit:is(.title-gradient,.category-gradient),
 html:not(.vfx-live) .touch-lit :is(.title-gradient,.category-gradient) { background-image: linear-gradient(0deg,#d9682f 0%,#e2874f 9%,#ecb28c 20%,#f5d9c6 32%,#fbefe8 44%,#fbefe8 100%); filter: drop-shadow(0 0 7px #ff795050); }
-@media (prefers-reduced-motion: reduce), print, (forced-colors: active) { .touch-feedback { display: none; } }

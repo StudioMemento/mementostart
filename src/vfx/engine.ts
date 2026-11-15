@@ -8,7 +8,7 @@ import { ChainField } from './chain';
 import { VFX, gradientRange, hexToRgb, titleRamp, type ChainProfile, type QualityName } from './config';
 import { buildNetwork, hashString, type SurfaceNetwork } from './geometry';
 import { PointerField } from './input';
-import { TouchPulseField } from './touch';
+import { TouchPulseField, TouchReaction } from './touch';
 import { GPU_STRIDE, Particles } from './particles';
 import { collect, distanceField, imageFit, paint } from './raster';
 import type { SurfaceOptions, SurfaceRegistry } from './registry';
@@ -30,7 +30,7 @@ interface Surface {
   overlay: Mesh<BufferGeometry, RawShaderMaterial>;
   x: number; y: number; w: number; h: number;        // document px
   cellKey: string; netKey: string;
-  net: SurfaceNetwork | null; chain: ChainField | null; energy: BufferAttribute | null;
+  net: SurfaceNetwork | null; chain: ChainField | null; touch: TouchReaction | null; energy: BufferAttribute | null;
   border: BorderLight | null; edgeCells: { cell: number; s: number; w: number }[];
   born: Uint8Array | null; delays: Float32Array | null;
   canvas: HTMLCanvasElement;
@@ -254,8 +254,12 @@ export class VfxEngine {
   private listen() {
     const signal = this.abort.signal, passive = { passive: true, signal } as const;
     const input = this.input;
-    addEventListener('pointermove', e => input.move(e.clientX, e.clientY, e.pointerType === 'touch'), passive);
-    addEventListener('pointerdown', e => input.move(e.clientX, e.clientY, e.pointerType === 'touch'), passive);
+    const trackMouse = (e: PointerEvent) => {
+      if (e.pointerType === 'mouse') input.move(e.clientX, e.clientY, false);
+      else input.leave(); // A held finger must not feed the slow, continuous hover chain.
+    };
+    addEventListener('pointermove', trackMouse, passive);
+    addEventListener('pointerdown', trackMouse, passive);
     // A single viewport wave is started by the provider on contact, even before WebGL is ready.
     // Native scrolling sends pointercancel: leave the pointer but let that wave finish.
     addEventListener('pointerup', e => { if (e.pointerType !== 'mouse') input.leave(); }, passive);
@@ -399,7 +403,7 @@ export class VfxEngine {
       uPanel: { value: title ? 0 : 1 }, uCut: { value: new Vector2() }, uPanelCol: { value: new Vector4(...VFX.color.panel) },
       uInk: { value: null }, uHasInk: { value: 0 }, uInkMap: { value: new Vector4(0, 0, 1, 1) }, uVeil: { value: 0 },
       uImg: { value: null }, uHasImg: { value: 0 }, uImgBox: { value: new Vector4(0, 0, 1, 1) }, uImgFit: { value: new Vector4(0, 0, 1, 1) }, uImgStyle: { value: [1, 0, 0] },
-      uHover: { value: 0 }, uGain: { value: 1 }, uBins: { value: new Float32Array(VFX.border.bins) },
+      uHover: { value: 0 }, uTouch: { value: 0 }, uGain: { value: 1 }, uBins: { value: new Float32Array(VFX.border.bins) },
       uGray: { value: new Vector2(...gradientRange()) }, uMicro: { value: 12 },
       uDist: { value: null }, uRange: { value: 24 }, uEm: { value: 16 },
       uTitle: { value: titleRamp() }, uHot: { value: VFX.color.titleHot.flatMap(hexToRgb) },
@@ -413,7 +417,7 @@ export class VfxEngine {
     overlay.frustumCulled = false; overlay.renderOrder = 11 + index * 2; overlay.visible = false;
     this.scene.add(content, overlay);
     return { el, opt, index, u, content, overlay, x: 0, y: 0, w: 0, h: 0, cellKey: '', netKey: '',
-      net: null, chain: null, energy: null, border: title ? null : new BorderLight(), edgeCells: [], born: null, delays: null,
+      net: null, chain: null, touch: null, energy: null, border: title ? null : new BorderLight(), edgeCells: [], born: null, delays: null,
       canvas: document.createElement('canvas'), ink: null, dist: null, sourceDebt: 0, img: null, imgSrc: '', alpha: null, fontSize: 16,
       veilRest: 0, lift: 0,
       hover: 0, near: 0, inside: false, debt: 0, budget: 0, hot: false, version: 0, ready: false, dirty: true };
@@ -548,7 +552,7 @@ export class VfxEngine {
     const profile: ChainProfile = title ? C.title : C.card;
     const chain = new ChainField(net, profile);
     chain.onIgnite = (cell, strength) => this.emitFrom(s, cell, strength);
-    s.net = net; s.chain = chain; s.energy = energy;
+    s.net = net; s.chain = chain; s.touch = new TouchReaction(net); s.energy = energy;
     s.delays = new Float32Array(net.faces); s.born = new Uint8Array(net.faces);
     for (let f = 0; f < net.faces; f++) s.delays[f] = loadingDelay(s.x + net.cx[f], s.y + net.cy[f], net.seed[f]);
     // cells near the outline feed its light
@@ -569,7 +573,7 @@ export class VfxEngine {
    */
   private driveRange(s: Surface, inside: boolean, lx: number, ly: number, R: number, dt: number) {
     const ch = s.chain!, net = s.net!, D = ch.drive, T = VFX.type;
-    if (!inside && !this.touches.active && ch.driveLevel < 0.003) { if (ch.driveLevel) { D.fill(0); ch.driveLevel = 0; } return; }
+    if (!inside && ch.driveLevel < 0.003) { if (ch.driveLevel) { D.fill(0); ch.driveLevel = 0; } return; }
     const rx = Math.max(R * T.range[0], s.fontSize * T.range[1]), ry = Math.max(R * T.range[2], s.fontSize * T.range[3]);
     const up = 1 - Math.exp(-dt / T.rise), down = 1 - Math.exp(-dt / T.fall);
     let lvl = 0;
@@ -580,11 +584,7 @@ export class VfxEngine {
         const d = Math.sqrt(dx * dx + dy * dy) / (0.7 + 0.6 * net.seed[f]);
         t = 1 - smoothstep(0.2, 1, d);
       }
-      const wave = net.weight[f] > 0.05 ? this.touches.at(s.x + net.cx[f], s.y + net.cy[f] - this.scroll.y) : 0;
-      t = Math.max(t, wave);
-      // Fast enough to catch the travelling front; the existing slow release preserves the luminous tail.
-      const rise = wave > 0 ? 1 - Math.exp(-dt / .055) : up;
-      let v = D[f] + (t - D[f]) * (t > D[f] ? rise : down);
+      let v = D[f] + (t - D[f]) * (t > D[f] ? up : down);
       if (v < 0.002) v = 0;
       D[f] = v; if (v > lvl) lvl = v;
     }
@@ -692,6 +692,7 @@ export class VfxEngine {
       const inView = s.y < sc.y + this.viewH + this.pad && s.y + s.h > sc.y - this.pad;
       if (!inView) {
         if (ch.active) ch.quench();
+        s.touch?.clear(); s.u.uTouch.value = 0;
         if (ch.driveLevel) { ch.drive.fill(0); ch.driveLevel = 0; }
         if (s.hot) { (s.energy!.array as Float32Array).fill(0); s.energy!.needsUpdate = true; s.hot = false; }
         s.hover = s.near = s.lift = 0; s.inside = false; s.overlay.visible = false;
@@ -726,9 +727,10 @@ export class VfxEngine {
         while (s.debt >= 1) { s.debt -= 1; ch.igniteAt(clamp(lx, 0, s.w), clamp(ly, 0, s.h), R * 0.12, (0.2 + 0.2 * prox) * (s.opt.gain ?? 1)); }
       } else s.debt = 0;
       s.inside = inside;
-      const wave = this.reduced ? 0 : this.touches.across(s.x, s.y - sc.y, s.w, s.h);
-      // The same front drives card topology and glyph topology, even far from the finger.
-      if (s.opt.kind === 'title' || this.touches.active || ch.driveLevel > .003) this.driveRange(s, s.opt.kind === 'title' && inside, lx, ly, R, dt);
+      if (this.reduced) s.touch?.clear();
+      else s.touch?.step(this.touches, { x: s.x, y: s.y - sc.y, w: s.w, h: s.h }, time, dt);
+      s.u.uTouch.value = s.touch && s.touch.level > .003 ? 1 : 0;
+      if (s.opt.kind === 'title') this.driveRange(s, inside, lx, ly, R, dt);
       // loading: cells light up as they join, sparsely
       if (loadingNow && s.delays && s.born) {
         const L = this.load.value * 1.3 - 0.15;
@@ -738,18 +740,24 @@ export class VfxEngine {
           if (net.weight[f] > 0.4 && Math.random() < VFX.loading.ignite) ch.ignite(f, rand(0.45, 0.8), 3);
         }
       }
-      const active = ch.active;
-      if (active) { ch.step(dt); ch.write(s.energy!.array as Float32Array); s.energy!.needsUpdate = true; s.hot = true; }
+      const active = ch.active, touchActive = s.touch?.active;
+      if (active || touchActive) {
+        if (active) ch.step(dt);
+        const out = s.energy!.array as Float32Array;
+        ch.write(out);
+        if (touchActive) s.touch!.merge(out);
+        s.energy!.needsUpdate = true; s.hot = true;
+      }
       else if (s.hot) { (s.energy!.array as Float32Array).fill(0); s.energy!.needsUpdate = true; s.hot = false; }
       // hover state of the surface: quick in, eased out (type breathes in and out more slowly)
       const slow = s.opt.kind === 'title';
-      const targetHover = Math.max(inside ? 1 : 0, wave * .95);
-      s.hover += (targetHover - s.hover) * (targetHover > s.hover ? (wave > 0 ? 1 - Math.exp(-dt / .06) : slow ? 1 - Math.exp(-dt / .35) : attack) : (slow ? 1 - Math.exp(-dt * 1.6) : ease));
+      const targetHover = inside ? 1 : 0;
+      s.hover += (targetHover - s.hover) * (targetHover > s.hover ? (slow ? 1 - Math.exp(-dt / .35) : attack) : (slow ? 1 - Math.exp(-dt * 1.6) : ease));
       if (s.hover < 0.002) s.hover = 0;
       s.u.uHover.value = this.reduced ? s.hover * 0.6 : s.hover;
-      s.u.uGain.value = inside || wave > 0 ? 1 : Math.max(P.neighbour, s.hover);
+      s.u.uGain.value = inside || touchActive ? 1 : Math.max(P.neighbour, s.hover);
       if (s.veilRest > 0) {
-        const lifted = inside || wave > .05 || (focused === s.el && s.el.matches(':focus-visible'));
+        const lifted = inside || (focused === s.el && s.el.matches(':focus-visible'));
         s.lift += ((lifted ? 1 : 0) - s.lift) * veilEase;
         if (Math.abs(s.lift - (lifted ? 1 : 0)) < 0.002) s.lift = lifted ? 1 : 0; else busy = true;
         s.u.uVeil.value = s.veilRest * (1 - s.lift);
@@ -773,7 +781,7 @@ export class VfxEngine {
         glow = b.level;
         (s.u.uBins.value as Float32Array).set(b.bins);
       }
-      s.overlay.visible = ch.active || s.hover > 0.003 || s.near > 0.003 || glow > 0.004;
+      s.overlay.visible = ch.active || !!touchActive || s.hover > 0.003 || s.near > 0.003 || glow > 0.004;
       if (s.overlay.visible || s.hover > 0.003 || s.near > 0.003) busy = true;
     }
 

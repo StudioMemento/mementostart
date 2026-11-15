@@ -1,57 +1,63 @@
 import { describe, expect, it, vi } from 'vitest';
-import { TouchPulseField, TOUCH_LIFE_MS, TOUCH_POOL, TOUCH_TRAVEL_MS, listenForTouch } from '../touch';
-import { VfxEngine } from '../engine';
+import { TouchPulseField, TouchReaction, planTouchSeeds, touchArrival, TOUCH_POOL, listenForTouch } from '../touch';
+import { buildNetwork, mulberry } from '../geometry';
 import { FIBER_LAYERS, layerCount } from '../../background/fiber-layers';
 import { START_BACKGROUND } from '../../background/preset';
 import { VFX } from '../config';
 
-describe('viewport touch propagation', () => {
-  it('travels from the finger to every corner, including beyond the old 110 px touch radius', () => {
-    for (const [width, height, x, y] of [[390,844,25,70],[360,740,180,370],[1280,900,1240,850]]) {
-      const field = new TouchPulseField();
-      const wave = field.start(x,y,width,height,0);
-      for (const [tx, ty] of [[0,0],[width,0],[0,height],[width,height]]) {
-        const at = Math.hypot(tx-x,ty-y) / wave.reach * TOUCH_TRAVEL_MS;
-        field.update(Math.max(0,at-200));
-        const before = field.at(tx,ty);
-        field.update(at);
-        expect(field.at(tx,ty)).toBeGreaterThan(.3);
-        if (at > 250) expect(field.at(tx,ty)).toBeGreaterThan(before + .2);
-      }
-      field.update(TOUCH_LIFE_MS);
-      expect(field.active).toBe(false); expect(field.at(x,y)).toBe(0);
+describe('sparse viewport touch reaction', () => {
+  const network = () => buildNetwork(340, 220, 22, 20, 170, 19);
+  it('seeds separated cells rather than lighting a radial band or an entire card', () => {
+    const field = new TouchPulseField(), net = network();
+    const first = field.start(40,40,390,844,0);
+    const rect = {x:25,y:380,w:340,h:220};
+    const seeds = planTouchSeeds(net,rect,first);
+    expect(seeds.length).toBeGreaterThan(1); expect(seeds.length).toBeLessThanOrEqual(5);
+    expect(seeds.length / net.faces).toBeLessThan(.03);
+    expect(new Set(seeds.map(s=>Math.round(s.at/30))).size).toBeGreaterThan(1);
+    const second = field.start(40,40,390,844,30);
+    expect(planTouchSeeds(net,rect,second).map(s=>s.cell)).not.toEqual(seeds.map(s=>s.cell));
+    expect(planTouchSeeds(net,{...rect,y:1000},first)).toHaveLength(0);
+  });
+  it('reaches distant visible glyphs; equal distances have different arrival times', () => {
+    const field = new TouchPulseField(), w=field.start(195,422,390,844,0);
+    expect(touchArrival(w,195,800)).toBeLessThan(900);
+    expect(touchArrival(w,195,44)).not.toBe(touchArrival(w,195,800));
+    const net=network(); net.weight.fill(0);
+    net.weight[20]=1;
+    expect(planTouchSeeds(net,{x:20,y:400,w:340,h:220},w).map(s=>s.cell)).toEqual([20]);
+  });
+  it('branches through neighbours with short decay while leaving most cells dark', () => {
+    const field = new TouchPulseField(), net=network();
+    const reaction=new TouchReaction(net,mulberry(1));
+    const lit=new Set<number>(); let descendants=0,maxSimultaneous=0;
+    reaction.chain.onIgnite=(_cell,_s,gen)=>{if(gen>0) descendants++};
+    field.start(20,20,390,844,0);
+    for(let ms=0;ms<1600;ms+=1000/60){
+      field.update(ms);reaction.step(field,{x:25,y:400,w:340,h:220},ms,1/60);
+      reaction.chain.shown.forEach((e,i)=>{if(e>.025)lit.add(i)});
+      maxSimultaneous=Math.max(maxSimultaneous,reaction.chain.shown.filter(e=>e>.025).length);
     }
+    expect(descendants).toBeGreaterThan(0); expect(lit.size).toBeGreaterThan(3);
+    expect(maxSimultaneous/net.faces).toBeLessThan(.15);
+    expect(reaction.active).toBe(false); expect(reaction.level).toBeLessThan(.003);
+    expect(reaction.chain.drive.every(v=>v===0)).toBe(true);
   });
-  it('reaches title rectangles only as the front arrives, even while their document position scrolls', () => {
-    const field = new TouchPulseField(), wave = field.start(20,20,390,844,0);
-    expect(field.across(40,620,310,90)).toBe(0);
-    const elapsed = 660 / wave.reach * TOUCH_TRAVEL_MS;
-    field.update(elapsed);
-    expect(field.across(40,620,310,90)).toBeGreaterThan(.5);
-    expect(field.across(40,1200,310,90)).toBe(0);
-    // A surface at document Y 1520 after scroll 900 has the same viewport energy.
-    expect(field.across(40,1520-900,310,90)).toBeGreaterThan(.5);
-  });
-  it('feeds distant glyph cells through the production drive method, then releases them', () => {
-    const touches = new TouchPulseField(), wave = touches.start(20,20,390,844,0);
-    const engine = Object.create(VfxEngine.prototype);
-    Object.assign(engine,{touches,scroll:{y:900}});
-    const surface = {x:40,y:1520,fontSize:64,net:{faces:2,cx:new Float32Array([30,260]),cy:new Float32Array([30,40]),weight:new Float32Array([1,1]),seed:new Float32Array([.5,.5])},chain:{drive:new Float32Array(2),driveLevel:0}};
-    engine.driveRange(surface,false,-10000,-10000,110,1/60);
-    expect(surface.chain.driveLevel).toBe(0);
-    touches.update(650/wave.reach*TOUCH_TRAVEL_MS);
-    for(let i=0;i<5;i++) engine.driveRange(surface,false,-10000,-10000,110,1/60);
-    expect(surface.chain.drive[0]).toBeGreaterThan(.4);
-    touches.update(TOUCH_LIFE_MS);
-    for(let i=0;i<500;i++) engine.driveRange(surface,false,-10000,-10000,110,1/60);
-    expect(surface.chain.driveLevel).toBe(0);
+  it('clears detached surfaces and does not replay old contacts on newly visible content',()=>{
+    const field=new TouchPulseField(),reaction=new TouchReaction(network(),mulberry(3));
+    field.start(20,20,390,844,0);
+    reaction.step(field,{x:20,y:400,w:340,h:220},400,1/60);
+    expect(reaction.active).toBe(false);
+    field.start(20,20,390,844,410);
+    reaction.step(field,{x:20,y:400,w:340,h:220},410,1/60); expect(reaction.active).toBe(true);
+    reaction.clear();expect(reaction.active).toBe(false);
   });
   it('bounds rapid and simultaneous touches without a growing pool', () => {
     const field=new TouchPulseField();
     for(let i=0;i<100;i++) field.start(i,100,390,844,i);
     expect(field.waves).toHaveLength(TOUCH_POOL);
     expect(field.waves.at(-1)?.x).toBe(99);
-    field.update(1500);expect(field.active).toBe(false);
+    field.update(1600);expect(field.active).toBe(false);
   });
   it('uses one passive contact event; release and scroll cancellation neither duplicate nor erase it', () => {
     const target=new EventTarget(), abort=new AbortController(), field=new TouchPulseField();

@@ -6,15 +6,15 @@ export const overlayCSS = `
   --mm-top: max(var(--memento-overlay-top,16px),env(safe-area-inset-top,0px));
   --mm-bottom-gap: calc((var(--mm-rail) - 200px) / 8);
   --mm-accent: var(--memento-overlay-accent,#ff7950);
-  position:fixed; top:0; right:0; bottom:auto; left:0; height:100vh; height:var(--memento-nav-height,100dvh); z-index:var(--memento-overlay-z,1000); display:block;
+  position:fixed; top:0; right:0; bottom:auto; left:0; height:100vh; height:var(--memento-nav-height,100dvh); max-height:100%; z-index:var(--memento-overlay-z,1000); display:block;
   pointer-events:none; color:#f5f4f2; font:10px/1.3 Inter,Arial,sans-serif;
-  background:transparent; opacity:1; filter:none; transform:translate3d(0,0,0); isolation:isolate; contain:none; will-change:transform;
+  background:transparent; opacity:1; filter:none; isolation:isolate; contain:none;
   -webkit-font-smoothing:antialiased;
 }
 :host([hidden]) { display:none !important; }
 *,*::before,*::after { box-sizing:border-box; }
-.mm-edge { position:absolute; inset-inline:0; height:20%; z-index:0; overflow:hidden; pointer-events:none; background:transparent; }
-.mm-edge--top { top:-1px; transform:rotate(180deg); }
+.mm-edge { position:absolute; inset-inline:0; height:clamp(90px,18%,160px); z-index:0; pointer-events:none; background:transparent; }
+.mm-edge--top { top:-1px; }
 .mm-edge--bottom { bottom:-1px; }
 .mm-filter { position:absolute; inset:0; border-radius:0; pointer-events:none; opacity:1; background:transparent;
   -webkit-backdrop-filter:blur(var(--mm-radius)); backdrop-filter:blur(var(--mm-radius));

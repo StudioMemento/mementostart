@@ -21,6 +21,11 @@ let shader = readFileSync(resolve(root, 'src/vfx/shaders.ts'), 'utf8').replace(
 shader = shader.replace('uniform float uPhotoColor;    // no-hover devices show photographs in full colour at rest\n','')
  .replace('col.rgb=max(col.rgb,mix(vec3(ph.x),phRGB,uPhotoColor)*ph.y);','col.rgb=max(col.rgb,vec3(ph.x)*ph.y);')
  .replace("  // V25: no film grain or animated dithering; the photographic/text grade stays clean.\n","  float l=dot(col,vec3(.299,.587,.114));\n  float grain=(hash(gl_FragCoord.xy+vec2(uFrame*17.31,uFrame*-9.73))-.5)*2.;\n  col+=(grain*uMix.w*smoothstep(.004,.12,l)*(1.-.6*l)+(ign(gl_FragCoord.xy+uFrame*5.588)-.5)/255.)*s.a;   // nothing on a transparent pixel\n");
+// V26 touch only: signed colour delta keeps coverage/desktop shaders unchanged.
+shader = shader.replace('uniform float uTouch;        // local short-lived chain; never warms the entire title\n','')
+ .replace('  float W0=max(base,local*clamp((1.-uLoad)*3.,0.,1.)*.8);\n  float W=max(W0,clamp(local,0.,1.)*uTouch);','  float W=max(base,local*clamp((1.-uLoad)*3.,0.,1.)*.8);')
+ .replace('  float cov=a*k*W0;','  float cov=a*k*W;')
+ .replace('  // Touch changes existing ink by its colour delta, preserving anti-aliased coverage.\n  o=vec4(col*cov+(col-idle)*a*k*(W-W0)+rimC*k+glow,cov);','  o=vec4(col*cov+rimC*k+glow,cov);');
 assert.equal(sha(shader), manifest.original_shader_sha256, 'Unexpected surface shader modification');
 for (const file of ['public/navigation/child.mjs', 'public/navigation/start.bundle.js']) {
  const source=readFileSync(resolve(root,file),'utf8');

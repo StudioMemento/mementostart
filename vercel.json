@@ -7,6 +7,15 @@
   "cleanUrls": true,
   "headers": [
     {
+      "source": "/navigation/framer-start.mjs",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        }
+      ]
+    },
+    {
       "source": "/build/(.*)",
       "headers": [
         {
