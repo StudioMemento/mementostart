@@ -6,6 +6,7 @@ import { Hero } from './components/Hero';
 import { Legal, type PolicyKind } from './components/Legal';
 import { Location } from './components/Location';
 import { PolicyDialog } from './components/PolicyDialog';
+import { StartBackground } from './background/StartBackground';
 import { VfxProvider } from './vfx/react';
 
 export function App() {
@@ -14,6 +15,7 @@ export function App() {
   const [mapEnabled, setMapEnabled] = useState(true);
   return (
     <VfxProvider>
+      <StartBackground />
       <a className="skip-link" href="#contatti">Vai ai contatti</a>
       <main id="memento-contact">
         <Hero />

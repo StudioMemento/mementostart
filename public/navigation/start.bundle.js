@@ -426,7 +426,7 @@ function installChild({ page, hub = DEFAULT_HUB } = {}) {
     if (canConsume(event.target, delta)) { debt = 0; return; }
     if (fresh) debt = Math.abs(delta); else if (debt) debt += Math.abs(delta);
     if (debt >= 180) { event.preventDefault(); returnIntent(delta < 0 ? 'start' : 'end'); }
-  }, { passive: false });
+  }, { passive: !embedded });
   listen(window, 'touchstart', event => {
     const p = event.touches[0];
     touch = event.touches.length === 1 && connection && active && performance.now() - readyAt >= 900 && !modal() && !editing(event.target) && !busyTarget(event.target)

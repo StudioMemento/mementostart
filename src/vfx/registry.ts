@@ -19,7 +19,7 @@ export interface SurfaceOptions {
   ownColour?: boolean;
 }
 
-type Listener = (reason: 'surfaces' | 'layout', target?: Element, strength?: number) => void;
+type Listener = (reason: 'surfaces' | 'layout' | 'impulse', target?: Element, strength?: number) => void;
 
 /**
  * Surface registry: the DOM elements that own a GPU representation.
@@ -32,10 +32,10 @@ export class SurfaceRegistry {
   add(el: HTMLElement, options: SurfaceOptions) { this.surfaces.set(el, options); this.emit('surfaces'); }
   remove(el: HTMLElement) { if (this.surfaces.delete(el)) this.emit('surfaces'); }
   /** Content or layout inside surfaces changed in a way observers cannot see (accordion, fitted type). */
-  invalidate = () => this.emit('layout');
+  invalidate = (target?: Element | null) => this.listeners.forEach(l => l('layout', target ?? undefined));
   /** One short local impulse at an element (accordion opening, for instance). */
-  impulse = (target: Element, strength = 0.8) => this.listeners.forEach(l => l('layout', target, strength));
+  impulse = (target: Element, strength = 0.8) => this.listeners.forEach(l => l('impulse', target, strength));
   subscribe(listener: Listener) { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; }
   get listenerCount() { return this.listeners.size; }
-  private emit(reason: 'surfaces' | 'layout') { this.listeners.forEach(l => l(reason)); }
+  private emit(reason: 'surfaces' | 'layout' | 'impulse') { this.listeners.forEach(l => l(reason)); }
 }

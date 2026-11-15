@@ -17,7 +17,7 @@ export function Faq() {
   const visual = useRef<HTMLDivElement>(null);
   const { invalidate, impulse } = useVfxSignals();
   // The accordion changes the panel's content and height: the surface is re-measured, never read as a scroll.
-  useEffect(() => { invalidate(); }, [open, invalidate]);
+  useEffect(() => { invalidate(visual.current?.parentElement); }, [open, invalidate]);
   const shown = open ?? 'idea';
 
   const onKey = (event: KeyboardEvent<HTMLElement>, index: number) => {
@@ -39,13 +39,12 @@ export function Faq() {
         <div className="faq-list">
           {QUESTIONS.map((item, index) => (
             <details key={item.id} className="faq-item" open={open === item.id}
-              onToggle={event => {
-                const isOpen = event.currentTarget.open;
-                setOpen(current => (isOpen ? item.id : current === item.id ? null : current));
-                // opening sends one short impulse toward the image; it decays on its own
-                if (isOpen && open !== item.id) impulse(visual.current, 0.85);
+>
+              <summary id={`question-${item.id}`} ref={node => { summaries.current[index] = node; }} onKeyDown={event => onKey(event, index)} onClick={event => {
+                event.preventDefault();
+                setOpen(current => current === item.id ? null : item.id);
+                if (open !== item.id) impulse(visual.current, 0.85);
               }}>
-              <summary id={`question-${item.id}`} ref={node => { summaries.current[index] = node; }} onKeyDown={event => onKey(event, index)}>
                 <span>{item.q}</span>
                 <span className="faq-toggle" aria-hidden="true"><Icon name="plus" /><Icon name="minus" /></span>
               </summary>

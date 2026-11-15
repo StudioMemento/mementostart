@@ -19,6 +19,13 @@ const EXTERNAL: Record<PolicyKind, string> = {
   preferences: '',
 };
 
+function PolicyRow({ kind, label, onOpen }: { kind: PolicyKind; label: string; onOpen: (kind: PolicyKind) => void }) {
+  return <button type="button" data-policy={kind} onClick={event => {
+    event.currentTarget.focus({ preventScroll: true });
+    onOpen(kind);
+  }}>{label} <Icon name="arrow-up-right" /></button>;
+}
+
 export function Legal({ onPolicy }: { onPolicy: (kind: PolicyKind) => void }) {
   const card = useSurface<HTMLDivElement>('card', { gain: 0.7, panel: true });
   // Empty optional URLs open the local information panel instead.
@@ -26,9 +33,6 @@ export function Legal({ onPolicy }: { onPolicy: (kind: PolicyKind) => void }) {
     if (EXTERNAL[kind]) window.open(EXTERNAL[kind], '_blank', 'noopener,noreferrer');
     else onPolicy(kind);
   };
-  const Row = ({ kind, label }: { kind: PolicyKind; label: string }) => (
-    <button type="button" data-policy={kind} onClick={() => open(kind)}>{label} <Icon name="arrow-up-right" /></button>
-  );
   return (
     <section className="legal-section content-width" aria-labelledby="legal-title">
       <div className="legal-card cut-frame reveal" ref={card}>
@@ -36,15 +40,15 @@ export function Legal({ onPolicy }: { onPolicy: (kind: PolicyKind) => void }) {
         <div className="legal-layout">
           <nav className="legal-group" aria-label="Privacy e cookie">
             <h3>Privacy e cookie</h3>
-            <Row kind="privacy" label="Privacy policy" />
-            <Row kind="cookies" label="Cookie policy" />
-            <Row kind="preferences" label="Preferenze cookie" />
+            <PolicyRow onOpen={open} kind="privacy" label="Privacy policy" />
+            <PolicyRow onOpen={open} kind="cookies" label="Cookie policy" />
+            <PolicyRow onOpen={open} kind="preferences" label="Preferenze cookie" />
           </nav>
           <div className="legal-group legal-studio">
             <h3>Studio</h3>
             <p>Memento Design Studio</p>
             <a className="legal-email" href={`mailto:${config.email}`}>{config.email}</a>
-            <Row kind="studio" label="Dati dello studio" />
+            <PolicyRow onOpen={open} kind="studio" label="Dati dello studio" />
           </div>
         </div>
       </div>

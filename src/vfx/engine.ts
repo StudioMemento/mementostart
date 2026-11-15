@@ -1,4 +1,3 @@
-import gsap from 'gsap';
 import {
   BufferAttribute, BufferGeometry, CanvasTexture, DataTexture, DoubleSide, DynamicDrawUsage, GLSL3, HalfFloatType, InstancedBufferGeometry,
   InstancedInterleavedBuffer, InterleavedBufferAttribute, LinearFilter, Mesh, NoColorSpace, PerspectiveCamera,
@@ -45,6 +44,7 @@ interface Surface {
   hover: number; near: number; inside: boolean; debt: number; budget: number; hot: boolean;
   version: number;
   ready: boolean;
+  dirty: boolean;
 }
 
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
@@ -60,9 +60,9 @@ const barycentric = (triangles: number) => {
 };
 
 /**
- * VFX engine: one persistent WebGL context, one update loop (the GSAP ticker).
+ * VFX engine: one surface WebGL context, one requestAnimationFrame update loop.
  *
- * One material, one energy. There is no background (V23): the page is true black and only its surfaces are drawn.
+ * One material, one energy. The surface canvas is composited above the independently budgeted Ghost Fibers background.
  * Every surface of the page
  * (titles, cards with their photographs and labels) has a monochrome representation for structure and an overlay for
  * energy. Energy is the same thing everywhere: amber light carried by a chain reaction across a network of cells,
@@ -109,9 +109,13 @@ export class VfxEngine {
   private viewH = 1;
   private clock = 0; private frame = 0;
   private load = { value: 0 };
-  private loadTween: gsap.core.Tween | null = null;
+  private loading = false; private loadingElapsed = 0; private loadRate = 1;
   private live = false; private loaded = false; private lost = false; private destroyed = false;
   private layoutDirty = true; private renderDirty = true;
+  private viewportDirty = true; private viewW = 0; private pixelRatio = 0;
+  private pad = 96; private surfaceObserver: ResizeObserver | null = null;
+  private raf = 0; private lastTick = 0;
+  readonly metrics = { layouts: 0, rasterizations: 0, viewportResizes: 0, renders: 0 };
   private quality: QualityName = 'high'; private pinned = false;
   private slow = 0; private frames = 0;
   private readonly reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -140,7 +144,7 @@ export class VfxEngine {
       uTime: { value: 0 }, uMotion: { value: this.reduced ? 0 : 1 },
       uAmb: { value: [...hexToRgb(A.deep), ...hexToRgb(A.mid), ...hexToRgb(A.hot), ...hexToRgb(A.core)] },
       uEmissive: { value: 0 },
-      uView: { value: new Vector2(1, 1) }, uScroll: { value: 0 },
+      uView: { value: new Vector2(1, 1) }, uCanvas: { value: new Vector2(0, 1) }, uScroll: { value: 0 },
       uBand: { value: 120 }, uBandK: { value: new Vector2(0, 0) }, uLoad: { value: 0 },
       uDrift: { value: new Vector3(0, VFX.scroll.drift, VFX.scroll.fade) },
     };
@@ -162,9 +166,9 @@ export class VfxEngine {
     const ext = renderer.extensions;
     const type = ext.has('EXT_color_buffer_float') || ext.has('EXT_color_buffer_half_float') ? HalfFloatType : UnsignedByteType;
     const rt = (depth: boolean, samples = 0) => new WebGLRenderTarget(4, 4, { depthBuffer: depth, minFilter: LinearFilter, magFilter: LinearFilter, type, samples });
-    this.rtMain = rt(true, 4);
+    this.rtMain = rt(false, this.quality === 'high' ? 2 : 0);
     // selective bloom: only the emission pass is blurred and added back
-    this.rtE = rt(true); this.rtA = rt(false); this.rtB = rt(false);
+    this.rtE = rt(false); this.rtA = rt(false); this.rtB = rt(false);
     this.rtS1 = rt(false); this.rtS2 = rt(false);
     const fs = unbounded(new BufferGeometry());
     fs.setAttribute('position', new BufferAttribute(new Float32Array([-1, -1, 3, -1, -1, 3]), 2));
@@ -183,7 +187,7 @@ export class VfxEngine {
     this.scroll = new ScrollState(() => { this.renderDirty = true; });
     this.listen();
     if (import.meta.env.DEV) Object.assign(window, { __vfx: this, __VFX: VFX });
-    gsap.ticker.add(this.tick);
+    this.raf = requestAnimationFrame(this.animate);
     void this.start();
   }
 
@@ -196,8 +200,8 @@ export class VfxEngine {
 
   destroy() {
     this.destroyed = true;
-    gsap.ticker.remove(this.tick);
-    this.loadTween?.kill();
+    cancelAnimationFrame(this.raf);
+    this.loading = false;
     this.abort.abort();
     this.cleanups.forEach(f => f());
     this.scroll.destroy();
@@ -224,15 +228,12 @@ export class VfxEngine {
     if (this.destroyed) return;
     this.layout();
     await Promise.race([this.whenPainted(first), wait(400)]);
-    if (this.destroyed || this.lost) return;
+    if (this.destroyed || this.lost || document.hidden) return;
     this.goLive();
     if (this.reduced) { this.load.value = 1; this.loaded = true; return; }
     // Cellule > Unione > Assestamento > Presente. Any interaction shortens it; nothing is queued behind it.
-    this.loadTween = gsap.to(this.load, {
-      value: 1, duration: VFX.loading.duration, ease: 'power1.inOut',
-      onComplete: () => { this.loaded = true; this.loadTween = null; },
-    });
-    const hurry = () => this.loadTween?.timeScale(VFX.loading.hurry);
+    this.loading = true;
+    const hurry = () => { this.loadRate = VFX.loading.hurry; };
     for (const type of ['pointerdown', 'wheel', 'keydown', 'touchstart'] as const) addEventListener(type, hurry, { once: true, passive: true, signal: this.abort.signal });
   }
 
@@ -268,30 +269,50 @@ export class VfxEngine {
       const r = el.getBoundingClientRect();
       this.pulseAt(r.left + r.width / 2, r.top + r.height / 2 + scrollY, 0.7, 3);
     }, passive);
-    addEventListener('resize', () => { this.layoutDirty = true; }, passive);
-    document.fonts.addEventListener?.('loadingdone', () => { this.layoutDirty = true; }, { signal });
+    addEventListener('resize', () => { this.viewportDirty = true; if (root().clientWidth !== this.viewW) this.layoutDirty = true; }, passive);
+    const wake = () => { this.lastTick = 0; this.renderDirty = true; if (!this.raf && !this.destroyed) this.raf = requestAnimationFrame(this.animate); };
+    document.addEventListener('visibilitychange', wake, passive);
+    document.addEventListener('memento:overlay-change', wake, passive);
+    addEventListener('beforeprint', () => this.goDom(), passive);
+    addEventListener('afterprint', () => { if (this.loaded && !this.lost) this.goLive(); }, passive);
+    const forced = matchMedia('(forced-colors: active)');
+    forced.addEventListener('change', () => { if (forced.matches) this.goDom(); else if (this.loaded && !this.lost) this.goLive(); }, { signal });
+    document.fonts.addEventListener?.('loadingdone', () => { this.surfaces.forEach(s => { s.dirty = true; }); this.layoutDirty = true; }, { signal });
     this.canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); this.lost = true; this.goDom(); }, { signal });
     this.canvas.addEventListener('webglcontextrestored', () => {
       this.lost = false;
       this.surfaces.forEach(s => { if (s.ink) s.ink.needsUpdate = true; if (s.dist) s.dist.needsUpdate = true; if (s.img) s.img.needsUpdate = true; });
-      this.layoutDirty = true;
+      this.viewportDirty = true; this.layoutDirty = true;
       if (this.loaded) this.goLive();
     }, { signal });
 
     const observer = new ResizeObserver(() => { this.layoutDirty = true; });
-    observer.observe(root());
     const main = document.querySelector('main');
     if (main) observer.observe(main);
-    this.cleanups.push(() => observer.disconnect());
-    this.cleanups.push(this.registry.subscribe((_reason, target, strength) => {
+    this.surfaceObserver = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        const surface = this.surfaces.get(entry.target as HTMLElement);
+        if (surface && (Math.abs(surface.w - entry.target.getBoundingClientRect().width) > .5 || Math.abs(surface.h - entry.target.getBoundingClientRect().height) > .5)) {
+          surface.dirty = true; this.layoutDirty = true;
+        }
+      }
+    });
+    this.cleanups.push(() => { observer.disconnect(); this.surfaceObserver?.disconnect(); });
+    const invalidate = (target?: Element) => {
+      const owner = target?.closest<HTMLElement>('[data-vfx]');
+      if (owner) { const s = this.surfaces.get(owner); if (s) s.dirty = true; }
+      else this.surfaces.forEach(s => { s.dirty = true; });
       this.layoutDirty = true;
-      if (target && strength) {
+    };
+    this.cleanups.push(this.registry.subscribe((reason, target, strength) => {
+      if (reason === 'surfaces') this.layoutDirty = true;
+      else if (reason === 'layout') invalidate(target);
+      if (reason === 'impulse' && target && strength) {
         const r = target.getBoundingClientRect();
         this.pulseAt(r.left + r.width * 0.3, r.top + r.height * 0.45 + scrollY, strength, 6, Math.min(r.width, r.height) * 0.3);
       }
     }));
-    // lazy images arrive later: their texture is created when they do
-    document.addEventListener('load', e => { if ((e.target as Element)?.tagName === 'IMG') this.layoutDirty = true; }, { capture: true, signal });
+    document.addEventListener('load', e => { if ((e.target as Element)?.tagName === 'IMG') invalidate(e.target as Element); }, { capture: true, signal });
   }
 
   /** One local impulse (touch, focus, accordion): lights cells under a document point; the chain does the rest. */
@@ -307,14 +328,22 @@ export class VfxEngine {
 
   private profile() { return VFX.quality[this.quality]; }
 
-  private layout() {
-    this.layoutDirty = false; this.renderDirty = true;
-    const w = root().clientWidth, h = innerHeight;
-    this.viewH = h;
-    const q = this.profile();
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, q.dpr));
-    this.renderer.setSize(w, h, false);
-    const bw = Math.max(2, Math.round(w * VFX.bloom.scale)), bh = Math.max(2, Math.round(h * VFX.bloom.scale));
+  private resizeViewport() {
+    this.viewportDirty = false;
+    const w = root().clientWidth, h = innerHeight, q = this.profile();
+    const ratio = Math.min(devicePixelRatio || 1, q.dpr);
+    if (w === this.viewW && h === this.viewH && ratio === this.pixelRatio) return;
+    this.metrics.viewportResizes++;
+    if (w !== this.viewW || ratio !== this.pixelRatio) {
+      this.surfaces.forEach(s => { s.dirty = true; }); this.layoutDirty = true;
+    }
+    this.viewW = w; this.viewH = h; this.pixelRatio = ratio;
+    this.pad = Math.min(128, Math.round(h * .15));
+    const renderH = h + this.pad * 2;
+    this.renderer.setPixelRatio(ratio);
+    this.renderer.setSize(w, renderH, false);
+    this.canvas.style.height = `${renderH}px`;
+    const bw = Math.max(2, Math.round(w * VFX.bloom.scale)), bh = Math.max(2, Math.round(renderH * VFX.bloom.scale));
     this.rtE.setSize(bw, bh); this.rtA.setSize(bw, bh); this.rtB.setSize(bw, bh);
     this.rtS1.setSize(Math.max(2, bw >> 1), Math.max(2, bh >> 1)); this.rtS2.setSize(Math.max(2, bw >> 1), Math.max(2, bh >> 1));
     const gl = this.renderer.getContext();
@@ -326,7 +355,14 @@ export class VfxEngine {
     this.globals.uBand.value = this.scroll.bandPx;
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+    this.renderDirty = true;
+  }
 
+  private layout() {
+    this.resizeViewport();
+    this.layoutDirty = false; this.renderDirty = true;
+    this.metrics.layouts++;
+    this.scroll.measure(this.viewH);
     // DOM colours and opacities are read in their normal state, then the GPU representation takes over again
     const live = this.live;
     if (live) root().classList.remove('vfx-live');
@@ -336,11 +372,14 @@ export class VfxEngine {
       seen.add(el);
       const r = el.getBoundingClientRect();
       let s = this.surfaces.get(el);
-      if (!s) { s = this.addSurface(el, opt); this.surfaces.set(el, s); }
+      if (!s) { s = this.addSurface(el, opt); this.surfaces.set(el, s); this.surfaceObserver?.observe(el); }
+      if (Math.abs(s.w - r.width) > .5 || Math.abs(s.h - r.height) > .5) s.dirty = true;
       s.opt = opt;
       s.x = r.left + sx; s.y = r.top + sy; s.w = r.width; s.h = r.height;
       if (r.width < 2 || r.height < 2) { s.content.visible = false; return; }
-      this.measureSurface(s);
+      (s.u.uOrigin.value as Vector2).set(s.x, s.y);
+      (s.u.uSize.value as Vector2).set(s.w, s.h);
+      if (s.dirty) { s.dirty = false; this.measureSurface(s); }
     });
     if (live) root().classList.add('vfx-live');
     this.surfaces.forEach((s, el) => { if (!seen.has(el)) { this.dropSurface(s); this.surfaces.delete(el); } });
@@ -372,10 +411,12 @@ export class VfxEngine {
       net: null, chain: null, energy: null, border: title ? null : new BorderLight(), edgeCells: [], born: null, delays: null,
       canvas: document.createElement('canvas'), ink: null, dist: null, sourceDebt: 0, img: null, imgSrc: '', alpha: null, fontSize: 16,
       veilRest: 0, lift: 0,
-      hover: 0, near: 0, inside: false, debt: 0, budget: 0, hot: false, version: 0, ready: false };
+      hover: 0, near: 0, inside: false, debt: 0, budget: 0, hot: false, version: 0, ready: false, dirty: true };
   }
 
   private dropSurface(s: Surface) {
+    this.surfaceObserver?.unobserve(s.el);
+    delete s.el.dataset.vfxReady;
     this.scene.remove(s.content, s.overlay);
     s.content.geometry.dispose(); s.content.material.dispose();
     s.overlay.geometry.dispose(); s.overlay.material.dispose();
@@ -384,6 +425,7 @@ export class VfxEngine {
   }
 
   private measureSurface(s: Surface) {
+    this.metrics.rasterizations++;
     const { el, u } = s, q = this.profile();
     const found = collect(el);
     s.fontSize = found.fontSize || 16;
@@ -450,10 +492,12 @@ export class VfxEngine {
     const ox = Math.floor((bx + scrollX) * scale) / scale - scrollX, oy = Math.floor((by + scrollY) * scale) / scale - scrollY;
     const frame = { x: ox, y: oy, w: Math.max(2, Math.ceil((bx - ox + found.box.width) * scale)), h: Math.max(2, Math.ceil((by - oy + found.box.height) * scale)) };
     const version = ++s.version;
-    void paint(s.canvas, found, scale, frame, s.opt.kind === 'title' ? undefined : VFX.color.cardInk).then(alpha => {
+    const painted = document.createElement('canvas');
+    void paint(painted, found, scale, frame, s.opt.kind === 'title' ? undefined : VFX.color.cardInk).then(alpha => {
       if (s.version !== version || this.destroyed) return;
+      s.canvas = painted;
       s.ink?.dispose();
-      const t = new CanvasTexture(s.canvas);
+      const t = new CanvasTexture(painted);
       t.colorSpace = NoColorSpace; t.premultiplyAlpha = true; t.flipY = false; t.generateMipmaps = false; t.minFilter = LinearFilter; t.magFilter = LinearFilter;
       this.renderer.initTexture(t);
       s.ink = t; s.alpha = alpha;
@@ -468,7 +512,7 @@ export class VfxEngine {
         s.dist = d; u.uDist.value = d;
         this.weightByInk(s);
       }
-      s.content.visible = true; s.ready = true;
+      s.content.visible = true; s.ready = true; s.el.dataset.vfxReady = 'true';
       this.renderDirty = true;
     }).catch(() => { s.ready = true; });
   }
@@ -589,11 +633,30 @@ export class VfxEngine {
 
   /* ------------------------------------------------------------------ loop */
 
+  private animate = (time: number) => {
+    if (this.destroyed) return;
+    if (document.hidden || (window as { __TIDE_VISIBLE__?: boolean }).__TIDE_VISIBLE__ === false) { this.raf = 0; this.lastTick = 0; return; }
+    this.raf = requestAnimationFrame(this.animate);
+    // Cap high refresh screens without disconnecting the canvas from native scrolling.
+    const delta = this.lastTick ? time - this.lastTick : 1000 / 60;
+    if (delta < 1000 / 60 - 1) return;
+    this.lastTick = time;
+    this.tick(time, delta);
+  };
+
   private tick = (_time: number, deltaMs: number) => {
-    if (this.destroyed || this.lost) return;
+    if (this.destroyed || this.lost || document.hidden) return;
     if ((window as { __TIDE_VISIBLE__?: boolean }).__TIDE_VISIBLE__ === false && this.loaded) return;
     const dt = Math.min(0.05, deltaMs / 1000);       // a long frame slows the motion instead of skipping it
     this.clock += dt; this.frame++;
+    if (this.loading) {
+      this.loadingElapsed += dt * this.loadRate;
+      const p = Math.min(1, this.loadingElapsed / VFX.loading.duration);
+      // Exact quadratic power1.inOut ramp, without a second animation ticker.
+      this.load.value = p < .5 ? 2 * p * p : 1 - ((-2 * p + 2) ** 2) / 2;
+      if (p === 1) { this.loading = false; this.loaded = true; }
+    }
+    if (this.viewportDirty) this.resizeViewport();
     if (this.layoutDirty) this.layout();
     const g = this.globals, sc = this.scroll, input = this.input, P = VFX.pointer;
     sc.update(this.reduced);
@@ -615,6 +678,14 @@ export class VfxEngine {
     for (const s of this.surfaces.values()) {
       const ch = s.chain, net = s.net;
       if (!ch || !net || !s.ready) continue;
+      // Sleeping surfaces do not run chain, border, pointer or upload work.
+      const inView = s.y < sc.y + this.viewH + this.pad && s.y + s.h > sc.y - this.pad;
+      if (!inView) {
+        if (ch.active) ch.quench();
+        if (s.hot) { (s.energy!.array as Float32Array).fill(0); s.energy!.needsUpdate = true; s.hot = false; }
+        s.hover = s.near = s.lift = 0; s.inside = false; s.overlay.visible = false;
+        continue;
+      }
       s.budget = Math.min(4, s.budget + dt * VFX.particles.perSecond);
       ch.propagate = !this.reduced;
       const inside = s === hovered;
@@ -703,7 +774,7 @@ export class VfxEngine {
     this.parts.step(dt);
     this.partGeo.instanceCount = this.parts.count;
     this.partMesh.visible = this.parts.count > 0;
-    this.partBuf.needsUpdate = true;
+    if (this.parts.count) this.partBuf.needsUpdate = true;
 
     // after the page stops, cells on their way out drift away; moving again brings the structure back at once
     const drift = g.uDrift.value as Vector3;
@@ -719,7 +790,7 @@ export class VfxEngine {
     // adaptive quality: sustained long frames step the profile down
     this.frames++; if (deltaMs > VFX.slowFrame) this.slow++;
     if (this.frames >= 150) {
-      if (this.slow > 70 && this.quality !== 'low' && !this.pinned) { this.quality = this.quality === 'high' ? 'medium' : 'low'; this.layoutDirty = true; }
+      if (this.slow > 70 && this.quality !== 'low' && !this.pinned) { this.quality = this.quality === 'high' ? 'medium' : 'low'; this.viewportDirty = true; }
       this.frames = 0; this.slow = 0;
     }
 
@@ -731,8 +802,13 @@ export class VfxEngine {
   private render(emissive: boolean) {
     const r = this.renderer, g = this.globals, P = VFX.post;
     this.renderDirty = false;
+    this.metrics.renders++;
+    // Canvas and native DOM share the browser's compositor scroll, including iOS momentum.
+    const origin = this.scroll.y - this.pad;
+    this.canvas.style.transform = `translate3d(0, ${origin}px, 0)`;
+    (g.uCanvas.value as Vector2).set(origin, this.viewH + this.pad * 2);
     // off-screen surfaces are skipped entirely
-    const top = this.scroll.y - 80, bottom = this.scroll.y + this.viewH + 80;
+    const top = this.scroll.y - this.pad, bottom = this.scroll.y + this.viewH + this.pad;
     let energy = this.parts.count > 0;
     this.surfaces.forEach(s => {
       const on = s.ready && s.w > 2 && s.y < bottom && s.y + s.h > top;

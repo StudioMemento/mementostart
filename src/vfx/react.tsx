@@ -12,7 +12,7 @@ export function VfxProvider({ children }: { children: ReactNode }) {
     let dispose = () => {};
     let cancelled = false;
     import('./engine').then(({ VfxEngine }) => {
-      if (cancelled || !canvas.current) return;
+      if (cancelled || !canvas.current || matchMedia('(forced-colors: active)').matches) return;
       const engine = VfxEngine.create(canvas.current, registry);
       dispose = () => engine?.destroy();
     }).catch(() => document.documentElement.classList.remove('vfx-boot', 'vfx-live'));
@@ -21,7 +21,7 @@ export function VfxProvider({ children }: { children: ReactNode }) {
 
   return (
     <VfxContext.Provider value={registry}>
-      <canvas className="vfx-canvas" ref={canvas} aria-hidden="true" />
+      <div className="vfx-layer" aria-hidden="true"><canvas className="vfx-canvas" ref={canvas} /></div>
       {children}
     </VfxContext.Provider>
   );
@@ -46,7 +46,7 @@ export function useSurface<T extends HTMLElement>(kind: SurfaceKind, options: Om
 /** invalidate(): content inside a surface changed. impulse(el): one short local pulse of energy at an element. */
 export function useVfxSignals() {
   const registry = useContext(VfxContext);
-  const invalidate = useCallback(() => registry?.invalidate(), [registry]);
+  const invalidate = useCallback((target?: Element | null) => registry?.invalidate(target), [registry]);
   const impulse = useCallback((el: Element | null, strength?: number) => { if (el) registry?.impulse(el, strength); }, [registry]);
   return { invalidate, impulse };
 }

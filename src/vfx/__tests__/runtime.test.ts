@@ -1,8 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
-
-// scroll.ts registers ScrollTrigger at import time; nothing here needs it
-vi.mock('gsap', () => ({ default: { registerPlugin: () => {} } }));
-vi.mock('gsap/ScrollTrigger', () => ({ ScrollTrigger: {} }));
+import { describe, expect, it } from 'vitest';
 
 import { BorderLight, outline } from '../border';
 import { ChainField } from '../chain';

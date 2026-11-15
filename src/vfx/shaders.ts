@@ -83,7 +83,8 @@ Tri tri(vec2 q, vec2 sub){
 const CLIP = /* glsl */ `
 uniform vec2 uView;           // viewport, CSS px
 uniform float uScroll;
-vec4 clipOf(vec2 doc){ vec2 c=(doc-vec2(0.,uScroll))/uView*2.-1.; return vec4(c.x,-c.y,0.,1.); }
+uniform vec2 uCanvas; // document origin Y and overscanned canvas height
+vec4 clipOf(vec2 doc){ vec2 c=(doc-vec2(0.,uCanvas.x))/vec2(uView.x,uCanvas.y)*2.-1.; return vec4(c.x,-c.y,0.,1.); }
 `;
 
 /** Structure: mirrors structure.ts (fragmentation, loadingDelay, loadingAbsence). */

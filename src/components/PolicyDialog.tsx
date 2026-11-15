@@ -33,6 +33,8 @@ export function PolicyDialog({ kind, onClose, mapEnabled, onMapChange }: Props) 
     }
   }, [kind]);
 
+  useEffect(() => () => { document.body.classList.remove('modal-open'); }, []);
+
   const content: Record<PolicyKind, { title: string; body: ReactNode }> = {
     privacy: {
       title: 'Privacy policy',
@@ -76,7 +78,7 @@ export function PolicyDialog({ kind, onClose, mapEnabled, onMapChange }: Props) 
 
   return (
     <dialog id="mm-dialog" aria-labelledby="mm-dialog-title" ref={dialog}
-      onCancel={event => { event.preventDefault(); onClose(); }}
+      onClose={onClose} onCancel={event => { event.preventDefault(); onClose(); }}
       onPointerDown={event => { outside.current = event.target === dialog.current; }}
       onClick={event => { if (outside.current && event.target === dialog.current) onClose(); outside.current = false; }}>
       <div className="dialog-wrap">

@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { config } from '../config';
-import { useSurface } from '../vfx/react';
+import { useSurface, useVfxSignals } from '../vfx/react';
 import { FitLine } from './FitLine';
 import { Icon } from './Icon';
 
@@ -12,15 +12,19 @@ import { Icon } from './Icon';
 export function Location({ mapEnabled, onLoadMap }: { mapEnabled: boolean; onLoadMap: () => void }) {
   // Keep hover feedback stable when the pointer crosses into Google's document.
   const [interacting, setInteracting] = useState(false);
+  const mapElement = useRef<HTMLDivElement | null>(null);
+  const { invalidate } = useVfxSignals();
+  useEffect(() => { invalidate(mapElement.current); }, [mapEnabled, invalidate]);
   const heading = useSurface<HTMLDivElement>('title');
   const map = useSurface<HTMLDivElement>('card', { cut: 'tl', gain: 0.7, solid: true });
+  const mapRef = useCallback((node: HTMLDivElement | null) => { mapElement.current = node; map(node); }, [map]);
   const address = useSurface<HTMLAnchorElement>('card');
   const hours = useSurface<HTMLDivElement>('card');
   return (
     <section className="location-section content-width" aria-labelledby="location-title">
       <div ref={heading}><FitLine as="h2" className="section-heading category-gradient fit-heading reveal" id="location-title">SIAMO QUI</FitLine></div>
       <div className="location-board">
-        <div className={`map-area location-map cut-frame reveal${interacting ? ' is-interacting' : ''}`} id="mm-map-area" ref={map}
+        <div className={`map-area location-map cut-frame reveal${interacting ? ' is-interacting' : ''}`} id="mm-map-area" ref={mapRef}
           onMouseEnter={() => setInteracting(true)} onMouseLeave={() => setInteracting(false)}>
           {mapEnabled ? (
             <div className="map-frame" id="mm-map-frame">

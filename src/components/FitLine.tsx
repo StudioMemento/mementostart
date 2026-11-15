@@ -30,7 +30,8 @@ export function FitLine({ as: Tag = 'span', className, id, children }: Props) {
     const el = ref.current;
     if (!el) return;
     let width = -1;
-    const run = () => { fit(el); invalidate(); };
+    let cancelled = false;
+    const run = () => { if (cancelled) return; const before = el.style.fontSize; fit(el); if (before !== el.style.fontSize) invalidate(el); };
     const observer = new ResizeObserver(([entry]) => {
       if (entry.contentRect.width === width) return;
       width = entry.contentRect.width;
@@ -38,7 +39,7 @@ export function FitLine({ as: Tag = 'span', className, id, children }: Props) {
     });
     observer.observe(el.parentElement ?? el);
     document.fonts.ready.then(run);
-    return () => observer.disconnect();
+    return () => { cancelled = true; observer.disconnect(); };
   }, [invalidate]);
 
   return (

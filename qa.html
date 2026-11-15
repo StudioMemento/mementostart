@@ -1,0 +1,42 @@
+<!doctype html><html lang="it"><meta charset="utf-8"><title>Start V24 — verifiche locali</title>
+<style>body{background:#202124;color:#f3f3f3;font:14px system-ui;margin:20px}button{padding:10px 18px;margin:0 8px 12px 0}iframe{display:block;background:#000;border:1px solid #666;width:390px;height:844px}pre{white-space:pre-wrap}section{display:flex;gap:24px;align-items:flex-start}aside{max-width:470px}</style>
+<h1>Start V24 — verifiche locali</h1>
+<button data-width="390" data-height="844">Mobile 390 × 844</button><button data-width="360" data-height="740">Mobile 360 × 740</button><button data-width="768" data-height="1024">Tablet 768 × 1024</button><button data-width="1280" data-height="900">Desktop 1280 × 900</button><button id="run">Verifica navigazione</button>
+<section><iframe title="Anteprima responsive Start" src="/"></iframe><aside><pre id="report">Pronto. Il test usa la pagina reale.</pre></aside></section>
+<script type="module">
+const frame=document.querySelector('iframe'), out=document.querySelector('#report');
+for(const b of document.querySelectorAll('[data-width]'))b.onclick=()=>{frame.style.width=b.dataset.width+'px';frame.style.height=b.dataset.height+'px';out.textContent='Pronto: '+b.textContent};
+const next=()=>new Promise(r=>setTimeout(r,100));
+document.querySelector('#run').onclick=async()=>{
+ const w=frame.contentWindow,d=w.document, lines=[];
+ out.textContent='Caricamento della pagina…';
+ for(let n=0;n<100&&!d.querySelector('#question-idea');n++)await new Promise(r=>setTimeout(r,100));
+ await d.fonts.ready;
+ if(!d.querySelector('#question-idea')){out.textContent='FAIL — pagina non pronta';return}
+ const check=(v,label)=>{lines.push(`${v?'PASS':'FAIL'} — ${label}`);out.textContent=lines.join('\n')};
+ const originalY=w.scrollY;
+ check(d.documentElement.scrollWidth<=d.documentElement.clientWidth,'Nessun overflow orizzontale');
+ check([...d.querySelectorAll('a[href^="mailto:"],a[href^="tel:"],a[href*="wa.me"]')].length>=5,'Collegamenti di contatto presenti');
+ for(const id of ['existing','time','commit','idea']){
+  d.querySelector('#question-'+id).click();await next();
+  check(d.querySelectorAll('details[open]').length===1 && d.querySelector('#question-'+id).parentElement.open,'FAQ '+id+': una sola risposta aperta');
+ }
+ d.querySelector('#question-idea').click();await next();check(d.querySelectorAll('details[open]').length===0,'FAQ richiudibile');
+ d.querySelector('#question-idea').click();await next();
+ const prefs=[...d.querySelectorAll('button')].find(e=>e.textContent.includes('Preferenze cookie'));prefs.focus({preventScroll:true});prefs.click();await next();
+ check(d.querySelector('dialog').open,'Dialog aperto');
+ const checkbox=d.querySelector('input[type=checkbox]');checkbox.click();await next();check(!d.querySelector('#mm-map-area iframe'),'Mappa disattivabile');
+ checkbox.click();await next();check(!!d.querySelector('#mm-map-area iframe'),'Mappa ripristinabile');
+ d.querySelector('.dialog-close').click();await next();check(!d.querySelector('dialog').open&&!d.body.classList.contains('modal-open'),'Chiusura dialog sblocca scroll');
+ check(d.activeElement===prefs,'Focus ritorna al controllo di apertura');
+ const nav=d.querySelector('memento-nav').shadowRoot;
+ check(nav.querySelectorAll('.mm-link').length===5 && nav.querySelector('[aria-current="page"]').dataset.id==='start','Navbar: cinque sezioni e Start attivo');
+ w.scrollTo({top:d.documentElement.scrollHeight,behavior:'instant'});await next();check(w.scrollY>100,'Scroll nativo raggiunge fondo pagina');
+ if(w.__vfx){
+  const before={...w.__vfx.metrics};frame.style.height=(frame.clientHeight-72)+'px';await next();await new Promise(r=>setTimeout(r,200));
+  check(w.__vfx.metrics.rasterizations===before.rasterizations,'Variazione sola altezza: zero rasterizzazioni');
+  out.textContent+='\nMetriche VFX: '+JSON.stringify(w.__vfx.metrics);
+ }else out.textContent+='\nNON VERIFICABILE: WebGL non disponibile in questo browser. Resa GPU e FPS da verificare su dispositivo reale.';
+ w.scrollTo({top:originalY,behavior:'instant'});
+};
+</script></html>

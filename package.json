@@ -1,6 +1,6 @@
 {
   "name": "memento-start",
-  "version": "23.0.0",
+  "version": "24.0.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,11 +8,11 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit && vite build && vite build --ssr src/entry-server.tsx --outDir .ssr && node scripts/prerender.mjs",
     "preview": "vite preview --port 4173",
-    "test": "vitest run"
+    "test": "vitest run",
+    "verify:preservation": "node scripts/verify-preservation.mjs"
   },
   "dependencies": {
     "delaunator": "^5.1.0",
-    "gsap": "^3.15.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "three": "^0.187.0"
