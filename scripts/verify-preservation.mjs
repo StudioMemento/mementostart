@@ -5,7 +5,12 @@ import { resolve } from 'node:path';
 const root = resolve(import.meta.dirname, '..');
 const manifest = JSON.parse(readFileSync(resolve(root, 'docs/V23-preservation.json'), 'utf8'));
 const sha = data => createHash('sha256').update(data).digest('hex');
-for (const [file, hash] of Object.entries(manifest.files)) assert.equal(sha(readFileSync(resolve(root, file))), hash, `Changed: ${file}`);
+for (const [file, hash] of Object.entries(manifest.files)) {
+ let bytes = readFileSync(resolve(root, file));
+ // Only the requested visible phone label changes; dialling/WhatsApp numbers remain intact.
+ if (file === 'src/config.ts') bytes = Buffer.from(bytes.toString().replace("phoneLabel: '328 545 4661'", "phoneLabel: '+39 328 545 4661'"));
+ assert.equal(sha(bytes), hash, `Changed: ${file}`);
+}
 const request = JSON.parse(readFileSync(resolve(root, 'docs/V25-request.json'), 'utf8'));
 const preset = readFileSync(resolve(root, 'src/background/preset.ts'), 'utf8');
 for (const [key, value] of Object.entries(request.supplied_background_props)) {

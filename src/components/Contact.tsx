@@ -8,7 +8,7 @@ function Legibility() {
 }
 
 function Label({ className, children, phone }: { className: string; children: ReactNode; phone?: boolean }) {
-  // the phone number balances over two lines on the narrowest cards (V13: .channel-title[data-phone-label])
+  // Keep the visible national number on one line; the tel: link retains its international prefix.
   return <span className={`${className} contact-title`} {...(phone ? { 'data-phone-label': '' } : {})}>{children}</span>;
 }
 

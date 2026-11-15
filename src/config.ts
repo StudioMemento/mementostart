@@ -3,7 +3,7 @@ export const config = {
   email: 'info@mementostudio.it',
   projectEmail: 'mementoxdesign@gmail.com',
   phone: '+393285454661',
-  phoneLabel: '+39 328 545 4661',
+  phoneLabel: '328 545 4661',
   whatsapp: '393285454661',
   whatsappMessage: 'Ciao Memento! Vorrei parlarvi di un progetto.',
   instagramUrl: 'https://www.instagram.com/mementostudio.it/',

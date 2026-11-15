@@ -1,14 +1,24 @@
-# Start V26 — due modifiche collegate
+# Start V27 — Vercel + Framer
 
-1. Carica questo progetto su Vercel, sostituendo la versione di `mementostart.vercel.app`.
-2. In **Framer → pagina Start → Custom Code → End of body**, incolla il contenuto di `FRAMER_START_FIX.html` e pubblica la pagina Framer. Mantieni l’embed URL esistente.
+1. Sostituisci il progetto su `mementostart.vercel.app` con questa V27 e completa il deploy Vercel.
+2. Apri **Framer → pagina Start → Custom Code → End of body**. Aggiungi questa riga, oppure aggiorna l’eventuale riga della versione precedente, e pubblica la pagina Framer:
 
-Il secondo passaggio è necessario su `mementostudio.it/start`: il documento pubblico recuperato il 15/11/2026 contiene un iframe dentro un contenitore alto `100vh`. Sui browser mobili quella misura può includere l’area occupata dalle barre del browser. La navbar interna può così finire sotto la parte visibile; al fondo lo scroll passa al documento esterno. Cambiare il solo CSS dentro l’iframe non corregge la misura del genitore.
+```html
+<script type="module" src="https://mementostart.vercel.app/navigation/framer-start.mjs?v=27.0.0"></script>
+```
 
-Lo script interviene solo sulla pagina `/start` e sull’iframe di `mementostart.vercel.app`: usa l’altezza visibile del browser, toglie lo spazio da elemento inline e mantiene lo scroll nativo dentro Start. Aggiorna l’altezza al cambio delle barre/orientamento e ripristina il layout quando Framer rimuove l’embed. Nessun secondo menu viene aggiunto.
+La riga è già pronta in `FRAMER_START_FIX.html`. Mantieni l’embed URL esistente. Inserisci lo script nel Custom Code **della pagina Framer**, non dentro un altro widget Embed HTML e non in `index.html` di Vercel.
 
-Il file deve essere inserito nel codice **della pagina Framer**, non in un altro widget Embed HTML e non in `index.html` di Vercel.
+## Perché il secondo passaggio serve
 
-Prova finale su telefono: apri Start da zero con barre del browser visibili, controlla le cinque icone in basso; scorri fino al fondo e torna su, cambia orientamento; tocca in più punti. Non devono comparire cerchi né restare intere card coperte di triangoli. La sfumatura blur deve dissolversi verso il contenuto. La resa GPU e il comportamento delle barre su telefono reale richiedono questa prova: non sono simulati dal solo test desktop.
+Il 15 novembre 2026 il sito pubblico carica la V26 dentro un wrapper Framer da 100vh, ma non carica il modulo `framer-start.mjs`. Il documento esterno può scorrere al termine di quello interno e spostare l’iframe: logo e dock escono così dalla viewport in momenti diversi. Il codice dentro l’iframe non può modificare direttamente il documento di un altro dominio.
+
+Il modulo V27 interviene solo su `/start` e sull’iframe di `mementostart.vercel.app`. Mantiene l’embed ancorato all’origine della viewport, ne aggiorna l’altezza con quella visibile, impedisce lo scroll esterno e conserva quello nativo dentro Start. Il layout originale viene ripristinato quando Framer rimuove l’embed.
+
+## Controllo sul telefono
+
+Apri Start da zero con le barre del browser visibili. Logo e cinque icone devono essere presenti insieme. Scorri fino al fondo e torna su: non deve esserci un secondo tratto di scroll. Cambia orientamento e tocca in più punti: il reticolato deve accendersi per percorsi irregolari, alimentare i bordi, reagire nei testi e spegnersi. Nessun cerchio e nessuna intera tavola illuminata in modo uniforme.
+
+Il numero è visualizzato senza +39, ma il collegamento di chiamata conserva il prefisso. I giorni sono sotto l’orario. La verifica automatica e dell’embed è completata; resa GPU e barre native non sono state provate su un telefono fisico.
 
 Nessun deploy pubblico è stato eseguito da questa consegna.

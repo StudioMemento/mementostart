@@ -1,25 +1,27 @@
-# Memento Start — V26
+# Memento Start — V27
 
-Correzione dell’impulso touch e della navbar nel sito Framer. Progetto completo per Vercel, con build prerenderizzata e asset originali.
+Reazione touch visibile fra le tavole, edge glow collegato al reticolato e testi reattivi. Correzione dell’embed Framer per mantenere logo e navbar nella stessa viewport.
 
 ## Installazione
 
-**Sono necessari due passaggi:** aggiornare il progetto Vercel e aggiungere `FRAMER_START_FIX.html` al Custom Code della pagina Start di Framer, in fondo al body. Istruzioni in `INSTALLAZIONE.md`. Lo script agisce sulla pagina ospitante: inserirlo nel documento dell’iframe non risolve la misura errata del genitore.
+**Servono entrambi i passaggi:** caricare la V27 su Vercel e inserire la riga di `FRAMER_START_FIX.html` nel Custom Code della pagina Start di Framer, in fondo al body. La procedura completa è in `INSTALLAZIONE.md`.
 
-Nessun deploy pubblico è stato eseguito.
+Il sito pubblico verificato il 15 novembre ha la V26 su Vercel ma non carica il correttivo Framer. Il solo aggiornamento di Vercel non può correggere il contenitore esterno, che appartiene a un altro dominio.
 
 ## Modifiche
 
-- Eliminati cerchio, bordo e layer DOM dell’impulso.
-- Il touch accende 2–5 punti separati per superficie visibile. Il segnale viaggia lungo brevi catene di cellule vicine, con percorsi, intensità e tempi differenti. Le singole cellule decadono in circa 180–340 ms; la propagazione resta limitata a tre generazioni. Non viene più illuminata una fascia di triangoli su tutta la card.
-- Un dito fermo non alimenta l’hover continuo. Scroll e click restano nativi; rilascio e `pointercancel` non creano un secondo impulso. Pool massimo di quattro contatti, nessun nuovo canvas o contesto WebGL.
-- Nei testi reagiscono le cellule raggiunte. L’overlay modifica il colore dell’inchiostro senza duplicare la copertura dei bordi. In assenza di WebGL il fallback accende brevemente i titoli raggiunti, senza cerchi.
-- L’embed Framer usa l’altezza visibile del browser, aggiornata anche quando cambiano le barre. Il documento esterno non aggiunge un secondo scroll. La navbar interna ha inoltre un limite CSS di altezza, immediato anche prima del listener di resize.
-- Blur superiore senza rotazione; altezza contenuta e primo tratto verso il contenuto completamente trasparente, per eliminare lo stacco rettangolare.
+- L’embed viene ancorato all’origine della viewport e dimensionato con l’altezza visibile del browser. Logo e dock appartengono allo stesso overlay: il documento Framer non aggiunge uno scroll esterno.
+- Ogni touch programma percorsi connessi lungo le adiacenze del reticolato esistente. La propagazione arriva alle tavole vicine con tempi diversi, si divide in brevi rami e lascia spenta la maggioranza delle cellule. Non viene disegnato un cerchio.
+- Le cellule vicine al bordo alimentano ora il vero edge glow usato dal desktop. Questo collegamento mancava nella V26.
+- I testi riattivano gradiente ambra, cellule luminose e brevi emissioni entro il budget particellare già esistente. Le singole cellule si spengono in circa 450–700 ms; gli arrivi sono sfalsati.
+- Il segnale viene acquisito al primo frame utile. Eliminata la scadenza di 100 ms che poteva scartare l’impulso sui telefoni più lenti.
+- Massimo quattro tocchi in memoria e 96 cellule programmate per superficie e tocco. Le superfici fuori viewport non riproducono impulsi vecchi. Non ci sono nuovi canvas o contesti WebGL, né alimentazione continua dell’hover con il dito fermo.
+- Numero visibile: `328 545 4661`, su una riga. Il collegamento resta `tel:+393285454661`.
+- `Lunedì — Venerdì` è sotto `14:00 — 18:00`, con tipografia e distanza dal bordo coordinate alla riga secondaria dell’indirizzo.
 
-Conservati: Ghost Fibers con cinque layer, preset rosso/ambra, grain 0, foto già a colori su mobile, interazione desktop, immagini, impaginazione e testi. Rimangono cache delle superfici, sospensione fuori schermo, scroll nativo e risoluzione adattiva. Il limite di rendering dello sfondo è 30 render/s, non una promessa di FPS sul dispositivo.
+Conservati: asset originali, Ghost Fibers a cinque layer, preset rosso/ambra, grain 0, foto a colori su mobile, interazione desktop, scroll nativo, cache delle superfici e risoluzione adattiva. Il limite di 30 render/s dello sfondo non equivale a un framerate misurato sul telefono.
 
-## Sviluppo e verifica
+## Sviluppo
 
 Node.js 22 o 24.
 
@@ -31,10 +33,12 @@ npm run build
 npm run verify:preservation
 ```
 
-`vercel.json` installa con `npm ci`, compila e pubblica `dist`. Il modulo pubblico per Framer ha un header CORS dedicato: può essere caricato dalla pagina ospitante.
+`vercel.json` installa con `npm ci`, compila e pubblica `dist`. Il modulo per Framer ha l’header CORS necessario al caricamento dalla pagina ospitante.
 
-`/qa.html` e `/qa-embed.html` sono pagine di verifica locali disponibili con `npm run dev`. La seconda riproduce il problema di `100vh` rispetto a una viewport visibile più corta e applica il modulo reale di correzione. Esiti e limiti in `docs/V26-verifica.md`.
+Pagine locali: `/qa.html` e `/qa-embed.html`. La seconda riproduce l’iframe 100vh con una viewport visibile più corta, applica il modulo reale e controlla logo/dock a inizio, metà e fondo pagina, anche al variare dell’altezza.
 
-L’ambiente browser usato per i controlli non dispone di WebGL. Sono verificati DOM, eventi, logica delle catene e compilazione/link degli shader con EGL software. Resa GPU, fluidità e barre del browser su telefono fisico richiedono la prova sul dispositivo. I tocchi dentro Google Maps appartengono all’iframe Google e conservano la navigazione nativa della mappa.
+40 test automatici, build e verifica di preservazione superati. Layout e comportamento dell’embed verificati nel browser. Esiti e limiti in `docs/V27-verifica.md`.
 
-Licenze originali in `docs/ReactBits-LICENSE.md`, `docs/Inter-OFL.txt` e `docs/Tabler-LICENSE.txt`. I documenti V23–V25 sono storici; per questa versione fanno fede questo README, `INSTALLAZIONE.md` e `docs/V26-verifica.md`.
+Il browser di prova non dispone di WebGL: resa finale GPU, fluidità e barre native su Brave/Safari richiedono la prova su telefono. I tocchi dentro Google Maps rimangono di competenza dell’iframe Google.
+
+Nessuna modifica è stata pubblicata. Licenze originali in `docs/ReactBits-LICENSE.md`, `docs/Inter-OFL.txt` e `docs/Tabler-LICENSE.txt`. I documenti V23–V26 sono storici; per questa consegna fanno fede questo README, `INSTALLAZIONE.md` e `docs/V27-verifica.md`.

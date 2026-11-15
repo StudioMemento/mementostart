@@ -553,6 +553,7 @@ export class VfxEngine {
     const chain = new ChainField(net, profile);
     chain.onIgnite = (cell, strength) => this.emitFrom(s, cell, strength);
     s.net = net; s.chain = chain; s.touch = new TouchReaction(net); s.energy = energy;
+    s.touch.chain.onIgnite = (cell, strength) => this.emitFrom(s, cell, strength, true);
     s.delays = new Float32Array(net.faces); s.born = new Uint8Array(net.faces);
     for (let f = 0; f < net.faces; f++) s.delays[f] = loadingDelay(s.x + net.cx[f], s.y + net.cy[f], net.seed[f]);
     // cells near the outline feed its light
@@ -613,12 +614,12 @@ export class VfxEngine {
 
   /* ------------------------------------------------------------------ emissions */
 
-  /** A few triangles leave the cells the reaction lights, only while the pointer moves: a still pointer emits nothing. */
-  private emitFrom(s: Surface, cell: number, strength: number) {
+  /** A few triangles leave lit cells on movement or a new touch, within the shared particle budget. */
+  private emitFrom(s: Surface, cell: number, strength: number, touch = false) {
     if (this.reduced || !s.net || s.budget < 1) return;
     const moving = this.input.present && this.input.speed > 40 && (s.inside || s === this.hovered);
     const loading = !this.loaded && this.load.value > 0;
-    if (!moving && !loading) return;
+    if (!moving && !loading && !touch) return;
     const title = s.opt.kind === 'title';
     if (Math.random() > (title ? 0.24 : 0.3) * strength) return;
     const x = s.x + s.net.cx[cell], y = s.y + s.net.cy[cell];
@@ -630,9 +631,10 @@ export class VfxEngine {
     const input = this.input;
     if (title) {
       // repulsion from the pointer plus a share of the gesture's direction
-      const px = input.x, py = input.y + this.scroll.y;
+      const px = touch ? s.x + s.w * .5 : input.x, py = touch ? s.y + s.h * .5 : input.y + this.scroll.y;
       const dx = x - px, dy = y - py, d = Math.hypot(dx, dy) || 1, v = rand(...VFX.particles.spark.speed);
-      this.parts.spawn('spark', x, y, (dx / d) * v + input.dirX * input.speed * 0.06, (dy / d) * v + input.dirY * input.speed * 0.06 - 12, s.index);
+      const speed = touch ? 0 : input.speed;
+      this.parts.spawn('spark', x, y, (dx / d) * v + input.dirX * speed * 0.06, (dy / d) * v + input.dirY * speed * 0.06 - 12, s.index);
     } else {
       // shards drift outward from the card's centre and leave the frame
       const dx = x - (s.x + s.w / 2), dy = y - (s.y + s.h / 2), d = Math.hypot(dx, dy) || 1, v = rand(...VFX.particles.shard.speed);
@@ -670,7 +672,7 @@ export class VfxEngine {
     const g = this.globals, sc = this.scroll, input = this.input, P = VFX.pointer;
     sc.update(this.reduced);
     input.update(dt);
-    this.touches.update(time);
+    this.touches.beginFrame(time);
 
     const R = input.radius, px = input.x, py = input.y + sc.y, present = input.present;
     let hovered: Surface | null = null;
@@ -754,7 +756,8 @@ export class VfxEngine {
       const targetHover = inside ? 1 : 0;
       s.hover += (targetHover - s.hover) * (targetHover > s.hover ? (slow ? 1 - Math.exp(-dt / .35) : attack) : (slow ? 1 - Math.exp(-dt * 1.6) : ease));
       if (s.hover < 0.002) s.hover = 0;
-      s.u.uHover.value = this.reduced ? s.hover * 0.6 : s.hover;
+      // Titles take the same readable amber gradient as desktop; local cells carry the travelling facets.
+      s.u.uHover.value = this.reduced ? s.hover * 0.6 : Math.max(s.hover, slow ? (s.touch?.level ?? 0) * .95 : 0);
       s.u.uGain.value = inside || touchActive ? 1 : Math.max(P.neighbour, s.hover);
       if (s.veilRest > 0) {
         const lifted = inside || (focused === s.el && s.el.matches(':focus-visible'));
@@ -773,6 +776,7 @@ export class VfxEngine {
         const b = s.border;
         b.decay(dt);
         for (const e of s.edgeCells) { const v = ch.shown[e.cell] * e.w; if (v > 0.02) b.add(e.s, v * 1.15, 1.6); }
+        s.touch?.feedBorder(b, s.edgeCells);
         if (present && (inside || prox > 0)) {
           const [o, d] = outline(lx, ly, s.w, s.h);
           b.add(o, Math.pow(clamp(1 - d / R, 0, 1), 1.3) * (inside ? 0.75 : 0.9) * (s.opt.gain ?? 1), 6);

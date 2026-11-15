@@ -44,7 +44,7 @@
 .channel img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:68% 40%;pointer-events:none}
 .channel-labels{min-width:0}
 .channel-title{font-size:clamp(14px,1.6cqw,20px);line-height:1.25;font-weight:420;letter-spacing:-.025em}
-.channel-title[data-phone-label]{text-wrap:balance}
+.channel-title[data-phone-label]{white-space:nowrap;text-wrap:nowrap}
 
 .faq-section{padding-top:clamp(64px,6vw,110px)}
 .faq-panel{display:flex;flex-direction:column;align-items:flex-start;padding:clamp(28px,4.4cqw,58px);min-height:640px}
@@ -84,8 +84,9 @@
 .location-address{font-style:normal;font-size:clamp(18px,2cqw,26px);font-weight:380;letter-spacing:-.05em;line-height:1.25}
 .location-address span{display:block;font-size:clamp(12px,1.3cqw,16px);letter-spacing:-.025em;line-height:1.4;margin-top:8px;color:#c6c2bc}
 .hours{margin:0}
-.hours dt{font-size:clamp(12px,1.25cqw,16px);color:#c6c2bc;letter-spacing:-.015em;margin-bottom:10px}
-.hours dd{display:flex;align-items:baseline;gap:clamp(5px,1cqw,12px);white-space:nowrap;margin:0;font-size:clamp(20px,2.3cqw,30px);font-weight:350;letter-spacing:-.045em;line-height:1.2}
+.hours>div{display:flex;flex-direction:column}
+.hours dt{font-size:clamp(12px,1.3cqw,16px);color:#c6c2bc;letter-spacing:-.025em;line-height:1.4;margin-top:8px;margin-bottom:0}
+.hours dd{order:-1;display:flex;align-items:baseline;gap:4px;white-space:nowrap;margin:0;font-size:clamp(18px,2cqw,26px);font-weight:380;letter-spacing:-.05em;line-height:1.25}
 .hours dd>span{font-size:.7em;color:#a69b8b}
 .map-area{position:relative;width:100%;min-width:0;min-height:0;background:#111416}
 .map-frame{position:absolute;inset:0}
@@ -138,6 +139,7 @@ html{scrollbar-width:none}html::-webkit-scrollbar{display:none}
 .channel{--cut:12px;aspect-ratio:.82;min-height:190px}
 .channel img{object-position:100% 35%}
 .channel-title{font-size:17px}
+.channel-title[data-phone-label]{font-size:clamp(12px,4vw,17px)}
 .faq-section,.location-section{padding-top:64px}
 .faq-panel{padding:28px 24px;min-height:620px}
 .faq-visual{width:100%;height:100%;mask-image:var(--photo-alpha)}
@@ -152,7 +154,7 @@ html{scrollbar-width:none}html::-webkit-scrollbar{display:none}
 .location-card{--cut:12px;padding:clamp(16px,5cqw,24px);gap:10px}
 .location-card>.icon{width:23px;height:23px}
 .location-address{font-size:clamp(14.5px,4.9cqw,20px)}.location-address span{font-size:clamp(11px,3.7cqw,14px);margin-top:6px}
-.hours dd{font-size:clamp(15px,5.3cqw,21px);gap:5px}.hours dt{font-size:clamp(11px,3.7cqw,14px);margin-bottom:8px}
+.hours dd{font-size:clamp(14.5px,4.9cqw,20px);gap:4px}.hours dt{font-size:clamp(11px,3.7cqw,14px);margin-top:6px;margin-bottom:0}
 .legal-section{padding-top:16px}.legal-card{padding:28px 24px}.legal-layout{grid-template-columns:1fr;gap:32px}.legal-card>.board-title{font-size:30px;margin-bottom:32px}
 .legal-group h3{font-size:11px;margin-bottom:10px}.legal-group button{font-size:15px;min-height:54px}.legal-studio p{font-size:19px;margin-top:4px}.legal-studio button{margin-top:18px}.legal-email{font-size:15px}
 .explore-section{padding-top:80px;padding-bottom:max(60px,env(safe-area-inset-bottom))}.explore-link{gap:8px}.explore-line{font-size:18.8cqw;line-height:1.06}.explore-chevron{width:70cqw}

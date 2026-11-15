@@ -1,7 +1,7 @@
 import { STATIONS,DEFAULT_HUB,PUBLIC_ORIGIN,station,publicRouteURL } from './core.mjs?v=12.1.0';
 import { legacyHostLayoutCSS } from './styles.mjs?v=12.1.0';
 import { navMarkup } from './render.mjs?v=12.1.0';
-import { bindNavViewport } from './viewport.mjs?v=26.0.0';
+import { bindNavViewport } from './viewport.mjs?v=27.0.0';
 
 export const KIT_VERSION = '12.1.0';
 export function safeHub(input=DEFAULT_HUB) {

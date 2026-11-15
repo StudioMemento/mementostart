@@ -19,7 +19,10 @@ export function bindStartEmbed(frame, view = window.visualViewport) {
       height:var(--mm-start-visible-height,100dvh)!important;min-height:0!important;
       max-height:var(--mm-start-visible-height,100dvh)!important;overflow:clip!important;
     }
-    iframe[data-mm-start-frame] {display:block!important;width:100%!important;height:100%!important;border:0!important;}
+    iframe[data-mm-start-frame] {
+      position:fixed!important;inset:0 auto auto 0!important;display:block!important;
+      width:100%!important;height:var(--mm-start-visible-height,100dvh)!important;border:0!important;
+    }
   `;
   doc.head.append(style);
   const previous = root.style.getPropertyValue('--mm-start-visible-height');

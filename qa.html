@@ -1,7 +1,7 @@
-<!doctype html><html lang="it"><meta charset="utf-8"><title>Start V26 — verifiche locali</title>
-<style>body{background:#202124;color:#f3f3f3;font:14px system-ui;margin:20px}button{padding:10px 18px;margin:0 8px 12px 0}iframe{display:block;background:#000;border:1px solid #666;width:390px;height:844px}pre{white-space:pre-wrap}section{display:flex;gap:24px;align-items:flex-start}aside{max-width:470px}</style>
-<h1>Start V26 — verifiche locali</h1>
-<button data-width="390" data-height="844">Mobile 390 × 844</button><button data-width="360" data-height="740">Mobile 360 × 740</button><button data-width="768" data-height="1024">Tablet 768 × 1024</button><button data-width="1280" data-height="900">Desktop 1280 × 900</button><a href="/qa-embed.html">Verifica embed Framer</a> <button id="embed">Embed nella viewport selezionata</button><button id="run">Verifica navigazione</button>
+<!doctype html><html lang="it"><meta charset="utf-8"><title>Start V27 — verifiche locali</title>
+<style>body{background:#202124;color:#f3f3f3;font:14px system-ui;margin:20px}button{padding:10px 18px;margin:0 8px 12px 0}iframe{flex:none;display:block;background:#000;border:1px solid #666;width:390px;height:844px}pre{white-space:pre-wrap}section{display:flex;gap:24px;align-items:flex-start}aside{max-width:470px}</style>
+<h1>Start V27 — verifiche locali</h1>
+<button data-width="320" data-height="700">Mobile 320 × 700</button><button data-width="390" data-height="844">Mobile 390 × 844</button><button data-width="360" data-height="740">Mobile 360 × 740</button><button data-width="768" data-height="1024">Tablet 768 × 1024</button><button data-width="1280" data-height="900">Desktop 1280 × 900</button><a href="/qa-embed.html">Verifica embed Framer</a> <button id="embed">Embed nella viewport selezionata</button><button id="run">Verifica navigazione</button>
 <section><iframe title="Anteprima responsive Start" src="/"></iframe><aside><pre id="report">Pronto. Il test usa la pagina reale.</pre></aside></section>
 <script type="module">
 const frame=document.querySelector('iframe'), out=document.querySelector('#report');
@@ -18,10 +18,13 @@ document.querySelector('#run').onclick=async()=>{
  await d.fonts.ready;
  if(!d.querySelector('#question-idea')){out.textContent='FAIL — pagina non pronta';document.querySelector('#run').disabled=false;return}
  const check=(v,label)=>{lines.push(`${v?'PASS':'FAIL'} — ${label}`);out.textContent=lines.join('\n')};
+ check(w.innerWidth===Number.parseInt(frame.style.width||'390'),'Viewport effettiva uguale alla larghezza selezionata: '+w.innerWidth+' px');
  const originalY=w.scrollY;
  w.scrollTo({top:0,behavior:'instant'});await next();
  const navHost=d.querySelector('memento-nav'),dock=navHost.shadowRoot.querySelector('.mm-dock');
  const rect=dock.getBoundingClientRect();
+ const both=()=>['.mm-wordmark','.mm-dock'].every(selector=>{const r=navHost.shadowRoot.querySelector(selector).getBoundingClientRect();return r.top>=0&&r.bottom<=w.innerHeight&&r.width>0&&r.height>0});
+ check(both(),'Logo e navbar visibili insieme in alto');
  check(rect.top>=0&&rect.bottom<=w.innerHeight&&navHost.parentElement===d.body,'Navbar visibile prima di scorrere');
  check(!initialNav||initialNav.top>=0&&initialNav.bottom<=initialNav.height&&initialNav.scroll===0,'Navbar nella viewport al caricamento iniziale');
  const isTouch=w.matchMedia('(hover: none), (pointer: coarse), (max-width: 767px)').matches;
@@ -39,6 +42,16 @@ document.querySelector('#run').onclick=async()=>{
  w.scrollTo({top:120,behavior:'instant'});await next();check(w.scrollY>100,'Scroll nativo disponibile durante il feedback');
  w.scrollTo({top:0,behavior:'instant'});await next();
  check(d.documentElement.scrollWidth<=d.documentElement.clientWidth,'Nessun overflow orizzontale');
+ const phone=d.querySelector('[data-phone-label]'),range=d.createRange();range.selectNodeContents(phone);
+ const phoneRect=range.getBoundingClientRect(),phoneBox=phone.getBoundingClientRect(),card=phone.closest('a').getBoundingClientRect();
+ check(phone.textContent==='328 545 4661'&&phone.closest('a').getAttribute('href')==='tel:+393285454661','Numero visibile senza prefisso; collegamento telefonico internazionale');
+ check(range.getClientRects().length===1&&phoneRect.right<=card.right-12&&phoneRect.width<=phoneBox.width+1,'Numero intero su una riga, senza uscire dalla card');
+ const hours=d.querySelector('.hours'),term=hours.querySelector('dt'),time=hours.querySelector('dd'),city=d.querySelector('.location-address span');
+ check(term.getBoundingClientRect().top>=time.getBoundingClientRect().bottom,'Giorni della settimana sotto 14:00 — 18:00');
+ const hr=term.getBoundingClientRect(),cr=city.getBoundingClientRect(),hc=hours.closest('.location-card').getBoundingClientRect(),ac=city.closest('.location-card').getBoundingClientRect();
+ check(Math.abs((hc.bottom-hr.bottom)-(ac.bottom-cr.bottom))<=1&&w.getComputedStyle(term).fontSize===w.getComputedStyle(city).fontSize,'Riga secondaria di orari e indirizzo allineata al bordo inferiore');
+ w.scrollTo({top:d.documentElement.scrollHeight/2,behavior:'instant'});await next();check(both(),'Logo e navbar visibili insieme a metà pagina');
+ w.scrollTo({top:0,behavior:'instant'});await next();
  check([...d.querySelectorAll('a[href^="mailto:"],a[href^="tel:"],a[href*="wa.me"]')].length>=5,'Collegamenti di contatto presenti');
  for(const id of ['existing','time','commit','idea']){
   d.querySelector('#question-'+id).click();await next();
@@ -55,6 +68,7 @@ document.querySelector('#run').onclick=async()=>{
  const nav=d.querySelector('memento-nav').shadowRoot;
  check(nav.querySelectorAll('.mm-link').length===5 && nav.querySelector('[aria-current="page"]').dataset.id==='start','Navbar: cinque sezioni e Start attivo');
  w.scrollTo({top:d.documentElement.scrollHeight,behavior:'instant'});await next();check(w.scrollY>100,'Scroll nativo raggiunge fondo pagina');
+ check(both(),'Logo e navbar visibili insieme a fondo pagina');
  if(w.__vfx){
   const before={...w.__vfx.metrics};frame.style.height=(frame.clientHeight-72)+'px';await next();await new Promise(r=>setTimeout(r,200));
   check(w.__vfx.metrics.rasterizations===before.rasterizations,'Variazione sola altezza: zero rasterizzazioni');
